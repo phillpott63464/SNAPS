@@ -1,0 +1,28 @@
+[project]
+name = "snaps"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = "==3.8.*"
+dependencies = [
+    "bio",
+    "blue",
+    "bokeh",
+    "containers",
+    "numpy",
+    "pandas",
+    "plotnine",
+    "pynmrstar",
+    "pytest>=8.3.5",
+    "ruff",
+    "scipy",
+    "setuptools",
+    "snakeviz>=2.2.1",
+    "sorted",
+    "sortedcontainers",
+    "tabulate",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["hp_pytests"]
+pythonpath = ["."]
