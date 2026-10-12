@@ -60,6 +60,14 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             TEST_DATA / 'p3a_nef_sparta_test_results',
             'sparta+',
         ),
+        (
+            '../data/P3a_L273R/sparky_shifts.txt',
+            '../data/P3a_L273R/P3a_L273R_sparta.tab',
+            '../config/config_yaml_2.txt',
+            'sparky',
+            TEST_DATA / 'p3a_sparky_sparta_test_results',
+            'sparta+',
+        ),
     ],
 )
 def test_SNAPS(
