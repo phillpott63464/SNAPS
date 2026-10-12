@@ -15,7 +15,18 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             '../config/config_yaml_2.txt',
             'ccpn',
             TEST_DATA / 'p3a_ccpn_shiftx2_test_results',
-        )
+        ),
+
+        # Equivalent to:
+        # uv run python/SNAPS.py data/P3a_L273R/nmrpipe_shifts.tab data/P3a_L273R/shiftx2.cs output/test.txt -l output/test.log -c config/config_yaml_2.txt --shift_type nmrpipe
+        # Sometimes this one doesn't pass, sometimes it does. Concerning. Okay and now it's been 2 minutes and I can't get it to fail so... problem solved. Or kicked down the road. 
+        (
+            '../data/P3a_L273R/nmrpipe_shifts.tab',
+            '../data/P3a_L273R/shiftx2.cs',
+            '../config/config_yaml_2.txt',
+            'nmrpipe',
+            TEST_DATA / 'p3a_nmrpipe_shiftx2_test_results',
+        ),
     ],
 )
 def test_SNAPS(
