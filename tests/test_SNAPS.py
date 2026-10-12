@@ -5,9 +5,12 @@ from SNAPS import runSNAPS
 
 TEST_DATA = Path(__file__).parent / 'test_data'
 
+#### ALWAYS RUN TESTS USING PYTHONHASHSEED=0 uv run pytest
+#### Assignment results depend on hash randomisation. Haven't looked into a fix yet. All test data was generated with hashseed=0
+
 
 @pytest.mark.parametrize(
-    'measured_shifts, expected_shifts, config_file, shift_type, expected_file',
+    'measured_shifts, expected_shifts, config_file, shift_type, expected_file, prediction_type',
     [
         (
             '../data/P3a_L273R/ccpn_resonances.txt',
@@ -15,17 +18,15 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             '../config/config_yaml_2.txt',
             'ccpn',
             TEST_DATA / 'p3a_ccpn_shiftx2_test_results',
+            'shiftx2',
         ),
-
-        # Equivalent to:
-        # uv run python/SNAPS.py data/P3a_L273R/nmrpipe_shifts.tab data/P3a_L273R/shiftx2.cs output/test.txt -l output/test.log -c config/config_yaml_2.txt --shift_type nmrpipe
-        # Sometimes this one doesn't pass, sometimes it does. Concerning. Okay and now it's been 2 minutes and I can't get it to fail so... problem solved. Or kicked down the road.
         (
             '../data/P3a_L273R/nmrpipe_shifts.tab',
             '../data/P3a_L273R/shiftx2.cs',
             '../config/config_yaml_2.txt',
             'nmrpipe',
             TEST_DATA / 'p3a_nmrpipe_shiftx2_test_results',
+            'shiftx2',
         ),
         (
             '../data/P3a_L273R/P3a_L273R.nef',
@@ -33,7 +34,32 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             '../config/config_yaml_2.txt',
             'nef',
             TEST_DATA / 'p3a_nef_shiftx2_test_results',
-        )
+            'shiftx2',
+        ),
+        (
+            '../data/P3a_L273R/ccpn_resonances.txt',
+            '../data/P3a_L273R/P3a_L273R_sparta.tab',
+            '../config/config_yaml_2.txt',
+            'ccpn',
+            TEST_DATA / 'p3a_ccpn_sparta_test_results',
+            'sparta+',
+        ),
+        (
+            '../data/P3a_L273R/nmrpipe_shifts.tab',
+            '../data/P3a_L273R/P3a_L273R_sparta.tab',
+            '../config/config_yaml_2.txt',
+            'nmrpipe',
+            TEST_DATA / 'p3a_nmrpipe_sparta_test_results',
+            'sparta+',
+        ),
+        (
+            '../data/P3a_L273R/P3a_L273R.nef',
+            '../data/P3a_L273R/P3a_L273R_sparta.tab',
+            '../config/config_yaml_2.txt',
+            'nef',
+            TEST_DATA / 'p3a_nef_sparta_test_results',
+            'sparta+',
+        ),
     ],
 )
 def test_SNAPS(
@@ -43,6 +69,7 @@ def test_SNAPS(
     config_file,
     shift_type,
     expected_file,
+    prediction_type,
 ):
     out_file = tmp_path / 'out.txt'
     log_file = tmp_path / 'log.txt'
@@ -58,6 +85,8 @@ def test_SNAPS(
             str(log_file),
             '--shift_type',
             shift_type,
+            '--pred_type',
+            prediction_type,
         ]
     )
 
