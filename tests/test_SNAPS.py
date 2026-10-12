@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 
-from SNAPS import runSNAPS
+from SNAPS import run_snaps
 
 TEST_DATA = Path(__file__).parent / 'test_data'
 
@@ -82,7 +82,7 @@ def test_SNAPS(
     out_file = tmp_path / 'out.txt'
     log_file = tmp_path / 'log.txt'
 
-    runSNAPS(
+    run_snaps(
         [
             measured_shifts,
             expected_shifts,
@@ -95,6 +95,7 @@ def test_SNAPS(
             shift_type,
             '--pred_type',
             prediction_type,
+            '--out_type', 'snaps'
         ]
     )
 
