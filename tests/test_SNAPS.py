@@ -1,6 +1,7 @@
 import pytest
 from pathlib import Path
 
+# noinspection unresolved-references
 from SNAPS import run_snaps
 
 TEST_DATA = Path(__file__).parent / 'test_data'
@@ -70,7 +71,7 @@ TEST_DATA = Path(__file__).parent / 'test_data'
         ),
     ],
 )
-def test_SNAPS(
+def test_run_snaps(
     tmp_path,
     measured_shifts,
     expected_shifts,
@@ -99,7 +100,7 @@ def test_SNAPS(
         ]
     )
 
-    OUTPUTTED = out_file.read_text()
-    EXPECTED = expected_file.read_text()
+    outputted = out_file.read_text()
+    expected = expected_file.read_text()
 
-    assert OUTPUTTED == EXPECTED
+    assert outputted == expected
