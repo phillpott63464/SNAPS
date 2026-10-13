@@ -157,7 +157,7 @@ def run_snaps(system_args):
     if args.shift_type=="test":
         _import_test_shifts(args, importer)
     else:
-        _import_shifts(args, importer)
+        _import_shifts(args, importer) # changes importer.obs
     assigner.obs = importer.obs
     logger.info("Finished reading in %d spin systems from %s",
                 len(assigner.obs["SS_name"]), args.shift_file)
@@ -174,7 +174,7 @@ def run_snaps(system_args):
 
 
     else:
-        assigner.import_pred_shifts(args.pred_file, args.pred_type, args.pred_seq_offset)
+        assigner.import_pred_shifts(args.pred_file, args.pred_type, args.pred_seq_offset) # changes assigner.preds
 
     #### import aa type restraints
     _import_aa_type_info(args, assigner, importer)
@@ -182,12 +182,12 @@ def run_snaps(system_args):
     #### Do the analysis
     assigner.prepare_obs_preds()
     assigner.calc_log_prob_matrix()
-    assigner.calc_mismatch_matrix()
+    assigner.calc_mismatch_matrix() # this appears to do nothing?
 
     if assigner.pars["iterate_until_consistent"]:
         assigner.assign_df = assigner.find_consistent_assignments(set_assign_df=True)
     else:
-        assigner.assign_from_preds(set_assign_df=True)
+        assigner.assign_from_preds(set_assign_df=True) # THIS IS THE HUNGARIAN
         # breakpoint()
         assigner.add_consistency_info(threshold=assigner.pars["seq_link_threshold"])
         # breakpoint()
