@@ -9,11 +9,14 @@ dependencies = [
     "blue",
     "bokeh",
     "containers",
+    "dataclasses>=0.8",
     "numpy",
     "pandas",
+    "pandas-stubs~=2.0.3",
     "plotnine",
     "pynmrstar",
     "pytest>=8.3.5",
+    "pytest-cov>=5.0.0",
     "ruff",
     "scipy",
     "setuptools",
@@ -21,6 +24,8 @@ dependencies = [
     "sorted",
     "sortedcontainers",
     "tabulate",
+    "typer>=0.20.1",
+    "typing-extensions>=4.13.2",
 ]
 
 [tool.pytest.ini_options]
