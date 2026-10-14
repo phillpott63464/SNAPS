@@ -1,6 +1,6 @@
 from typing import Protocol, Optional
 from pathlib import Path
-from NEF_reader import read_nef_obs_shifts_from_file_to_pandas
+from NEF_reader import read_nef_obs_shifts_from_file_to_pandas, read_nef_pred_shifts_from_file_to_pandas
 import pandas as pd
 from typing import List
 
@@ -284,4 +284,11 @@ class NEFReader():
         return obs
 
     def read_predicted_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
-        return None
+        preds = read_nef_pred_shifts_from_file_to_pandas(
+            file_path,
+            chain=None
+        )
+        preds = preds[["Res_N", "Res_type", "Atom_type", "Shift"]]
+        preds['Res_N'] = preds['Res_N'].astype(int)
+
+        return preds
