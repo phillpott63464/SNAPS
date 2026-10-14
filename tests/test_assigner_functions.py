@@ -60,9 +60,10 @@ def test_predicted_shifts(logger, filetype, filename, snapshot):
         logger=logger,
     )
 
-    expected = pd.read_csv(
+    # preds.to_pickle(TEST_DATA / snapshot)
+
+    expected = pd.read_pickle(
         TEST_DATA / snapshot,
-        index_col=0,
     )
 
     pd.testing.assert_frame_equal(
