@@ -61,3 +61,18 @@ def test_SNAPSimporterPredicted(file, format, logger):
     expected_result, _ = import_predicted_shifts(filename = file_path, filetype=format, logger=logger)
 
     assert_frame_equal(result.pred_shifts, expected_result)
+
+def test_SNAPSimporterExtensionMapping(logger):
+    importer = SNAPSImporter()
+    result = importer.import_data(
+        pred_file=TEST_DATA / 'shiftx2.cs',
+        obs_file=TEST_DATA / 'P3a_L273R.nef',
+        pred_format=None,
+        obs_format=None,
+    )
+
+    expected_preds, _ = import_predicted_shifts(filename = TEST_DATA/ 'shiftx2.cs', filetype = 'shiftx2', logger=logger)
+    expected_obs = import_observed_shifts(filename = TEST_DATA/ 'P3a_L273R.nef', filetype = 'nef')
+
+    assert_frame_equal(expected_obs, result.obs_shifts)
+    assert_frame_equal(expected_preds, result.pred_shifts)
