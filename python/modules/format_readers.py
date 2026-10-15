@@ -4,7 +4,10 @@ from NEF_reader import read_nef_obs_shifts_from_file_to_pandas, read_nef_pred_sh
 import pandas as pd
 from typing import List
 
-class ShiftX2Reader():
+class FormatReader():
+    ...
+
+class ShiftX2Reader(FormatReader):
     """ShiftX2 format reader"""
 
     @property
@@ -38,7 +41,7 @@ class ShiftX2Reader():
 
         return preds_long
 
-class SpartaReader():
+class SpartaReader(FormatReader):
     """Sparta+ format reader"""
 
     @property
@@ -78,7 +81,7 @@ class SpartaReader():
 
         return preds_long
 
-class NMRPipeReader():
+class NMRPipeReader(FormatReader):
     """nmrpipe format reader"""
 
     @property
@@ -110,7 +113,7 @@ class NMRPipeReader():
     def read_predicted_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         return None
 
-class CCPNReader():
+class CCPNReader(FormatReader):
     """ccpn format reader"""
 
     @property
@@ -135,7 +138,7 @@ class CCPNReader():
     def read_predicted_shifts(self, file_path) -> Optional[pd.DataFrame]:
         return None
 
-class SparkyReader():
+class SparkyReader(FormatReader):
     """sparky format reader"""
 
     @property
@@ -160,7 +163,7 @@ class SparkyReader():
     def read_predicted_shifts(self, file_path) -> Optional[pd.DataFrame]:
         return None
 
-class SnapsReader():
+class SnapsReader(FormatReader):
     """SNAPS format reader"""
 
     @property
@@ -182,7 +185,7 @@ class SnapsReader():
         return None
 
 
-class XeasyReader():
+class XeasyReader(FormatReader):
     """XEASY format reader"""
 
     @property
@@ -215,7 +218,7 @@ class XeasyReader():
         return None
 
 
-class MarsReader():
+class MarsReader(FormatReader):
     """MARS format reader"""
 
     @property
@@ -263,7 +266,7 @@ class MarsReader():
         return None
 
 
-class NEFReader():
+class NEFReader(FormatReader):
     """NEF format reader"""
 
     @property
