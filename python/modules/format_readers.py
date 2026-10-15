@@ -243,7 +243,8 @@ class MarsReader():
                 "CB-1": "CB_m1"
             }
         )
-        obs_wide = obs_wide.drop(columns="HA-1")
+        if 'HA-1' in obs_wide.keys(): # Added this if so it wouldn't fail if there was no HA-1
+            obs_wide = obs_wide.drop(columns="HA-1")
         obs_wide["SS_name"] = obs_wide.index.astype(str)
 
         obs = obs_wide.melt(
