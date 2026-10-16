@@ -19,15 +19,15 @@ def logger():
     return logging.getLogger("test_SNAPSimporter")
 
 @pytest.mark.parametrize(
-    'file, format',
+    'file, format, saved_result',
     [
-        ('P3a_L273R.nef', 'nef'),
-        ('ccpn_resonances.txt', 'ccpn'),
-        ('nmrpipe_shifts.tab', 'nmrpipe'),
-        ('sparky_shifts.txt', 'sparky'),
+        ('P3a_L273R.nef', 'nef', 'nef_snaps_internal'),
+        ('ccpn_resonances.txt', 'ccpn', 'ccpn_snaps_internal'),
+        ('nmrpipe_shifts.tab', 'nmrpipe', 'nmrpipe_snaps_internal'),
+        ('sparky_shifts.txt', 'sparky', 'sparky_snaps_internal'),
     ]
 )
-def test_SNAPSimporterObserved(file, format):
+def test_SNAPSimporterObserved(file, format, saved_result):
     importer = SNAPSImporter()
     file_path = TEST_DATA / file
     result = importer.import_data(
@@ -39,16 +39,21 @@ def test_SNAPSimporterObserved(file, format):
 
     expected_result = import_observed_shifts(filename = file_path, filetype=format)
 
+    saved_result = pd.read_pickle(TEST_DATA / saved_result)
+    # Saved result to file, technically the exact same as expected_result, except a break in the import_observed_shifts
+    # Would break this test and this ensures it's the same
+
     assert_frame_equal(result.obs_shifts, expected_result)
+    assert_frame_equal(result.obs_shifts, saved_result)
 
 @pytest.mark.parametrize(
-    'file, format',
+    'file, format, saved_result',
     [
-        ('shiftx2.cs', 'shiftx2'),
-        ('P3a_L273R_sparta.tab', 'sparta+'),
+        ('shiftx2.cs', 'shiftx2', 'shiftx2_snaps_internal'),
+        ('P3a_L273R_sparta.tab', 'sparta+', 'sparta_snaps_internal'),
     ]
 )
-def test_SNAPSimporterPredicted(file, format, logger):
+def test_SNAPSimporterPredicted(file, format, logger, saved_result):
     importer = SNAPSImporter()
     file_path = TEST_DATA / file
     result = importer.import_data(
@@ -60,7 +65,10 @@ def test_SNAPSimporterPredicted(file, format, logger):
 
     expected_result, _ = import_predicted_shifts(filename = file_path, filetype=format, logger=logger)
 
+    saved_result = pd.read_pickle(TEST_DATA / saved_result)
+
     assert_frame_equal(result.pred_shifts, expected_result)
+    assert_frame_equal(result.pred_shifts, saved_result)
 
 def test_SNAPSimporterExtensionMapping(logger):
     importer = SNAPSImporter()
