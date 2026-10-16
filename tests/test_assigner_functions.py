@@ -8,8 +8,10 @@ import logging
 import logging
 import pytest
 import pandas as pd
-from modules.assigner_functions import import_predicted_shifts
+from modules.assigner_functions import import_predicted_shifts, prepare_obs_preds
+from modules.SNAPSimporter import SNAPSImporter
 from pathlib import Path
+from pandas.testing import assert_frame_equal
 
 TEST_DATA = Path(__file__).parent / 'test_data'
 
@@ -73,6 +75,21 @@ def test_predicted_shifts(logger, filetype, filename, snapshot):
         rtol=1e-7,
         atol=1e-8,
     )
+
+def test_prepare_obs_preds(logger):
+    importer =  SNAPSImporter()
+    imported = importer.import_data(
+        pred_file=TEST_DATA / 'shiftx2.cs',
+        obs_file=TEST_DATA / 'P3a_L273R.nef',
+    )
+
+    result_obs, result_preds = prepare_obs_preds(imported.obs_shifts, imported.pred_shifts, logger)
+
+    expected_obs = pd.read_pickle(TEST_DATA / 'prepare_obs.pickle')
+    expected_preds = pd.read_pickle(TEST_DATA / 'prepare_preds.pickle')
+
+    assert_frame_equal(result_obs, expected_obs)
+    assert_frame_equal(result_preds, expected_preds)
 
 
 

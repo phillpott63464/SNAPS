@@ -157,64 +157,13 @@ class SNAPS_assigner:
 
         Returns the modified obs and preds DataFrames.
         """
+        from modules.assigner_functions import prepare_obs_preds
 
-        obs = self.obs.copy()
-        preds = self.preds.copy()
+        obs, preds = prepare_obs_preds(obs=self.obs, preds=self.preds, atom_set=self.pars['atom_set'], logger=self.logger)
 
-        #### Delete any prolines in preds
-        self.all_preds = preds.copy()   # Keep a copy of all predictions
-        self.logger.info("Removing %d prolines from predictions"
-                         % sum(preds["Res_type"]=="P"))
-        preds = preds.drop(preds.index[preds["Res_type"]=="P"])
+        self.obs = obs
 
-        # Remove references to deleted residues from Res_name_m1/p1
-        preds.loc[~preds["Res_name_m1"].isin(preds["Res_name"]), "Res_name_m1"] = np.NaN
-        preds.loc[~preds["Res_name_p1"].isin(preds["Res_name"]), "Res_name_p1"] = np.NaN
-
-        #### Restrict atom types
-        # self.pars["atom_set"] is the set of atoms to be used in the analysis
-
-        # Get all non-atom columns
-        all_atoms = {"H","N","C","CA","CB","C_m1","CA_m1","CB_m1","HA"}
-        obs_metadata = list(set(obs.columns).difference(all_atoms))
-        preds_metadata = list(set(preds.columns).
-                              difference(all_atoms))
-        # Get atoms that are in atom_set *and* present in both obs and preds
-        shared_atoms = list(self.pars["atom_set"].intersection(obs.columns).
-                            intersection(preds.columns))
-        obs = obs.loc[:,obs_metadata+shared_atoms]
-        preds = preds.loc[:,preds_metadata+shared_atoms]
-
-        self.logger.info("Restricted atom types to %s" % ",".join(shared_atoms))
-
-        #### Create dummy rows
-        # Create columns to keep track of dummy status
-        preds["Dummy_res"] = False
-        obs["Dummy_SS"] = False
-
-        N = len(obs.index)
-        M = len(preds.index)
-
-        if N>M:     # If there are more spin systems than predictions
-            dummies = pd.DataFrame(np.NaN, columns = preds.columns,
-                        index=["DR_"+str(i) for i in 1+np.arange(N-M)])
-            dummies["Res_name"] = dummies.index
-            dummies["Dummy_res"] = True
-            #preds = preds.append(dummies)
-            preds = pd.concat([preds, dummies])
-            self.logger.info("Added %d dummy predicted residues" % len(dummies.index))
-        elif M>N:
-            dummies = pd.DataFrame(np.NaN, columns = obs.columns,
-                        index=["DSS_"+str(i) for i in 1+np.arange(M-N)])
-            dummies["SS_name"] = dummies.index
-            dummies["Dummy_SS"] = True
-            # obs = obs.append(dummies)
-            obs = pd.concat([obs, dummies])
-            self.logger.info("Added %d dummy observed residues" % len(dummies.index))
-
-
-        self.obs = obs.copy()
-        self.preds = preds.copy()
+        self.preds = preds
 
         return(self.obs, self.preds)
 
@@ -373,6 +322,7 @@ class SNAPS_assigner:
                                                 # each Res/SS pair
             log_prob_matrix = log_prob_matrix + log10(default_prob) * na_matrix
 
+# HP - this is the section of code that uses amino acid restraints. As you can see, it is commented out. Thus I won't bother implementing AA restraints yet into the refactor. Because I can't test what it does.
 #        if self.pars["use_ss_class_info"]:
 #            # For each type of residue type information that's available, make a
 #            # matrix showing the probability modifications due to type mismatch,

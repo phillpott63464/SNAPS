@@ -229,3 +229,66 @@ def import_predicted_shifts(
     )
 
     return preds, seq_df
+
+def prepare_obs_preds(obs, preds, logger, atom_set = {"H","N","HA","C","CA","CB","C_m1","CA_m1","CB_m1"}):
+    """Perform preprocessing on the observed and predicted shifts to prepare
+    them for calculation of the log probability matrix.
+
+    1) Remove proline residues from predictions
+    2) Discard atom types that are not used or aren't present in both
+    3) Add dummy rows to obs or preds to bring them to the same length
+
+    Returns the modified obs and preds DataFrames.
+    """
+
+    #### Delete any prolines in preds
+    logger.info("Removing %d prolines from predictions"
+                     % sum(preds["Res_type"]=="P"))
+    preds = preds.drop(preds.index[preds["Res_type"]=="P"])
+
+    # Remove references to deleted residues from Res_name_m1/p1
+    preds.loc[~preds["Res_name_m1"].isin(preds["Res_name"]), "Res_name_m1"] = np.NaN
+    preds.loc[~preds["Res_name_p1"].isin(preds["Res_name"]), "Res_name_p1"] = np.NaN
+
+    #### Restrict atom types
+    # self.pars["atom_set"] is the set of atoms to be used in the analysis
+
+    # Get all non-atom columns
+    all_atoms = {"H","N","C","CA","CB","C_m1","CA_m1","CB_m1","HA"}
+    obs_metadata = list(set(obs.columns).difference(all_atoms))
+    preds_metadata = list(set(preds.columns).
+                          difference(all_atoms))
+    # Get atoms that are in atom_set *and* present in both obs and preds
+    shared_atoms = list(atom_set.intersection(obs.columns).
+                        intersection(preds.columns))
+    obs = obs.loc[:,obs_metadata+shared_atoms]
+    preds = preds.loc[:,preds_metadata+shared_atoms]
+
+    logger.info("Restricted atom types to %s" % ",".join(shared_atoms))
+
+    #### Create dummy rows
+    # Create columns to keep track of dummy status
+    preds["Dummy_res"] = False
+    obs["Dummy_SS"] = False
+
+    N = len(obs.index)
+    M = len(preds.index)
+
+    if N>M:     # If there are more spin systems than predictions
+        dummies = pd.DataFrame(np.NaN, columns = preds.columns,
+                    index=["DR_"+str(i) for i in 1+np.arange(N-M)])
+        dummies["Res_name"] = dummies.index
+        dummies["Dummy_res"] = True
+        #preds = preds.append(dummies)
+        preds = pd.concat([preds, dummies])
+        logger.info("Added %d dummy predicted residues" % len(dummies.index))
+    elif M>N:
+        dummies = pd.DataFrame(np.NaN, columns = obs.columns,
+                    index=["DSS_"+str(i) for i in 1+np.arange(M-N)])
+        dummies["SS_name"] = dummies.index
+        dummies["Dummy_SS"] = True
+        # obs = obs.append(dummies)
+        obs = pd.concat([obs, dummies])
+        logger.info("Added %d dummy observed residues" % len(dummies.index))
+
+    return(obs, preds)
