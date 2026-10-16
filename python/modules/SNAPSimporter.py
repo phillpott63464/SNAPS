@@ -20,12 +20,12 @@ class SNAPSImporter:
     """Orchestrates format readers to import all required data"""
 
     def __init__(self, readers: Optional[List[FormatReader]] = None):
-        self.readers = readers or self._default_readers()
+        self.readers = self._default_readers()
         self._reader_by_format = {r.format_name: r for r in self.readers}
         self._reader_by_ext = {}
         for reader in self.readers:
             for ext in reader.file_extensions:
-                self._reader_by_ext[ext] = reader
+                self._reader_by_ext.setdefault(ext, []).append(reader)
 
     def _default_readers(self) -> List[FormatReader]:
         """Load all available format readers"""
@@ -51,14 +51,20 @@ class SNAPSImporter:
         if format_hint and format_hint in self._reader_by_format:
             return self._reader_by_format[format_hint]
 
-        # Try extension mapping
+        # # Try extension mapping
         ext = file_path.suffix.lower()
-        if ext in self._reader_by_ext:
-            return self._reader_by_ext[ext]
+        if ext in self._reader_by_ext and len(self._reader_by_ext[ext]) == 1:
+            return self._reader_by_ext[ext][0]
 
-        # Try each reader's can_read method, currently mostly just extension mapping anyway
+        # Try each reader's can_read method
         for reader in self.readers:
-            if reader.can_read(file_path):
+            result = reader.can_read(file_path=file_path)
+            print(
+                f"Reader: {type(reader).__name__}, "
+                f"File: {file_path.name}, "
+                f"Can read: {result}"
+            )
+            if result:
                 return reader
 
         raise ValueError(f"No reader found for {file_path}")
@@ -235,7 +241,9 @@ class SNAPSImporter:
 
         # Get appropriate readers
         obs_reader = self._get_reader(obs_file, obs_format)
+        print(obs_reader)
         pred_reader = self._get_reader(pred_file, pred_format)
+        print(pred_reader)
 
         # Import observed shifts
         obs_shifts = obs_reader.read_observed_shifts(

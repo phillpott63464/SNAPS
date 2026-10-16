@@ -524,21 +524,56 @@ Subsequently, these tests then need to be ran with real files.
 """
 
 
+READERS = [
+    'nefreader',
+    'nmrpipereader',
+    'ccpnreader',
+    'sparkyreader',
+    'snapsreader',
+    'xeasyreader',
+    'marsreader',
+    'shiftx2reader',
+    'spartareader',
+]
+
+FILES = [
+    'nef_file_obs',
+    'nef_file_pred',
+    'nmrpipe_file',
+    'ccpn_file',
+    'sparky_file',
+    'snaps_file',
+    'xeasy_file',
+    'mars_file',
+    'shiftx2_file',
+    'sparta_file',
+]
+
+VALID_FILES = {
+    'nefreader': {'nef_file_obs', 'nef_file_pred'},
+    'nmrpipereader': {'nmrpipe_file'},
+    'ccpnreader': {'ccpn_file'},
+    'sparkyreader': {'sparky_file'},
+    'snapsreader': {'snaps_file'},
+    'xeasyreader': {'xeasy_file'},
+    'marsreader': {'mars_file'},
+    'shiftx2reader': {'shiftx2_file'},
+    'spartareader': {'sparta_file'},
+}
+
 @pytest.mark.parametrize(
-    'filename, expected',
+    'reader, file, expected',
     [
-        ('test.cs', True),
-        ('test.txt', True),
-        ('test.CS', True),
-        ('test.TXT', True),
-        ('test.csv', False),
-        ('test.json', False),
-        ('test', False),
-        ('test.nef', False),
+        (reader, file, file in VALID_FILES[reader])
+        for reader in READERS
+        for file in FILES
     ],
 )
-def test_can_read_shiftx2(shiftx2reader, filename, expected):
-    assert shiftx2reader.can_read(Path(filename)) is expected
+def test_can_read(request, reader, file, expected):
+    reader = request.getfixturevalue(reader)
+    filepath, _ = request.getfixturevalue(file)
+
+    assert reader.can_read(file_path=filepath) == expected
 
 
 @pytest.mark.parametrize(

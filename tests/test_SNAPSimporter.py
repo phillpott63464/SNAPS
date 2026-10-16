@@ -84,3 +84,19 @@ def test_SNAPSimporterExtensionMapping(logger):
 
     assert_frame_equal(expected_obs, result.obs_shifts)
     assert_frame_equal(expected_preds, result.pred_shifts)
+
+def test_SNAPSimporterCanRead(logger):
+    # So this one tests if it can read files just from their signatures
+    importer = SNAPSImporter()
+    result = importer.import_data(
+        pred_file=TEST_DATA / 'P3a_L273R_sparta.tab',
+        obs_file=TEST_DATA / 'nmrpipe_shifts.tab', #See how these are both the same file extension
+        pred_format=None,
+        obs_format=None,
+    )
+
+    expected_preds, _ = import_predicted_shifts(filename = TEST_DATA / 'P3a_L273R_sparta.tab', filetype='sparta+', logger=logger)
+    expected_obs = import_observed_shifts(filename = TEST_DATA / 'nmrpipe_shifts.tab', filetype='nmrpipe')
+
+    assert_frame_equal(expected_obs, result.obs_shifts)
+    assert_frame_equal(expected_preds, result.pred_shifts)

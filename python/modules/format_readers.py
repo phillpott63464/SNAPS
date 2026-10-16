@@ -1,3 +1,4 @@
+from symbol import continue_stmt
 from typing import Protocol, Optional
 from pathlib import Path
 from NEF_reader import read_nef_obs_shifts_from_file_to_pandas, read_nef_pred_shifts_from_file_to_pandas
@@ -19,8 +20,29 @@ class ShiftX2Reader(FormatReader):
         return ['.cs', '.txt']
 
     def can_read(self, file_path: Path) -> bool:
-        # Check extension and/or file content
-        return file_path.suffix.lower() in self.file_extensions
+        try:
+            with open(file_path) as f:
+                header = next(
+                    (line.strip() for line in f if line.strip()),
+                    ""
+                )
+
+            columns = set(
+                column.strip()
+                for column in header.split(",")
+            )
+
+            required = {
+                "NUM",
+                "RES",
+                "ATOMNAME",
+                "SHIFT",
+            }
+
+            return required.issubset(columns)
+
+        except (OSError, UnicodeError):
+            return False
 
     def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         return None # There are no observed shifts in ShiftX2
@@ -53,8 +75,43 @@ class SpartaReader(FormatReader):
         return ['.txt']
 
     def can_read(self, file_path: Path) -> bool:
-        # Check extension and/or file content
-        return file_path.suffix.lower() in self.file_extensions
+        try:
+            with open(file_path) as f:
+                lines = f.readlines()
+
+            vars_lines = [
+                line.split()[1:]
+                for line in lines
+                if line.strip().startswith("VARS ")
+            ]
+
+            if len(vars_lines) != 1:
+                return False
+
+            columns = set(vars_lines[0])
+
+            required = {
+                "RESID",
+                "RESNAME",
+                "ATOMNAME",
+                "SS_SHIFT",
+                "SHIFT",
+                "RC_SHIFT",
+                "HM_SHIFT",
+                "EF_SHIFT",
+                "SIGMA",
+            }
+
+            return (
+                    required.issubset(columns)
+                    and any(
+                line.strip().startswith("FORMAT ")
+                for line in lines
+            )
+            )
+
+        except (OSError, UnicodeError):
+            return False
 
     def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         return None # There are no observed shifts in sparta
@@ -93,7 +150,33 @@ class NMRPipeReader(FormatReader):
         return ['.tab']
 
     def can_read(self, file_path: Path) -> bool:
-        return file_path.suffix.lower() in self.file_extensions
+        try:
+            with open(file_path) as f:
+                lines = f.readlines()
+
+            vars_lines = [
+                line.split()[1:]
+                for line in lines
+                if line.strip().startswith("VARS ")
+            ]
+
+            if len(vars_lines) != 1:
+                return False
+
+            columns = vars_lines[0]
+
+            return (
+                    set(columns) == {
+                "RESID", "RESNAME", "ATOMNAME", "SHIFT"
+            }
+                    and any(
+                line.strip().startswith("FORMAT ")
+                for line in lines
+            )
+            )
+
+        except (OSError, UnicodeError):
+            return False
 
     def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         # Work out where the column names and data are
@@ -125,7 +208,23 @@ class CCPNReader(FormatReader):
         return ['.txt']
 
     def can_read(self, file_path: Path) -> bool:
-        return file_path.suffix.lower() in self.file_extensions
+        try:
+            with open(file_path) as f:
+                header = next(
+                    (line.strip() for line in f if line.strip()),
+                    ""
+                )
+
+            columns = set(header.split("\t"))
+
+            return {
+                "Assign Name",
+                "Residue",
+                "Shift",
+            }.issubset(columns)
+
+        except (OSError, UnicodeError):
+            return False
 
     def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs = pd.read_table(file_path)
@@ -150,7 +249,26 @@ class SparkyReader(FormatReader):
         return ['.txt']
 
     def can_read(self, file_path: Path) -> bool:
-        return file_path.suffix.lower() in self.file_extensions
+        try:
+            with open(file_path) as f:
+                header = next(
+                    (line.strip() for line in f if line.strip()),
+                    ""
+                )
+
+            columns = header.split()
+
+            return {
+                "Group",
+                "Atom",
+                "Nuc",
+                "Shift",
+                "SDev",
+                "Assignments",
+            }.issubset(columns)
+
+        except (OSError, UnicodeError):
+            return False
 
     def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs = pd.read_table(file_path, sep=r"\s+")
@@ -175,7 +293,21 @@ class SnapsReader(FormatReader):
         return [".txt", ".tab"]
 
     def can_read(self, file_path: Path) -> bool:
-        return file_path.suffix.lower() in self.file_extensions
+        try:
+            with open(file_path) as f:
+                header = next(
+                    (line.strip() for line in f if line.strip()),
+                    ""
+                )
+
+            return header.split() == [
+                "SS_name",
+                "Atom_type",
+                "Shift",
+            ]
+
+        except (OSError, UnicodeError):
+            return False
 
     def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs = pd.read_table(file_path)
@@ -197,7 +329,46 @@ class XeasyReader(FormatReader):
         return [".prot", ".txt"]
 
     def can_read(self, file_path: Path) -> bool:
-        return file_path.suffix.lower() in self.file_extensions
+        try:
+            found_data = False
+
+            with open(file_path) as f:
+                for line in f:
+                    line = line.strip()
+
+                    if not line or line.startswith("#"):
+                        continue
+
+                    fields = line.split()
+
+                    if len(fields) != 5:
+                        return False
+
+                    try:
+                        index = int(fields[0])
+                        shift = float(fields[1])
+                        uncertainty = float(fields[2])
+                        residue = int(fields[4])
+                    except ValueError:
+                        return False
+
+                    atom = fields[3]
+
+                    if index < 1 or residue < 1:
+                        return False
+
+                    if uncertainty < 0:
+                        return False
+
+                    if not atom or not atom[0].isalpha():
+                        return False
+
+                    found_data = True
+
+            return found_data
+
+        except (OSError, UnicodeError):
+            return False
 
     def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs = pd.read_table(
@@ -230,7 +401,30 @@ class MarsReader(FormatReader):
         return [".txt", ".tab"]
 
     def can_read(self, file_path: Path) -> bool:
-        return file_path.suffix.lower() in self.file_extensions
+        try:
+            with open(file_path) as f:
+                header = next(
+                    (line.strip() for line in f if line.strip()),
+                    ""
+                )
+
+            columns = set(header.split())
+
+            required = {
+                "H",
+                "N",
+                "CA",
+                "CA-1",
+                "CB",
+                "CB-1",
+                "CO",
+                "CO-1",
+            }
+
+            return required.issubset(columns)
+
+        except (OSError, UnicodeError):
+            return False
 
     def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs_wide = pd.read_table(
@@ -278,7 +472,19 @@ class NEFReader(FormatReader):
         return [".nef"]
 
     def can_read(self, file_path: Path) -> bool:
-        return file_path.suffix.lower() in self.file_extensions
+        try:
+            with open(file_path) as f:
+                content = f.read()
+
+            return (
+                    "data_" in content
+                    and "save_nef_" in content
+                    and "_nef_chemical_shift." in content
+                    and "loop_" in content
+            )
+
+        except (OSError, UnicodeError):
+            return False
 
     def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs = read_nef_obs_shifts_from_file_to_pandas(
