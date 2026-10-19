@@ -9,6 +9,8 @@ from modules.assigner_functions import df_lookup
 
 from scipy.optimize import linear_sum_assignment
 
+import logging
+
 class AssignmentStrategy(ABC):
     """Base class for assignment strategies"""
 
@@ -361,16 +363,35 @@ class StrategyRegistry:
 @StrategyRegistry.register('direct')
 class DirectStragety(AssignmentStrategy):
     def assign(self, data: ShiftData, set_assign_df: bool = True) -> AssignmentResult:
-        log_prob = self.calc_log_prob_matrix(data)
+        obs, preds = self.preprocess_obs_preds(data.obs_shifts, data.pred_shifts)
+        logger = logging.getLogger('direct')
+        log_prob = self.calc_log_prob_matrix(obs, preds,
+                                             pred_correction=False,
+                                             delta_correlation=True,
+                                             delta_correlation_mean_corrected_file='config/dd_mean.csv',
+                                             delta_correlation_cov_corrected_file='config/dd_cov.csv',
+                                             delta_correlation_mean_file='config/d_mean.csv',
+                                             delta_correlation_cov_file='config/d_cov.csv',
+                                             logger=logger,
+                                             )
 
-        matching = self.find_best_assignment(self.log_prob_matrix, maximise=True)
-        assign_df = self.make_assign_df(matching, set_assign_df)
+        matching = self.find_best_assignment(
+            score_matrix=log_prob, maximise=True, logger=logger
+        )
+        assign_df = self.make_assign_df(
+            obs=obs,
+            preds=preds,
+            log_prob_matrix=log_prob,
+            matching=matching,
+            logger=logger,
+        )
 
-        assignments = self.add_consistency_info(assign_df) # Not sure what this does but important?
+        # assignments = self.add_consistency_info(assign_df) # Not sure what this does but important?
 
         return AssignmentResult(
-            assignments=assignments,
+            assignments=matching,
             log_prob_matrix=log_prob,
+            assign_df=assign_df,
             metadata={
                 'strategy': 'direct',
                 'config': self.config,

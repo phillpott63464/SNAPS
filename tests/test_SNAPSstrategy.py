@@ -1,6 +1,7 @@
 from modules.SNAPSstrategy import create_strategy
 from modules.SNAPSimporter import SNAPSImporter
-from modules.assigner_functions import prepare_obs_preds, calc_log_prob_matrix, find_best_assignment, make_assign_df
+from modules.assigner_functions import prepare_obs_preds, calc_log_prob_matrix, find_best_assignment, make_assign_df, import_predicted_shifts
+from modules.importer_functions import import_observed_shifts
 import pytest
 import pandas as pd
 from pathlib import Path
@@ -191,3 +192,50 @@ def test_SNAPstrategy_make_assign_df(pred_file, obs_file, logger):
     )
 
     assert_frame_equal(assign_df, expected)
+
+@pytest.mark.parametrize(
+    'pred_file, obs_file, pred_format, obs_format',
+    [
+        ('shiftx2.cs', 'P3a_L273R.nef', 'shiftx2', 'nef'),
+        ('P3a_L273R_sparta.tab', 'ccpn_resonances.txt', 'sparta+', 'ccpn'),
+        ('P3a_L273R_sparta.tab', 'nmrpipe_shifts.tab', 'sparta+', 'nmrpipe'),
+        ('shiftx2.cs', 'sparky_shifts.txt', 'shiftx2', 'sparky'),
+    ],
+)
+def test_SNAPstragety_direct(pred_file, obs_file, pred_format, obs_format, logger):
+    # FULLY DEFAULT PATHWAY
+    obs = import_observed_shifts(filename = TEST_DATA / obs_file, filetype=obs_format)
+    preds, _ = import_predicted_shifts(filename = TEST_DATA / pred_file, filetype = pred_format, logger=logger)
+    obs, preds = prepare_obs_preds(obs, preds, logger)
+    log_prob_matrix = calc_log_prob_matrix(
+        obs=obs,
+        preds=preds,
+        pred_correction=False,
+        delta_correlation=True,
+        delta_correlation_mean_corrected_file='config/dd_mean.csv',
+        delta_correlation_cov_corrected_file='config/dd_cov.csv',
+        delta_correlation_mean_file='config/d_mean.csv',
+        delta_correlation_cov_file='config/d_cov.csv',
+        logger=logger,
+    )
+    matching = find_best_assignment(log_prob_matrix, maximise=True, logger=logger)
+    assign_df = make_assign_df(
+            obs=obs,
+            preds=preds,
+            log_prob_matrix=log_prob_matrix,
+            matching=matching,
+            logger=logger,
+        )
+
+    importer = SNAPSImporter()
+    strategy = create_strategy('direct')
+    imported = importer.import_data(
+        pred_file=TEST_DATA / pred_file,
+        obs_file=TEST_DATA / obs_file,
+    )
+
+    assigned = strategy.assign(data=imported)
+
+    assert_frame_equal(assigned.assign_df, assign_df)
+    assert_frame_equal(assigned.assignments, matching)
+    assert_frame_equal(assigned.log_prob_matrix, log_prob_matrix)

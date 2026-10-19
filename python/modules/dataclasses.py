@@ -24,6 +24,7 @@ class ShiftData:
 class AssignmentResult:
     """Results from assignment strategy"""
     assignments: pd.DataFrame  # Main assignment table
+    assign_df: pd.DataFrame    # Assignment dataframe as originally implemented in SNAPS
     log_prob_matrix: Optional[pd.DataFrame] = None
     mismatch_matrix: Optional[pd.DataFrame] = None
     confidence: Optional[pd.DataFrame] = None
