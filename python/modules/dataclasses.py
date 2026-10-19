@@ -10,7 +10,7 @@ class ShiftData:
     obs_shifts: pd.DataFrame  # Observed shifts (i, i-1)
     pred_shifts: pd.DataFrame  # Predicted shifts (i, i-1)
     sequence: Optional[pd.DataFrame] = None  # Protein sequence
-    aa_restraints: Optional[pd.DataFrame] = None  # Amino acid type restraints
+    aa_restraints: Optional[pd.DataFrame] = None  # Amino acid type restraints # This is currently unimplemented as it was unimplemented in the original SNAPS
     unlabel_restraints: Optional[pd.DataFrame] = None  # Unlabelling info
     metadata: Dict[str, Any] = field(default_factory=dict)  # Sources, timestamps
 
