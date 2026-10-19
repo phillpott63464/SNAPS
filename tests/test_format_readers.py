@@ -514,16 +514,6 @@ def test_file_extensions(request, reader, formats):
     reader = request.getfixturevalue(reader)
     assert reader.file_extensions == formats
 
-
-"""
-This needs to be updated because can_read needs to be updated for everything - it should
-go into the guts of the file to identify if it can actually read the file rather than
-guessing from extensions. 
-
-Subsequently, these tests then need to be ran with real files. 
-"""
-
-
 READERS = [
     'nefreader',
     'nmrpipereader',
