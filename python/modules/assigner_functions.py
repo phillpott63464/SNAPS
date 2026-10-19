@@ -5,7 +5,7 @@ import logging
 import numpy as np
 from scipy.stats import norm, multivariate_normal
 from math import log10
-
+from scipy.optimize import linear_sum_assignment
 
 def import_predicted_shifts(
     filename: str,
@@ -550,3 +550,187 @@ def calc_log_prob_matrix(
     )
 
     return log_prob_matrix
+
+
+def find_best_assignment(
+    score_matrix,
+    maximise=True,
+    inc=None,
+    exc=None,
+    dummy_rows=None,
+    dummy_cols=None,
+    return_none_all_dummy=False,
+    logger = None,
+):
+    """Use the Hungarian algorithm to find the highest scoring assignment,
+    with constraints. Generalised so it can be used for assigning either
+    sequentially or based on predictions.
+
+    Returns a data frame with the index and column names of the matching.
+
+    Parameters
+    score_matrix: a pandas dataframe containing the scores, and with row and
+        column labels
+    inc: a DataFrame of (row, col) pairs which must be part of the assignment.
+        First column has the index names, second has the column names.
+    exc: a DataFrame of (row, col) pairs which may not be part of the assignment.
+    """
+    score_matrix = score_matrix.copy()
+
+    row_name = score_matrix.index.name
+    col_name = score_matrix.columns.name
+
+    logger.info('Started linear assignment')
+
+    if inc is not None:
+        # Check for conflicting entries in inc
+        conflicts = inc[row_name].duplicated(keep=False) | inc[
+            col_name
+        ].duplicated(keep=False)
+        if any(conflicts):
+            logger.warning(
+                'Warning: entries in inc conflict with one another - dropping conflicts'
+            )
+            # print(inc[conflicts])
+            inc = inc[~conflicts]
+
+        if exc is not None:
+            # Check constraints are consistent
+            # Get rid of any entries in exc which share a Res or SS with inc
+            exc_in_inc = exc[row_name].isin(inc[row_name]) | exc[
+                col_name
+            ].isin(inc[col_name])
+            if any(exc_in_inc):
+                logger.warning(
+                    'Some values in exc are also found in inc, so are redundant.'
+                )
+                # print(exc[exc_in_inc])
+                exc = exc.loc[~exc_in_inc, :]
+
+        # Removed fixed assignments from probability matrix and obs, preds
+        # dataframes. Latter is needed if inc includes any dummy SS/res,
+        # and to detect if the reduced data is entirely dummies
+        score_matrix_reduced = score_matrix.drop(index=inc[row_name]).drop(
+            columns=inc[col_name]
+        )
+        logger.info(
+            '%d assignments were fixed, %d remain to be assigned'
+            % (len(inc), len(score_matrix_reduced.index))
+        )
+    else:
+        score_matrix_reduced = score_matrix
+
+    # If the matrix consists entirely of dummy rows or columns, the
+    # assignment will not be meaningful. In this case, may want to return None
+    if return_none_all_dummy:
+        if set(score_matrix_reduced.index).issubset(dummy_rows) or set(
+            score_matrix_reduced.columns
+        ).issubset(dummy_cols):
+            logger.debug('Score matrix includes only dummy rows/columns')
+            return None
+
+    if exc is not None:
+        # Penalise excluded (row, col) pairs
+        if maximise:
+            penalty = -2 * score_matrix.abs().max().max()
+        else:
+            penalty = 2 * score_matrix.abs().max().max()
+
+        for (
+            i,
+            r,
+        ) in (
+            exc.iterrows()
+        ):     # iterates over (index, row as pd.Series) tuples
+            # If one side of an exclude pair is a dummy row or column,
+            # exclude *all* dummy rows and columns
+            if r[row_name] in dummy_rows:
+                score_matrix_reduced.loc[r[row_name], dummy_cols] = penalty
+            elif r[col_name] in dummy_cols:
+                score_matrix_reduced.loc[dummy_rows, r[col_name]] = penalty
+            else:
+                score_matrix_reduced.loc[r['SS_name'], r['Res_name']] = penalty
+
+        logger.info(
+            'Penalised %d excluded row,column pairs' % len(exc.index)
+        )
+
+    if maximise:
+        row_ind, col_ind = linear_sum_assignment(-1 * score_matrix_reduced)
+        # -1 because linear_sum_assignment() minimises sum, but we want to
+        # maximise it.
+    else:
+        row_ind, col_ind = linear_sum_assignment(score_matrix_reduced)
+
+    # Construct results dataframe
+    matching_reduced = pd.DataFrame(
+        {
+            row_name: score_matrix_reduced.index[row_ind],
+            col_name: score_matrix_reduced.columns[col_ind],
+        }
+    )
+
+    if inc is not None:
+        matching = pd.concat([inc, matching_reduced])
+        return matching
+    else:
+        return matching_reduced
+
+
+def make_assign_df(self, matching, set_assign_df=False):
+    """Make a dataframe with full assignment information, given a dataframe
+    of SS_name and Res_name.
+
+    Matching may have additional columns, which will also be kept.
+    """
+    obs = self.obs.copy()
+    obs.index.name = 'name'   # Needed to avoid error when merging dataframes.
+    preds = self.preds.copy()
+    log_prob_matrix = self.log_prob_matrix.copy()
+    valid_atoms = list(self.pars['atom_set'])
+    extra_cols = set(matching.columns).difference({'SS_name', 'Res_name'})
+
+    if not {'SS_name', 'Res_name'}.issubset(matching.columns):
+        self.logger.warning(
+            'Cannot make assignment dataframe, as matching'
+            + ' dataframe does not have the correct columns'
+        )
+
+    assign_df = pd.merge(
+        matching,
+        preds.loc[:, ['Res_N', 'Res_type', 'Res_name', 'Dummy_res']],
+        on='Res_name',
+        how='left',
+    )
+    assign_df = assign_df[
+        ['Res_name', 'Res_N', 'Res_type', 'SS_name', 'Dummy_res']
+        + list(extra_cols)
+    ]
+    assign_df = pd.merge(
+        assign_df,
+        obs.loc[:, obs.columns.isin(['SS_name', 'Dummy_SS'] + valid_atoms)],
+        on='SS_name',
+        how='left',
+    )
+    assign_df = pd.merge(
+        assign_df,
+        preds.loc[:, preds.columns.isin(valid_atoms + ['Res_name'])],
+        on='Res_name',
+        suffixes=('', '_pred'),
+        how='left',
+    )
+
+    # assign_df["Log_prob"] = log_prob_matrix.lookup(
+    #                                     assign_df["SS_name"],
+    #                                     assign_df["Res_name"])
+    assign_df['Log_prob'] = df_lookup(
+        log_prob_matrix, assign_df['SS_name'], assign_df['Res_name']
+    )
+    # Careful above not to get rows/columns confused
+
+    assign_df = assign_df.sort_values(by='Res_N')
+
+    if set_assign_df:
+        self.assign_df = assign_df
+
+    return assign_df

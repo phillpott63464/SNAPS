@@ -12,6 +12,7 @@ from modules.assigner_functions import (
     import_predicted_shifts,
     prepare_obs_preds,
     calc_log_prob_matrix,
+    find_best_assignment,
 )
 from modules.SNAPSimporter import SNAPSImporter
 from pathlib import Path
@@ -124,3 +125,32 @@ def test_calc_log_prob_matrix(logger):
     expected_result = pd.read_pickle(TEST_DATA / 'log_prog.pickle')
 
     assert_frame_equal(log_prob_matrix, expected_result)
+
+def test_find_best_assignment(logger):
+    importer = SNAPSImporter()
+    imported = importer.import_data(
+        pred_file=TEST_DATA / 'shiftx2.cs',
+        obs_file=TEST_DATA / 'P3a_L273R.nef',
+    )
+
+    obs, preds = prepare_obs_preds(
+        imported.obs_shifts, imported.pred_shifts, logger
+    )
+
+    log_prob_matrix = calc_log_prob_matrix(
+        obs=obs,
+        preds=preds,
+        pred_correction=False,
+        delta_correlation=True,
+        delta_correlation_mean_corrected_file='config/dd_mean.csv',
+        delta_correlation_cov_corrected_file='config/dd_cov.csv',
+        delta_correlation_mean_file='config/d_mean.csv',
+        delta_correlation_cov_file='config/d_cov.csv',
+        logger=logger,
+    )
+
+    matching = find_best_assignment(log_prob_matrix, maximise=True, logger=logger)
+
+    expected = pd.read_pickle(TEST_DATA / 'matching.pickle')
+
+    assert_frame_equal(matching, expected)
