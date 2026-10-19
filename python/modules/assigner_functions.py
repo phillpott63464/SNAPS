@@ -7,6 +7,7 @@ from scipy.stats import norm, multivariate_normal
 from math import log10
 from scipy.optimize import linear_sum_assignment
 
+
 def import_predicted_shifts(
     filename: str,
     filetype: str,
@@ -566,7 +567,7 @@ def find_best_assignment(
     dummy_rows=None,
     dummy_cols=None,
     return_none_all_dummy=False,
-    logger = None,
+    logger=None,
 ):
     """Use the Hungarian algorithm to find the highest scoring assignment,
     with constraints. Generalised so it can be used for assigning either
@@ -657,9 +658,7 @@ def find_best_assignment(
             else:
                 score_matrix_reduced.loc[r['SS_name'], r['Res_name']] = penalty
 
-        logger.info(
-            'Penalised %d excluded row,column pairs' % len(exc.index)
-        )
+        logger.info('Penalised %d excluded row,column pairs' % len(exc.index))
 
     if maximise:
         row_ind, col_ind = linear_sum_assignment(-1 * score_matrix_reduced)
@@ -683,21 +682,27 @@ def find_best_assignment(
         return matching_reduced
 
 
-def make_assign_df(self, matching, set_assign_df=False):
+def make_assign_df(
+    obs: pd.DataFrame,
+    preds: pd.DataFrame,
+    log_prob_matrix: pd.DataFrame,
+    matching: pd.DataFrame,
+    atom_set = {"H", "N", "HA", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1"},
+    logger=None,
+):
     """Make a dataframe with full assignment information, given a dataframe
     of SS_name and Res_name.
 
     Matching may have additional columns, which will also be kept.
     """
-    obs = self.obs.copy()
+    obs = obs.copy()
+    preds = preds.copy()
     obs.index.name = 'name'   # Needed to avoid error when merging dataframes.
-    preds = self.preds.copy()
-    log_prob_matrix = self.log_prob_matrix.copy()
-    valid_atoms = list(self.pars['atom_set'])
+    valid_atoms = list(atom_set)
     extra_cols = set(matching.columns).difference({'SS_name', 'Res_name'})
 
     if not {'SS_name', 'Res_name'}.issubset(matching.columns):
-        self.logger.warning(
+        logger.warning(
             'Cannot make assignment dataframe, as matching'
             + ' dataframe does not have the correct columns'
         )
@@ -736,7 +741,39 @@ def make_assign_df(self, matching, set_assign_df=False):
 
     assign_df = assign_df.sort_values(by='Res_N')
 
-    if set_assign_df:
-        self.assign_df = assign_df
-
     return assign_df
+
+
+def df_lookup(df, row_labels, col_labels, index='rows'):
+    """Look up a series of locations in a data frame df, with the row and
+    column indicies given by row_labels and col_labels. This replaces the
+    DataFrame.lookup() that was part of previous versions of pandas.
+
+    Returns
+    A series containing the looked-up values
+
+    Parameters
+    df
+    row_labels: the row indicies of the values to be fetched
+    col_labels: the column indicies of the values to be fetched
+    eg. if row_labels=[1,3] and col_labels=['b','e'], the function would return a Series
+    consisting of df.loc[1,'b'] and df.loc[3,'e']
+
+    Taken from https://stackoverflow.com/questions/71156253/alternative-to-df-lookuprow-col?noredirect=1&lq=1
+    """
+    if index == 'cols':
+        return pd.Series(
+            df.to_numpy()[
+                df.index.get_indexer(row_labels),
+                df.columns.get_indexer(col_labels),
+            ],
+            index=col_labels,
+        )
+    else:
+        return pd.Series(
+            df.to_numpy()[
+                df.index.get_indexer(row_labels),
+                df.columns.get_indexer(col_labels),
+            ],
+            index=row_labels,
+        )

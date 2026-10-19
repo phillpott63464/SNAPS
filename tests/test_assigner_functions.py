@@ -8,11 +8,13 @@ import logging
 import logging
 import pytest
 import pandas as pd
+from bokeh.sampledata.mtb import obiszow_mtb_xcm
 from modules.assigner_functions import (
     import_predicted_shifts,
     prepare_obs_preds,
     calc_log_prob_matrix,
     find_best_assignment,
+    make_assign_df,
 )
 from modules.SNAPSimporter import SNAPSImporter
 from pathlib import Path
@@ -154,3 +156,48 @@ def test_find_best_assignment(logger):
     expected = pd.read_pickle(TEST_DATA / 'matching.pickle')
 
     assert_frame_equal(matching, expected)
+
+def test_make_assign_df(logger):
+    importer = SNAPSImporter()
+    imported = importer.import_data(
+        pred_file=TEST_DATA / 'shiftx2.cs',
+        obs_file=TEST_DATA / 'P3a_L273R.nef',
+    )
+
+    obs, preds = prepare_obs_preds(
+        imported.obs_shifts, imported.pred_shifts, logger
+    )
+
+    log_prob_matrix = calc_log_prob_matrix(
+        obs=obs,
+        preds=preds,
+        pred_correction=False,
+        delta_correlation=True,
+        delta_correlation_mean_corrected_file='config/dd_mean.csv',
+        delta_correlation_cov_corrected_file='config/dd_cov.csv',
+        delta_correlation_mean_file='config/d_mean.csv',
+        delta_correlation_cov_file='config/d_cov.csv',
+        logger=logger,
+    )
+
+    matching = find_best_assignment(log_prob_matrix, maximise=True, logger=logger)
+
+    print("obs index:", obs.index.names)
+    print("preds index:", preds.index.names)
+    print("matching index:", matching.index.names)
+
+    print("obs columns:", obs.columns.tolist())
+    print("preds columns:", preds.columns.tolist())
+    print("matching columns:", matching.columns.tolist())
+
+    assign_df = make_assign_df(
+        obs=obs,
+        preds=preds,
+        log_prob_matrix=log_prob_matrix,
+        matching=matching,
+        logger=logger,
+    )
+
+    expected = pd.read_pickle(TEST_DATA / 'assign_df.pickle')
+
+    assert_frame_equal(assign_df, expected)
