@@ -33,7 +33,7 @@ def test_SNAPSstrategy_preprocess(pred_file, obs_file, logger):
 
     strategy = create_strategy('iterative')
 
-    result_obs, result_preds = strategy.preprocess(
+    result_obs, result_preds = strategy.preprocess_obs_preds(
         imported.obs_shifts, imported.pred_shifts
     )
 
@@ -60,7 +60,7 @@ def test_SNAPstrategy_log_prob_matrix(pred_file, obs_file, logger):
         obs_file=TEST_DATA / obs_file,
     )
     strategy = create_strategy('iterative')
-    obs, preds = strategy.preprocess(
+    obs, preds = strategy.preprocess_obs_preds(
         imported.obs_shifts, imported.pred_shifts
     )
 

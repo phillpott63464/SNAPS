@@ -19,67 +19,69 @@ class AssignmentStrategy(ABC):
         """Perform assignment and return results"""
         pass
 
+    # Seems to be shared between two strategies at least, so might as well put in assignment strategy instead of remaking
+    def preprocess_obs_preds(self, obs: pd.DataFrame, preds: pd.DataFrame, atom_set = {"H", "N", "HA", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1"}):
+        """Perform preprocessing on the observed and predicted shifts to prepare
+        them for calculation of the log probability matrix.
 
-# Strategy registry for self-registration
-class StrategyRegistry:
-    """Registry for self-registering assignment strategies"""
-    _strategies: Dict[str, Type[AssignmentStrategy]] = {}
+        1) Remove proline residues from predictions
+        2) Discard atom types that are not used or aren't present in both
+        3) Add dummy rows to obs or preds to bring them to the same length
+        """
 
-    @classmethod
-    def register(cls, name: str):
-        """Decorator to register a strategy"""
+        #### Delete any prolines in preds
+        print("Removing %d prolines from predictions"
+                         % sum(preds["Res_type"]=="P"))
+        preds = preds.drop(preds.index[preds["Res_type"]=="P"])
 
-        def decorator(strategy_class):
-            strategy_class.name = name
-            cls._strategies[name] = strategy_class
-            return strategy_class
+        # Remove references to deleted residues from Res_name_m1/p1
+        preds.loc[~preds["Res_name_m1"].isin(preds["Res_name"]), "Res_name_m1"] = np.NaN
+        preds.loc[~preds["Res_name_p1"].isin(preds["Res_name"]), "Res_name_p1"] = np.NaN
 
-        return decorator
+        #### Restrict atom types
+        # self.pars["atom_set"] is the set of atoms to be used in the analysis
 
-    @classmethod
-    def get(cls, name: str) -> Type[AssignmentStrategy]:
-        """Get strategy class by name"""
-        if name not in cls._strategies:
-            available = ', '.join(cls._strategies.keys())
-            raise ValueError(f"Unknown strategy: {name}. Available: {available}")
-        return cls._strategies[name]
+        # Get all non-atom columns
+        all_atoms = {"H","N","C","CA","CB","C_m1","CA_m1","CB_m1","HA"}
+        obs_metadata = list(set(obs.columns).difference(all_atoms))
+        preds_metadata = list(set(preds.columns).
+                              difference(all_atoms))
+        # Get atoms that are in atom_set *and* present in both obs and preds
+        shared_atoms = list(atom_set.intersection(obs.columns).
+                            intersection(preds.columns))
+        obs = obs.loc[:,obs_metadata+shared_atoms]
+        preds = preds.loc[:,preds_metadata+shared_atoms]
 
-    @classmethod
-    def list_names(cls) -> List[str]:
-        """List all registered strategy names"""
-        return sorted(cls._strategies.keys())
+        print("Restricted atom types to %s" % ",".join(shared_atoms))
 
-    @classmethod
-    def create(cls, name: str, config: dict) -> AssignmentStrategy:
-        """Factory method to create a strategy instance"""
-        strategy_class = cls.get(name)
-        return strategy_class(config)
+        #### Create dummy rows
+        # Create columns to keep track of dummy status
+        preds["Dummy_res"] = False
+        obs["Dummy_SS"] = False
 
+        N = len(obs.index)
+        M = len(preds.index)
 
-@StrategyRegistry.register('iterative')
-class IterativeStrategy(AssignmentStrategy):
-    """Iterative consistency-based assignment"""
+        if N>M:     # If there are more spin systems than predictions
+            dummies = pd.DataFrame(np.NaN, columns = preds.columns,
+                        index=["DR_"+str(i) for i in 1+np.arange(N-M)])
+            dummies["Res_name"] = dummies.index
+            dummies["Dummy_res"] = True
+            #preds = preds.append(dummies)
+            preds = pd.concat([preds, dummies])
+            print("Added %d dummy predicted residues" % len(dummies.index))
+        elif M>N:
+            dummies = pd.DataFrame(np.NaN, columns = obs.columns,
+                        index=["DSS_"+str(i) for i in 1+np.arange(M-N)])
+            dummies["SS_name"] = dummies.index
+            dummies["Dummy_SS"] = True
+            # obs = obs.append(dummies)
+            obs = pd.concat([obs, dummies])
+            print("Added %d dummy observed residues" % len(dummies.index))
 
-    def assign(self, data: ShiftData) -> AssignmentResult:
-        # Calculate probability matrix
-        log_prob = self._calc_log_prob_matrix(data)
+        return(obs, preds)
 
-        # Iterate until consistent
-        assignments = self._iterate_until_consistent(
-            data,
-            log_prob,
-            threshold=self.config.get('seq_link_threshold', 0.45)
-        )
-
-        return AssignmentResult(
-            assignments=assignments,
-            log_prob_matrix=log_prob,
-            metadata={
-                'strategy': 'iterative',
-                'config': self.config,
-            }
-        )
-
+    # Same with this
     def calc_log_prob_matrix(
         self,
         obs: pd.DataFrame,
@@ -316,6 +318,85 @@ class IterativeStrategy(AssignmentStrategy):
 
         return log_prob_matrix
 
+# Strategy registry for self-registration
+class StrategyRegistry:
+    """Registry for self-registering assignment strategies"""
+    _strategies: Dict[str, Type[AssignmentStrategy]] = {}
+
+    @classmethod
+    def register(cls, name: str):
+        """Decorator to register a strategy"""
+
+        def decorator(strategy_class):
+            strategy_class.name = name
+            cls._strategies[name] = strategy_class
+            return strategy_class
+
+        return decorator
+
+    @classmethod
+    def get(cls, name: str) -> Type[AssignmentStrategy]:
+        """Get strategy class by name"""
+        if name not in cls._strategies:
+            available = ', '.join(cls._strategies.keys())
+            raise ValueError(f"Unknown strategy: {name}. Available: {available}")
+        return cls._strategies[name]
+
+    @classmethod
+    def list_names(cls) -> List[str]:
+        """List all registered strategy names"""
+        return sorted(cls._strategies.keys())
+
+    @classmethod
+    def create(cls, name: str, config: dict) -> AssignmentStrategy:
+        """Factory method to create a strategy instance"""
+        strategy_class = cls.get(name)
+        return strategy_class(config)
+
+@StrategyRegistry.register('direct')
+class DirectStragety(AssignmentStrategy):
+    def assign(self, data: ShiftData) -> AssignmentResult:
+        log_prob = self._calc_log_prob_matrix(data)
+
+        assignments = self.assign_from_preds(data)
+
+        assignments = self.add_consistency_info(assignments) # Not sure what this does but important
+
+        return AssignmentResult(
+            assignments=assignments,
+            log_prob_matrix=log_prob,
+            metadata={
+                'strategy': 'direct',
+                'config': self.config,
+            }
+        )
+
+@StrategyRegistry.register('iterative')
+class IterativeStrategy(AssignmentStrategy):
+    """Iterative consistency-based assignment"""
+
+    def assign(self, data: ShiftData) -> AssignmentResult:
+        # Calculate probability matrix
+        log_prob = self._calc_log_prob_matrix(data)
+
+        # Iterate until consistent
+        assignments = self._iterate_until_consistent(
+            data,
+            log_prob,
+            threshold=self.config.get('seq_link_threshold', 0.45)
+        )
+
+        return AssignmentResult(
+            assignments=assignments,
+            log_prob_matrix=log_prob,
+            metadata={
+                'strategy': 'iterative',
+                'config': self.config,
+            }
+        )
+
+
+
     def _iterate_until_consistent(
             self,
             data: ShiftData,
@@ -326,66 +407,7 @@ class IterativeStrategy(AssignmentStrategy):
         # Implementation from current SNAPS_assigner
         ...
 
-    def preprocess(self, obs: pd.DataFrame, preds: pd.DataFrame, atom_set = {"H","N","HA","C","CA","CB","C_m1","CA_m1","CB_m1"}):
-        """Perform preprocessing on the observed and predicted shifts to prepare
-        them for calculation of the log probability matrix.
 
-        1) Remove proline residues from predictions
-        2) Discard atom types that are not used or aren't present in both
-        3) Add dummy rows to obs or preds to bring them to the same length
-        """
-
-        #### Delete any prolines in preds
-        print("Removing %d prolines from predictions"
-                         % sum(preds["Res_type"]=="P"))
-        preds = preds.drop(preds.index[preds["Res_type"]=="P"])
-
-        # Remove references to deleted residues from Res_name_m1/p1
-        preds.loc[~preds["Res_name_m1"].isin(preds["Res_name"]), "Res_name_m1"] = np.NaN
-        preds.loc[~preds["Res_name_p1"].isin(preds["Res_name"]), "Res_name_p1"] = np.NaN
-
-        #### Restrict atom types
-        # self.pars["atom_set"] is the set of atoms to be used in the analysis
-
-        # Get all non-atom columns
-        all_atoms = {"H","N","C","CA","CB","C_m1","CA_m1","CB_m1","HA"}
-        obs_metadata = list(set(obs.columns).difference(all_atoms))
-        preds_metadata = list(set(preds.columns).
-                              difference(all_atoms))
-        # Get atoms that are in atom_set *and* present in both obs and preds
-        shared_atoms = list(atom_set.intersection(obs.columns).
-                            intersection(preds.columns))
-        obs = obs.loc[:,obs_metadata+shared_atoms]
-        preds = preds.loc[:,preds_metadata+shared_atoms]
-
-        print("Restricted atom types to %s" % ",".join(shared_atoms))
-
-        #### Create dummy rows
-        # Create columns to keep track of dummy status
-        preds["Dummy_res"] = False
-        obs["Dummy_SS"] = False
-
-        N = len(obs.index)
-        M = len(preds.index)
-
-        if N>M:     # If there are more spin systems than predictions
-            dummies = pd.DataFrame(np.NaN, columns = preds.columns,
-                        index=["DR_"+str(i) for i in 1+np.arange(N-M)])
-            dummies["Res_name"] = dummies.index
-            dummies["Dummy_res"] = True
-            #preds = preds.append(dummies)
-            preds = pd.concat([preds, dummies])
-            print("Added %d dummy predicted residues" % len(dummies.index))
-        elif M>N:
-            dummies = pd.DataFrame(np.NaN, columns = obs.columns,
-                        index=["DSS_"+str(i) for i in 1+np.arange(M-N)])
-            dummies["SS_name"] = dummies.index
-            dummies["Dummy_SS"] = True
-            # obs = obs.append(dummies)
-            obs = pd.concat([obs, dummies])
-            print("Added %d dummy observed residues" % len(dummies.index))
-
-        return(obs, preds)
 
 # Factory function (simplified - just delegates to registry)
 def create_strategy(strategy_name: str, config: dict = None) -> AssignmentStrategy:
