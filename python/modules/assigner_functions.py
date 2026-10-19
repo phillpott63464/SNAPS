@@ -251,6 +251,9 @@ def prepare_obs_preds(
     Returns the modified obs and preds DataFrames.
     """
 
+    obs = obs.copy()
+    preds = preds.copy()
+
     #### Delete any prolines in preds
     logger.info(
         'Removing %d prolines from predictions' % sum(preds['Res_type'] == 'P')
@@ -350,6 +353,9 @@ def calc_log_prob_matrix(
     sf: A scale factor that multiplies the atom_sd
     default_prob: penalty for missing data
     """
+
+    obs = obs.copy()
+    preds = preds.copy()
 
     atoms = list(atom_set.intersection(obs.columns))
 
