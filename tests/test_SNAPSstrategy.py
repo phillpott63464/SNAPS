@@ -1,5 +1,5 @@
-from modules.SNAPSstrategy import create_strategy
-from modules.SNAPSimporter import SNAPSImporter
+from refactor.SNAPSstrategy import create_strategy
+from refactor.SNAPSimporter import SNAPSImporter
 from modules.assigner_functions import prepare_obs_preds, calc_log_prob_matrix, find_best_assignment, make_assign_df, import_predicted_shifts
 from modules.importer_functions import import_observed_shifts
 import pytest

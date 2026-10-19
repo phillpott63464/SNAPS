@@ -3,7 +3,7 @@ Regression testing the old one to the new one to make sure that
 the expected outputs are the same
 """
 
-from modules.SNAPSimporter import SNAPSImporter
+from refactor.SNAPSimporter import SNAPSImporter
 from modules.importer_functions import import_observed_shifts # original function (stateless version)
 from modules.assigner_functions import import_predicted_shifts
 import pytest

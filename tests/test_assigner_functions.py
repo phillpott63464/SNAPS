@@ -16,7 +16,7 @@ from modules.assigner_functions import (
     find_best_assignment,
     make_assign_df,
 )
-from modules.SNAPSimporter import SNAPSImporter
+from refactor.SNAPSimporter import SNAPSImporter
 from pathlib import Path
 from pandas.testing import assert_frame_equal
 

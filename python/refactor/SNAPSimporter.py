@@ -1,6 +1,6 @@
 from typing import List, Optional
 from pathlib import Path
-from modules.format_readers import (
+from refactor.format_readers import (
     ShiftX2Reader,
     SpartaReader,
     NEFReader,
@@ -12,7 +12,7 @@ from modules.format_readers import (
     MarsReader,
     FormatReader
 )
-from modules.dataclasses import ShiftData
+from refactor.dataclasses import ShiftData
 import pandas as pd
 import numpy as np
 

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from modules.dataclasses import ShiftData, AssignmentResult
+from refactor.dataclasses import ShiftData, AssignmentResult
 import pandas as pd
 import numpy as np
 from typing import Dict, Type, List
