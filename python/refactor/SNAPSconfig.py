@@ -43,6 +43,26 @@ class SNAPSConfig(BaseModel):
         default=False,
         description="Use prediction correction"
     )
+    pred_correction_file: str = Field(
+        default='config/lin_model_shiftx2.csv',
+        description="File containing parameters for linear correction to predicted shifts"
+    )
+    delta_correlation_mean_corrected_file: str = Field(
+        default='config/dd_mean.csv',
+        description="File containing mean prediction errors for corrected predictions"
+    )
+    delta_correlation_cov_corrected_file: str = Field(
+        default='config/dd_cov.csv',
+        description="File containing prediction-error covariances for corrected predictions"
+    )
+    delta_correlation_mean_file: str = Field(
+        default='config/d_mean.csv',
+        description="File containing mean prediction errors"
+    )
+    delta_correlation_cov_file: str = Field(
+        default='config/d_cov.csv',
+        description="File containing prediction-error covariances"
+    )
 
     # Strategy
     strategy: str = Field(

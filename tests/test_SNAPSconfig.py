@@ -26,6 +26,11 @@ iterate_until_consistent: false
 use_ss_class_info: true
 delta_correlation: false
 pred_correction: true
+pred_correction_file: custom/linear_model.csv
+delta_correlation_mean_corrected_file: custom/dd_mean.csv
+delta_correlation_cov_corrected_file: custom/dd_cov.csv
+delta_correlation_mean_file: custom/d_mean.csv
+delta_correlation_cov_file: custom/d_cov.csv
 
 # Strategy
 strategy: bayesian
@@ -71,6 +76,11 @@ def test_default():
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True
     assert config.pred_correction == False
+    assert config.pred_correction_file == 'config/lin_model_shiftx2.csv'
+    assert config.delta_correlation_mean_corrected_file == 'config/dd_mean.csv'
+    assert config.delta_correlation_cov_corrected_file == 'config/dd_cov.csv'
+    assert config.delta_correlation_mean_file == 'config/d_mean.csv'
+    assert config.delta_correlation_cov_file == 'config/d_cov.csv'
     assert config.strategy == 'direct'
 
 def test_complete(complete_config):
@@ -83,6 +93,11 @@ def test_complete(complete_config):
     assert config.use_ss_class_info == True
     assert config.delta_correlation == False
     assert config.pred_correction == True
+    assert config.pred_correction_file == 'custom/linear_model.csv'
+    assert config.delta_correlation_mean_corrected_file == 'custom/dd_mean.csv'
+    assert config.delta_correlation_cov_corrected_file == 'custom/dd_cov.csv'
+    assert config.delta_correlation_mean_file == 'custom/d_mean.csv'
+    assert config.delta_correlation_cov_file == 'custom/d_cov.csv'
     assert config.strategy == 'bayesian'
 
 def test_partial(partial_config):
@@ -121,6 +136,11 @@ def complete_cli_overrides():
         'use_ss_class_info': True,
         'delta_correlation': False,
         'pred_correction': True,
+        'pred_correction_file': 'cli/linear_model.csv',
+        'delta_correlation_mean_corrected_file': 'cli/dd_mean.csv',
+        'delta_correlation_cov_corrected_file': 'cli/dd_cov.csv',
+        'delta_correlation_mean_file': 'cli/d_mean.csv',
+        'delta_correlation_cov_file': 'cli/d_cov.csv',
         'strategy': 'bayesian'
     }
 
@@ -168,6 +188,11 @@ def test_cli_complete(complete_cli_overrides):
     assert config.use_ss_class_info == True
     assert config.delta_correlation == False
     assert config.pred_correction == True
+    assert config.pred_correction_file == 'cli/linear_model.csv'
+    assert config.delta_correlation_mean_corrected_file == 'cli/dd_mean.csv'
+    assert config.delta_correlation_cov_corrected_file == 'cli/dd_cov.csv'
+    assert config.delta_correlation_mean_file == 'cli/d_mean.csv'
+    assert config.delta_correlation_cov_file == 'cli/d_cov.csv'
     assert config.strategy == 'bayesian'
 
 
@@ -198,7 +223,12 @@ def test_cli_overrides_file(complete_config):
         'seq_link_threshold': 0.80,
         'strategy': 'iterative',
         'iterate_until_consistent': True,
-        'pred_correction': False
+        'pred_correction': False,
+        'pred_correction_file': 'override/linear_model.csv',
+        'delta_correlation_mean_corrected_file': 'override/dd_mean.csv',
+        'delta_correlation_cov_corrected_file': 'override/dd_cov.csv',
+        'delta_correlation_mean_file': 'override/d_mean.csv',
+        'delta_correlation_cov_file': 'override/d_cov.csv'
     }
 
     config = build_config(
@@ -211,6 +241,11 @@ def test_cli_overrides_file(complete_config):
     assert config.strategy == 'iterative'
     assert config.iterate_until_consistent == True
     assert config.pred_correction == False
+    assert config.pred_correction_file == 'override/linear_model.csv'
+    assert config.delta_correlation_mean_corrected_file == 'override/dd_mean.csv'
+    assert config.delta_correlation_cov_corrected_file == 'override/dd_cov.csv'
+    assert config.delta_correlation_mean_file == 'override/d_mean.csv'
+    assert config.delta_correlation_cov_file == 'override/d_cov.csv'
 
     # Values retained from YAML
     assert config.atom_set == sorted(['H', 'N', 'CA', 'CB'])
