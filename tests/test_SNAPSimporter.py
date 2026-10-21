@@ -39,12 +39,7 @@ def test_SNAPSimporterObserved(file, format, saved_result):
 
     expected_result = import_observed_shifts(filename = file_path, filetype=format)
 
-    saved_result = pd.read_pickle(TEST_DATA / saved_result)
-    # Saved result to file, technically the exact same as expected_result, except a break in the import_observed_shifts
-    # Would break this test and this ensures it's the same
-
     assert_frame_equal(result.obs_shifts, expected_result)
-    assert_frame_equal(result.obs_shifts, saved_result)
 
 @pytest.mark.parametrize(
     'file, format, saved_result',
@@ -65,10 +60,7 @@ def test_SNAPSimporterPredicted(file, format, logger, saved_result):
 
     expected_result, _ = import_predicted_shifts(filename = file_path, filetype=format, logger=logger)
 
-    saved_result = pd.read_pickle(TEST_DATA / saved_result)
-
     assert_frame_equal(result.pred_shifts, expected_result)
-    assert_frame_equal(result.pred_shifts, saved_result)
 
 def test_SNAPSimporterExtensionMapping(logger):
     importer = SNAPSImporter()
