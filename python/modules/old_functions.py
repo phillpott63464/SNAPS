@@ -132,7 +132,7 @@ def simulate_pred_shifts(self, filename, sd, seed=None):
     atom_set = {"H", "N", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1", "HA"}
     preds = preds[["Res_name", "Res_N", "Res_type", "Res_name_m1",
                    "Res_name_p1", "Res_type_m1"] +
-                  list(atom_set.intersection(preds.columns))]
+                  sorted(atom_set.intersection(preds.columns))]
 
     self.preds = preds
     return (self.preds)

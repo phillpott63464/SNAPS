@@ -121,7 +121,7 @@ class SNAPSImporter:
         if len(missing_residue_numbers) > 0:
             tmp = pd.DataFrame(
                 {
-                    'Res_N': list(missing_residue_numbers),
+                    'Res_N': sorted(missing_residue_numbers),
                     'Res_type': 'X',
                     'Res_name': np.NaN,
                 }
@@ -183,7 +183,7 @@ class SNAPSImporter:
 
         # Make columns for the i-1 predicted shifts of C, CA and CB
         preds_m1 = preds[
-            list(
+            sorted(
                 {'C', 'CA', 'CB', 'Res_type', 'Res_name'}.intersection(
                     preds.columns
                 )
@@ -218,7 +218,7 @@ class SNAPSImporter:
                 'Res_name_p1',
                 'Res_type_m1',
             ]
-            + list(atom_set.intersection(preds.columns))
+            + sorted(atom_set.intersection(preds.columns))
             ]
 
         return preds

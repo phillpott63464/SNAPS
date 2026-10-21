@@ -48,11 +48,11 @@ class AssignmentStrategy(ABC):
 
         # Get all non-atom columns
         all_atoms = {"H","N","C","CA","CB","C_m1","CA_m1","CB_m1","HA"}
-        obs_metadata = list(set(obs.columns).difference(all_atoms))
-        preds_metadata = list(set(preds.columns).
+        obs_metadata = sorted(set(obs.columns).difference(all_atoms))
+        preds_metadata = sorted(set(preds.columns).
                               difference(all_atoms))
         # Get atoms that are in atom_set *and* present in both obs and preds
-        shared_atoms = list(atom_set.intersection(obs.columns).
+        shared_atoms = sorted(atom_set.intersection(obs.columns).
                             intersection(preds.columns))
         obs = obs.loc[:,obs_metadata+shared_atoms]
         preds = preds.loc[:,preds_metadata+shared_atoms]
@@ -125,7 +125,7 @@ class AssignmentStrategy(ABC):
             """
         obs = obs.copy()
         preds = preds.copy()
-        atoms = list(atom_set.intersection(obs.columns))
+        atoms = sorted(atom_set.intersection(obs.columns))
 
         if pred_correction:
             # Import parameters for correcting the shifts
@@ -538,7 +538,7 @@ class DirectStragety(AssignmentStrategy):
         obs = obs.copy()
         preds = preds.copy()
         obs.index.name = 'name'  # Needed to avoid error when merging dataframes.
-        valid_atoms = list(atom_set)
+        valid_atoms = sorted(atom_set)
         extra_cols = set(matching.columns).difference({'SS_name', 'Res_name'})
 
         if not {'SS_name', 'Res_name'}.issubset(matching.columns):
@@ -555,7 +555,7 @@ class DirectStragety(AssignmentStrategy):
         )
         assign_df = assign_df[
             ['Res_name', 'Res_N', 'Res_type', 'SS_name', 'Dummy_res']
-            + list(extra_cols)
+            + sorted(extra_cols)
             ]
         assign_df = pd.merge(
             assign_df,

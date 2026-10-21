@@ -111,7 +111,7 @@ def import_predicted_shifts(
         if len(missing_residue_numbers) > 0:
             tmp = pd.DataFrame(
                 {
-                    'Res_N': list(missing_residue_numbers),
+                    'Res_N': sorted(missing_residue_numbers),
                     'Res_type': 'X',
                     'Res_name': np.NaN,
                 }
@@ -190,7 +190,7 @@ def import_predicted_shifts(
 
     # Make columns for the i-1 predicted shifts of C, CA and CB
     preds_m1 = preds[
-        list(
+        sorted(
             {'C', 'CA', 'CB', 'Res_type', 'Res_name'}.intersection(
                 preds.columns
             )
@@ -225,7 +225,7 @@ def import_predicted_shifts(
             'Res_name_p1',
             'Res_type_m1',
         ]
-        + list(atom_set.intersection(preds.columns))
+        + sorted(atom_set.intersection(preds.columns))
     ]
 
     logger.info(
@@ -274,10 +274,10 @@ def prepare_obs_preds(
 
     # Get all non-atom columns
     all_atoms = {'H', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1', 'HA'}
-    obs_metadata = list(set(obs.columns).difference(all_atoms))
-    preds_metadata = list(set(preds.columns).difference(all_atoms))
+    obs_metadata = sorted(set(obs.columns).difference(all_atoms))
+    preds_metadata = sorted(set(preds.columns).difference(all_atoms))
     # Get atoms that are in atom_set *and* present in both obs and preds
-    shared_atoms = list(
+    shared_atoms = sorted(
         atom_set.intersection(obs.columns).intersection(preds.columns)
     )
     obs = obs.loc[:, obs_metadata + shared_atoms]
@@ -358,7 +358,7 @@ def calc_log_prob_matrix(
     obs = obs.copy()
     preds = preds.copy()
 
-    atoms = list(atom_set.intersection(obs.columns))
+    atoms = sorted(atom_set.intersection(obs.columns))
 
     if pred_correction:
         # Import parameters for correcting the shifts
@@ -698,8 +698,8 @@ def make_assign_df(
     obs = obs.copy()
     preds = preds.copy()
     obs.index.name = 'name'   # Needed to avoid error when merging dataframes.
-    valid_atoms = list(atom_set)
-    extra_cols = set(matching.columns).difference({'SS_name', 'Res_name'})
+    valid_atoms = sorted(atom_set)
+    extra_cols = sorted(set(matching.columns).difference({'SS_name', 'Res_name'}))
 
     if not {'SS_name', 'Res_name'}.issubset(matching.columns):
         logger.warning(
@@ -715,7 +715,7 @@ def make_assign_df(
     )
     assign_df = assign_df[
         ['Res_name', 'Res_N', 'Res_type', 'SS_name', 'Dummy_res']
-        + list(extra_cols)
+        + sorted(extra_cols)
     ]
     assign_df = pd.merge(
         assign_df,
@@ -777,3 +777,5 @@ def df_lookup(df, row_labels, col_labels, index='rows'):
             ],
             index=row_labels,
         )
+
+

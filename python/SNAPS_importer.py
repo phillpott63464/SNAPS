@@ -542,8 +542,8 @@ class SNAPS_importer:
             bad_column_names = found_column_names - expected_column_names
             if 'Offset' in bad_column_names:
                 bad_column_names.remove('Offset')
-            bad_column_names = ', '.join(bad_column_names)
-            expected_column_names = ', '.join(expected_column_names)
+            bad_column_names = ', '.join(sorted(bad_column_names))
+            expected_column_names = ', '.join(sorted(expected_column_names))
             msg = f"""\
                    Unexpected column name(s) [{bad_column_names}]
                    in file {filename}
@@ -599,7 +599,7 @@ class SNAPS_importer:
         obs = pd.concat([tmp, obs], axis=1)
         
         # Make columns for the i-1 observed shifts of C, CA and CB
-        obs_m1 = obs[list({"C", "CA", "CB", "Res_type"}.intersection(obs.columns))]
+        obs_m1 = obs[sorted({"C", "CA", "CB", "Res_type"}.intersection(obs.columns))]
         obs_m1.index = obs_m1.index+1
         obs_m1.columns = obs_m1.columns + "_m1"
         obs = pd.merge(obs, obs_m1, how="left", left_index=True, 
@@ -608,7 +608,7 @@ class SNAPS_importer:
         # Restrict to specific atom types
         atom_set = {"H", "N", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1", "HA"}
         obs = obs[["Res_N", "Res_type", "Res_type_m1", "SS_name"]+
-                  list(atom_set.intersection(obs.columns))]
+                  sorted(atom_set.intersection(obs.columns))]
         
         # Add SS_class information
         if SS_class is not None:
@@ -638,7 +638,7 @@ class SNAPS_importer:
         """
         
         df = self.obs.melt(id_vars="SS_name", 
-                      value_vars=set(self.obs.columns).intersection({"H", "N",
+                      value_vars=sorted(self.obs.columns).intersection({"H", "N",
                                     "HA", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1"}),
                       var_name="Atom_type", value_name="Shift")
         df = df.sort_values(by=["SS_name", "Atom_type"])

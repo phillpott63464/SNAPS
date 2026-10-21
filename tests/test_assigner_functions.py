@@ -95,6 +95,9 @@ def test_prepare_obs_preds(logger):
         imported.obs_shifts, imported.pred_shifts, logger
     )
 
+    # result_obs.to_pickle(TEST_DATA / 'prepare_obs.pickle')
+    # result_preds.to_pickle(TEST_DATA / 'prepare_preds.pickle')
+
     expected_obs = pd.read_pickle(TEST_DATA / 'prepare_obs.pickle')
     expected_preds = pd.read_pickle(TEST_DATA / 'prepare_preds.pickle')
 
@@ -197,6 +200,8 @@ def test_make_assign_df(logger):
         matching=matching,
         logger=logger,
     )
+
+    # assign_df.to_pickle(TEST_DATA / 'assign_df.pickle')
 
     expected = pd.read_pickle(TEST_DATA / 'assign_df.pickle')
 

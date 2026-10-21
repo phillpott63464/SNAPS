@@ -204,8 +204,6 @@ class SNAPS_assigner:
         delta_correlation_mean_corrected_file = self.pars["delta_correlation_mean_corrected_file"]
         delta_correlation_cov_corrected_file = self.pars["delta_correlation_cov_corrected_file"]
 
-        print(delta_correlation_mean_file)
-
         self.log_prob_matrix = calc_log_prob_matrix(
             obs=obs,
             preds=preds,
@@ -328,6 +326,13 @@ class SNAPS_assigner:
         This function essentially wraps around find_best_assignment() and
         make_assign_df()
         """
+
+       # self.log_prob_matrix.to_csv('output/log_prob_matrix.csv'  ,  index=True,
+    # header=True,
+    # float_format="%.17g",
+    # lineterminator="\n",
+    # encoding="utf-8",)
+
         matching = self.find_best_assignment(self.log_prob_matrix, maximise=True)
         assign_df = self.make_assign_df(matching, set_assign_df)
 
@@ -548,12 +553,12 @@ class SNAPS_assigner:
         """
 
         # Limit confidence levels and discard unneeded columns and rows
-        atoms = {"H","N","HA","C","CA","CB"}.intersection(self.assign_df.columns)
+        atoms = sorted({"H","N","HA","C","CA","CB"}.intersection(self.assign_df.columns))
         df_wide = self.assign_df.loc[self.assign_df["Confidence"].isin(confidence_list),:]
         self.logger.info("Chemical shift export: restricted confidence levels to %s"
                          % ", ".join(confidence_list))
         df_wide.loc[~(df_wide["Dummy_res"] | df_wide["Dummy_SS"]),
-                    ["Res_N","Res_type"]+list(atoms)]
+                    ["Res_N","Res_type"]+atoms]
         #TODO: This discards all i-1 information, even though that may be useful
         # in some cases (eg for getting proline shifts). Is it possible to make
         # better use of this?
