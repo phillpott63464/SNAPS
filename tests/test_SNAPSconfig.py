@@ -61,7 +61,7 @@ seq_link_threshold: 47
 def test_default():
     config = build_config()
 
-    assert config.atom_set == sorted(['H', 'N', 'HA', 'CA', 'CB', 'C'])
+    assert config.atom_set == sorted({'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'})
     assert config.atom_sd == {
         'H': 0.1726, 'N': 1.1169, 'HA': 0.1231,
         'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
@@ -88,7 +88,7 @@ def test_complete(complete_config):
 def test_partial(partial_config):
     config = build_config(config_file=partial_config)
 
-    assert config.atom_set == sorted(['H', 'N', 'HA', 'CA', 'CB', 'C'])
+    assert config.atom_set == sorted({'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'})
     assert config.atom_sd == {
         'H': 0.1726, 'N': 1.1169, 'HA': 0.1231,
         'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
@@ -142,7 +142,7 @@ def out_of_range_cli_overrides():
 def test_cli_default():
     config = build_config(cli_overrides={})
 
-    assert config.atom_set == sorted(['H', 'N', 'HA', 'CA', 'CB', 'C'])
+    assert config.atom_set == sorted({'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'})
     assert config.atom_sd == {
         'H': 0.1726, 'N': 1.1169, 'HA': 0.1231,
         'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
@@ -174,7 +174,7 @@ def test_cli_complete(complete_cli_overrides):
 def test_cli_partial(partial_cli_overrides):
     config = build_config(cli_overrides=partial_cli_overrides)
 
-    assert config.atom_set == sorted(['H', 'N', 'HA', 'CA', 'CB', 'C'])
+    assert config.atom_set == sorted({'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'})
     assert config.atom_sd == {
         'H': 0.1726, 'N': 1.1169, 'HA': 0.1231,
         'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256

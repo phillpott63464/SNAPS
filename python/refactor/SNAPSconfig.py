@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Set
 from pydantic import BaseModel, Field
 import yaml
 
@@ -8,8 +8,8 @@ class SNAPSConfig(BaseModel):
     """Configuration model with validation"""
 
     # Atom settings
-    atom_set: List[str] = Field(
-        default=['H', 'N', 'HA', 'CA', 'CB', 'C'],
+    atom_set: Set[str] = Field(
+        default={'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'},
         description="Atom types to use in assignment"
     )
     atom_sd: Dict[str, float] = Field(
