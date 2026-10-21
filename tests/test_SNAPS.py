@@ -11,9 +11,6 @@ import numpy as np
 
 TEST_DATA = Path(__file__).parent / 'test_data'
 
-#### ALWAYS RUN TESTS USING PYTHONHASHSEED=0 uv run pytest
-#### Assignment results depend on hash randomisation. Haven't looked into a fix yet. All test data was generated with hashseed=0
-
 
 @pytest.mark.parametrize(
     'measured_shifts, expected_shifts, config_file, shift_type, expected_file, prediction_type',
