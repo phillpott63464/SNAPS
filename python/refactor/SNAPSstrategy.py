@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 from refactor.dataclasses import ShiftData, AssignmentResult
+from refactor.SNAPSconfig import SNAPSConfig, build_config
 import pandas as pd
 import numpy as np
-from typing import Dict, Type, List
+from typing import Dict, Type, List, Optional
 from scipy.stats import norm, multivariate_normal
 from math import log10
 from modules.assigner_functions import df_lookup
@@ -15,9 +16,16 @@ class AssignmentStrategy(ABC):
     """Base class for assignment strategies"""
 
     name: str = ""  # Subclasses must set this
+    config: SNAPSConfig = SNAPSConfig()
 
-    def __init__(self, config: dict):
-        self.config = config
+    def __init__(self, config: Optional[SNAPSConfig]):
+        if config == None:
+            self.config == build_config
+        else:
+            self.config = config
+
+        # May want to change this to verbally complain about not having a config set
+        # Instead of just silently falling back to defaults
 
     @abstractmethod
     def assign(self, data: ShiftData) -> AssignmentResult:
