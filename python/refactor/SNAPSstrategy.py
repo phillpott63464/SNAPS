@@ -18,9 +18,11 @@ class AssignmentStrategy(ABC):
     name: str = ""  # Subclasses must set this
     config: SNAPSConfig = SNAPSConfig()
 
-    def __init__(self, config: Optional[SNAPSConfig]):
-        if config == None:
-            self.config == build_config
+    def __init__(self, config: Optional[SNAPSConfig] = None):
+        if config is None:
+            self.config = build_config()
+        elif isinstance(config, dict):
+            self.config = SNAPSConfig(**config)
         else:
             self.config = config
 
@@ -33,7 +35,7 @@ class AssignmentStrategy(ABC):
         pass
 
     # Seems to be shared between two strategies at least, so might as well put in assignment strategy instead of remaking
-    def preprocess_obs_preds(self, obs: pd.DataFrame, preds: pd.DataFrame, atom_set = {"H", "N", "HA", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1"}):
+    def preprocess_obs_preds(self, obs: pd.DataFrame, preds: pd.DataFrame):
         """Perform preprocessing on the observed and predicted shifts to prepare
         them for calculation of the log probability matrix.
 
@@ -60,8 +62,7 @@ class AssignmentStrategy(ABC):
         preds_metadata = sorted(set(preds.columns).
                               difference(all_atoms))
         # Get atoms that are in atom_set *and* present in both obs and preds
-        shared_atoms = sorted(atom_set.intersection(obs.columns).
-                            intersection(preds.columns))
+        shared_atoms = sorted(list(self.config.atom_set.intersection(obs.columns).intersection(preds.columns))) # It has to be a set before this point but has to be a list past this point, oddly
         obs = obs.loc[:,obs_metadata+shared_atoms]
         preds = preds.loc[:,preds_metadata+shared_atoms]
 
@@ -99,18 +100,14 @@ class AssignmentStrategy(ABC):
         self,
         obs: pd.DataFrame,
         preds: pd.DataFrame,
-        pred_correction: bool = False,
-        delta_correlation: bool = False,
         pred_correction_file=None,
         delta_correlation_mean_corrected_file=None,
         delta_correlation_cov_corrected_file=None,
         delta_correlation_mean_file=None,
         delta_correlation_cov_file=None,
-        atom_sd=None,
         sf=1,
         default_prob=0.01,
         logger=None,
-        atom_set={'H', 'N', 'HA', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1'}
     ) -> pd.DataFrame:
         """Calculate a matrix of -log10(match probabilities).
 
@@ -133,20 +130,20 @@ class AssignmentStrategy(ABC):
             """
         obs = obs.copy()
         preds = preds.copy()
-        atoms = sorted(atom_set.intersection(obs.columns))
+        atoms = sorted(self.config.atom_set.intersection(obs.columns))
 
-        if pred_correction:
+        if self.config.pred_correction:
             # Import parameters for correcting the shifts
             lm_pars = pd.read_csv(pred_correction_file, index_col=0)
             logger.info(
                 'Imported pred_correction info from %s' % pred_correction_file
             )
 
-        if delta_correlation:
+        if self.config.delta_correlation:
             # Import parameters describing the delta correlations
             # Note: this also sorts the atom types in d_mean and c_cov into the
             # same order as the 'atoms' list defined above.
-            if pred_correction:
+            if self.config.pred_correction:
                 d_mean = pd.read_csv(
                     delta_correlation_mean_corrected_file,
                     header=None,
@@ -211,7 +208,7 @@ class AssignmentStrategy(ABC):
 
             # If correcting the predictions, subtract a linear function of the
             # observed shift from each predicted shift
-            if pred_correction:
+            if self.config.pred_correction:
                 logger.info('Calculating corrections to predicted shifts')
                 preds_corr_atom = preds_atom
                 for res in preds['Res_type'].dropna().unique():
@@ -245,7 +242,7 @@ class AssignmentStrategy(ABC):
             else:
                 delta_atom = preds_atom - obs_atom
 
-            if delta_correlation:
+            if self.config.delta_correlation:
                 # Store delta matrix for this atom type for later analysis
                 delta_list = delta_list + [delta_atom.values]
             else:
@@ -256,7 +253,7 @@ class AssignmentStrategy(ABC):
 
                 # Calculate the log probability density
                 prob_atom = pd.DataFrame(
-                    norm.logpdf(delta_atom, scale=atom_sd[atom]),
+                    norm.logpdf(delta_atom, scale=self.config.atom_sd[atom]),
                     index=obs.index,
                     columns=preds.index,
                 )
@@ -267,7 +264,7 @@ class AssignmentStrategy(ABC):
                 # Add to the log prob matrix
                 log_prob_matrix = log_prob_matrix + prob_atom
 
-        if delta_correlation:
+        if self.config.delta_correlation:
             logger.info('Accounting for correlated prediction errors')
 
             # Combine the delta matrixes from each atom type into a single 3D matrix
@@ -535,7 +532,6 @@ class DirectStragety(AssignmentStrategy):
             preds: pd.DataFrame,
             log_prob_matrix: pd.DataFrame,
             matching: pd.DataFrame,
-            atom_set={"H", "N", "HA", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1"},
             logger=None,
     ):
         """Make a dataframe with full assignment information, given a dataframe
@@ -546,7 +542,7 @@ class DirectStragety(AssignmentStrategy):
         obs = obs.copy()
         preds = preds.copy()
         obs.index.name = 'name'  # Needed to avoid error when merging dataframes.
-        valid_atoms = sorted(atom_set)
+        valid_atoms = sorted(self.config.atom_set)
         extra_cols = set(matching.columns).difference({'SS_name', 'Res_name'})
 
         if not {'SS_name', 'Res_name'}.issubset(matching.columns):
