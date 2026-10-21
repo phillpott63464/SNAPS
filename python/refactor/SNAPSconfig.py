@@ -39,6 +39,10 @@ class SNAPSConfig(BaseModel):
         default=True,
         description="Account for correlations in prediction errors"
     )
+    pred_correction: bool = Field(
+        default=False,
+        description="Use prediction correction"
+    )
 
     # Strategy
     strategy: str = Field(

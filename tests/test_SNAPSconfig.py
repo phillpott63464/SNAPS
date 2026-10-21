@@ -25,6 +25,7 @@ seq_link_threshold: 0.60
 iterate_until_consistent: false
 use_ss_class_info: true
 delta_correlation: false
+pred_correction: true
 
 # Strategy
 strategy: bayesian
@@ -69,6 +70,7 @@ def test_default():
     assert config.iterate_until_consistent == True
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True
+    assert config.pred_correction == False
     assert config.strategy == 'direct'
 
 def test_complete(complete_config):
@@ -80,6 +82,7 @@ def test_complete(complete_config):
     assert config.iterate_until_consistent == False
     assert config.use_ss_class_info == True
     assert config.delta_correlation == False
+    assert config.pred_correction == True
     assert config.strategy == 'bayesian'
 
 def test_partial(partial_config):
@@ -94,6 +97,7 @@ def test_partial(partial_config):
     assert config.iterate_until_consistent == True
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True
+    assert config.pred_correction == False
     assert config.strategy == 'direct'
 
 def test_out_of_range(out_of_range_config):
@@ -116,6 +120,7 @@ def complete_cli_overrides():
         'iterate_until_consistent': False,
         'use_ss_class_info': True,
         'delta_correlation': False,
+        'pred_correction': True,
         'strategy': 'bayesian'
     }
 
@@ -146,6 +151,7 @@ def test_cli_default():
     assert config.iterate_until_consistent == True
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True
+    assert config.pred_correction == False
     assert config.strategy == 'direct'
 
 
@@ -161,6 +167,7 @@ def test_cli_complete(complete_cli_overrides):
     assert config.iterate_until_consistent == False
     assert config.use_ss_class_info == True
     assert config.delta_correlation == False
+    assert config.pred_correction == True
     assert config.strategy == 'bayesian'
 
 
@@ -176,6 +183,7 @@ def test_cli_partial(partial_cli_overrides):
     assert config.iterate_until_consistent == True
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True
+    assert config.pred_correction == False
     assert config.strategy == 'direct'
 
 
@@ -189,7 +197,8 @@ def test_cli_overrides_file(complete_config):
     overrides = {
         'seq_link_threshold': 0.80,
         'strategy': 'iterative',
-        'iterate_until_consistent': True
+        'iterate_until_consistent': True,
+        'pred_correction': False
     }
 
     config = build_config(
@@ -201,6 +210,7 @@ def test_cli_overrides_file(complete_config):
     assert config.seq_link_threshold == 0.80
     assert config.strategy == 'iterative'
     assert config.iterate_until_consistent == True
+    assert config.pred_correction == False
 
     # Values retained from YAML
     assert config.atom_set == sorted(['H', 'N', 'CA', 'CB'])
@@ -217,6 +227,7 @@ def test_cli_none_overrides():
     overrides = {
         'seq_link_threshold': None,
         'strategy': None,
+        'pred_correction': None,
         'use_ss_class_info': True
     }
 
@@ -224,4 +235,5 @@ def test_cli_none_overrides():
 
     assert config.seq_link_threshold == 0.45
     assert config.strategy == 'direct'
+    assert config.pred_correction == False
     assert config.use_ss_class_info == True
