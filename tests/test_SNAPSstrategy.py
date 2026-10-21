@@ -68,19 +68,17 @@ def test_SNAPstrategy_log_prob_matrix(pred_file, obs_file, logger):
     log_prob_matrix = strategy.calc_log_prob_matrix(
         obs,
         preds,
-        pred_correction=False,
-        delta_correlation=True,
-        delta_correlation_mean_corrected_file='config/dd_mean.csv',
-        delta_correlation_cov_corrected_file='config/dd_cov.csv',
-        delta_correlation_mean_file='config/d_mean.csv',
-        delta_correlation_cov_file='config/d_cov.csv',
+        pred_correction_file=strategy.config.pred_correction_file,
+        delta_correlation_mean_corrected_file=strategy.config.delta_correlation_mean_corrected_file,
+        delta_correlation_cov_corrected_file=strategy.config.delta_correlation_cov_corrected_file,
+        delta_correlation_mean_file=strategy.config.delta_correlation_mean_file,
+        delta_correlation_cov_file=strategy.config.delta_correlation_cov_file,
         logger=logger,
     )
 
     expected_log_prob_matrix = calc_log_prob_matrix(
         obs=obs,
         preds=preds,
-        pred_correction=False,
         delta_correlation=True,
         delta_correlation_mean_corrected_file='config/dd_mean.csv',
         delta_correlation_cov_corrected_file='config/dd_cov.csv',
@@ -114,12 +112,11 @@ def test_SNAPstrategy_find_best_assignment(pred_file, obs_file, logger):
     log_prob_matrix = strategy.calc_log_prob_matrix(
         obs,
         preds,
-        pred_correction=False,
-        delta_correlation=True,
-        delta_correlation_mean_corrected_file='config/dd_mean.csv',
-        delta_correlation_cov_corrected_file='config/dd_cov.csv',
-        delta_correlation_mean_file='config/d_mean.csv',
-        delta_correlation_cov_file='config/d_cov.csv',
+        pred_correction_file=strategy.config.pred_correction_file,
+        delta_correlation_mean_corrected_file=strategy.config.delta_correlation_mean_corrected_file,
+        delta_correlation_cov_corrected_file=strategy.config.delta_correlation_cov_corrected_file,
+        delta_correlation_mean_file=strategy.config.delta_correlation_mean_file,
+        delta_correlation_cov_file=strategy.config.delta_correlation_cov_file,
         logger=logger,
     )
 
@@ -160,12 +157,11 @@ def test_SNAPstrategy_make_assign_df(pred_file, obs_file, logger):
     log_prob_matrix = strategy.calc_log_prob_matrix(
         obs,
         preds,
-        pred_correction=False,
-        delta_correlation=True,
-        delta_correlation_mean_corrected_file='config/dd_mean.csv',
-        delta_correlation_cov_corrected_file='config/dd_cov.csv',
-        delta_correlation_mean_file='config/d_mean.csv',
-        delta_correlation_cov_file='config/d_cov.csv',
+        pred_correction_file=strategy.config.pred_correction_file,
+        delta_correlation_mean_corrected_file=strategy.config.delta_correlation_mean_corrected_file,
+        delta_correlation_cov_corrected_file=strategy.config.delta_correlation_cov_corrected_file,
+        delta_correlation_mean_file=strategy.config.delta_correlation_mean_file,
+        delta_correlation_cov_file=strategy.config.delta_correlation_cov_file,
         logger=logger,
     )
 
@@ -210,7 +206,6 @@ def test_SNAPstragety_direct(pred_file, obs_file, pred_format, obs_format, logge
     log_prob_matrix = calc_log_prob_matrix(
         obs=obs,
         preds=preds,
-        pred_correction=False,
         delta_correlation=True,
         delta_correlation_mean_corrected_file='config/dd_mean.csv',
         delta_correlation_cov_corrected_file='config/dd_cov.csv',

@@ -371,12 +371,11 @@ class DirectStragety(AssignmentStrategy):
         obs, preds = self.preprocess_obs_preds(data.obs_shifts, data.pred_shifts)
         logger = logging.getLogger('direct')
         log_prob = self.calc_log_prob_matrix(obs, preds,
-                                             pred_correction=False,
-                                             delta_correlation=True,
-                                             delta_correlation_mean_corrected_file='config/dd_mean.csv',
-                                             delta_correlation_cov_corrected_file='config/dd_cov.csv',
-                                             delta_correlation_mean_file='config/d_mean.csv',
-                                             delta_correlation_cov_file='config/d_cov.csv',
+                                             pred_correction_file=self.config.pred_correction_file,
+                                             delta_correlation_mean_corrected_file=self.config.delta_correlation_mean_corrected_file,
+                                             delta_correlation_cov_corrected_file=self.config.delta_correlation_cov_corrected_file,
+                                             delta_correlation_mean_file=self.config.delta_correlation_mean_file,
+                                             delta_correlation_cov_file=self.config.delta_correlation_cov_file,
                                              logger=logger,
                                              )
 
