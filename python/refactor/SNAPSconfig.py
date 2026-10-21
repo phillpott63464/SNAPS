@@ -112,6 +112,6 @@ def build_config(
         config = config.merge(cli_overrides)
 
     # Double triple check that everything is deterministic
-    config.atom_set = sorted(config.atom_set)
+    config.atom_set = config.atom_set
 
     return config
