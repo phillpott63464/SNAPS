@@ -2,11 +2,14 @@ from refactor.SNAPSstrategy import create_strategy
 from refactor.SNAPSimporter import SNAPSImporter
 from modules.assigner_functions import prepare_obs_preds, calc_log_prob_matrix, find_best_assignment, make_assign_df, import_predicted_shifts
 from modules.importer_functions import import_observed_shifts
+from refactor.SNAPSconfig import build_config
 import pytest
+import numpy as np
 import pandas as pd
 from pathlib import Path
 from pandas.testing import assert_frame_equal
 import logging
+from scipy.stats import norm
 
 TEST_DATA = Path(__file__).parent / 'test_data'
 
@@ -14,6 +17,98 @@ TEST_DATA = Path(__file__).parent / 'test_data'
 @pytest.fixture
 def logger():
     return logging.getLogger('test_SNAPSimporter')
+
+
+@pytest.fixture
+def unit_strategy():
+    config = build_config(
+        cli_overrides={
+            'atom_set': {'H', 'N'},
+            'atom_sd': {'H': 0.5, 'N': 1.0},
+            'delta_correlation': False,
+        }
+    )
+    return create_strategy('direct', config)
+
+
+def test_strategy_factory_uses_built_config(unit_strategy):
+    assert unit_strategy.name == 'direct'
+    assert unit_strategy.config.atom_set == {'H', 'N'}
+    assert unit_strategy.config.atom_sd == {'H': 0.5, 'N': 1.0}
+    assert unit_strategy.config.delta_correlation is False
+
+
+def test_calc_log_prob_matrix_calculates_independent_atom_probabilities(
+        unit_strategy, logger
+):
+    obs = pd.DataFrame(
+        {'H': [1.0], 'N': [10.0], 'Dummy_SS': [False]},
+        index=pd.Index(['SS1'], name='SS_name'),
+    )
+    preds = pd.DataFrame(
+        {'H': [1.5], 'N': [10.0], 'Dummy_res': [False]},
+        index=pd.Index(['R1'], name='Res_name'),
+    )
+
+    result = unit_strategy.calc_log_prob_matrix(obs, preds, logger=logger)
+    expected = norm.logpdf(0.5, scale=0.5) + norm.logpdf(0.0, scale=1.0)
+
+    assert result.index.name == 'SS_name'
+    assert result.columns.name == 'Res_name'
+    assert result.loc['SS1', 'R1'] == pytest.approx(expected)
+
+
+def test_calc_log_prob_matrix_penalises_missing_shifts(unit_strategy, logger):
+    obs = pd.DataFrame(
+        {'H': [np.nan], 'N': [10.0], 'Dummy_SS': [False]},
+        index=pd.Index(['SS1'], name='SS_name'),
+    )
+    preds = pd.DataFrame(
+        {'H': [1.0], 'N': [10.0], 'Dummy_res': [False]},
+        index=pd.Index(['R1'], name='Res_name'),
+    )
+
+    result = unit_strategy.calc_log_prob_matrix(obs, preds, logger=logger)
+    expected = np.log10(0.01) + norm.logpdf(0.0, scale=1.0)
+
+    assert result.loc['SS1', 'R1'] == pytest.approx(expected)
+
+
+def test_find_best_assignment_maximises_scores(unit_strategy, logger):
+    scores = pd.DataFrame(
+        [[10.0, 1.0], [2.0, 9.0]],
+        index=pd.Index(['SS1', 'SS2'], name='SS_name'),
+        columns=pd.Index(['R1', 'R2'], name='Res_name'),
+    )
+
+    result = unit_strategy.find_best_assignment(scores, logger=logger)
+
+    assert set(zip(result['SS_name'], result['Res_name'])) == {
+        ('SS1', 'R1'),
+        ('SS2', 'R2'),
+    }
+
+
+def test_find_best_assignment_honours_required_assignment(
+        unit_strategy, logger
+):
+    scores = pd.DataFrame(
+        [[10.0, 1.0], [2.0, 9.0]],
+        index=pd.Index(['SS1', 'SS2'], name='SS_name'),
+        columns=pd.Index(['R1', 'R2'], name='Res_name'),
+    )
+    required = pd.DataFrame({'SS_name': ['SS1'], 'Res_name': ['R2']})
+
+    result = unit_strategy.find_best_assignment(
+        scores,
+        inc=required,
+        logger=logger,
+    )
+
+    assert set(zip(result['SS_name'], result['Res_name'])) == {
+        ('SS1', 'R2'),
+        ('SS2', 'R1'),
+    }
 
 
 @pytest.mark.parametrize(
