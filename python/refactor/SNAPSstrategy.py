@@ -21,8 +21,6 @@ class AssignmentStrategy(ABC):
     def __init__(self, config: Optional[SNAPSConfig] = None):
         if config is None:
             self.config = build_config()
-        elif isinstance(config, dict):
-            self.config = SNAPSConfig(**config)
         else:
             self.config = config
 
