@@ -2,6 +2,45 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 from datetime import datetime
 import pandas as pd
+from pathlib import Path
+
+
+@dataclass
+class InputSpec:
+    """Input file specifications for the SNAPS pipeline."""
+
+    # Required input files
+    obs_file: Path
+    pred_file: Path
+
+    # Input file formats - not required as format_readers can identify file types
+    obs_format: Optional[str] = None
+    pred_format: Optional[str] = None
+
+    # Coordinate/reference frames - not required as only NEF files have frames, and we can identify the frames automatically
+    obs_frame: Optional[str] = None
+    pred_frame: Optional[str] = None
+
+    # Chain identifiers
+    obs_chain: Optional[str] = None
+    pred_chain: Optional[str] = None
+
+    # Predicted residue numbering offset
+    pred_offset: int = 0
+
+    # Amino acid type restraints (optional)
+    aa_restraints_file: Optional[str] = None
+    aa_restraints_frame: Optional[str] = None
+
+@dataclass
+class OutputSpec:
+    output_file: Path
+    output_type: str = 'SNAPS'
+
+    shift_output_file: Optional[Path] = None
+    shift_output_type: Optional[str] = None
+    shift_output_confidence: Optional[str] = None
+    obs_chain: str = 'A' # This is also in the InputSpec, there's a problem there
 
 
 @dataclass
@@ -41,9 +80,9 @@ class AssignmentResult:
 @dataclass
 class AnalysisResult:
     """Results from analysis"""
-    consistency_metrics: Dict[str, Any]
-    quality_metrics: Dict[str, Any]
-    enriched_assignments: pd.DataFrame
+    consistency_metrics: Optional[Dict[str, Any]]
+    quality_metrics: Optional[Dict[str, Any]]
+    enriched_assignments: Optional[pd.DataFrame]
 
     def summary(self) -> Dict[str, Any]:
         """Generate summary statistics"""

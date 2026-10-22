@@ -3,7 +3,7 @@ from refactor.dataclasses import ShiftData, AssignmentResult
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 import pandas as pd
 import numpy as np
-from typing import Dict, Type, List, Optional
+from typing import Dict, Type, List, Optional, Union
 from scipy.stats import norm, multivariate_normal
 from math import log10
 from modules.assigner_functions import df_lookup
@@ -16,9 +16,11 @@ class AssignmentStrategy(ABC):
     name: str = ""  # Subclasses must set this
     config: SNAPSConfig = SNAPSConfig()
 
-    def __init__(self, config: Optional[SNAPSConfig] = None):
+    def __init__(self, config: Optional[Union[SNAPSConfig, dict]] = None):
         if config is None:
             self.config = build_config()
+        elif isinstance(config, dict):
+            self.config = SNAPSConfig(**config)
         else:
             self.config = config
 
@@ -567,7 +569,11 @@ class StrategyRegistry:
         return sorted(cls._strategies.keys())
 
     @classmethod
-    def create(cls, name: str, config: dict) -> AssignmentStrategy:
+    def create(
+            cls,
+            name: str,
+            config: Optional[Union[SNAPSConfig, dict]] = None,
+    ) -> AssignmentStrategy:
         """Factory method to create a strategy instance"""
         strategy_class = cls.get(name)
         return strategy_class(config)
@@ -911,7 +917,10 @@ DirectStragety = DirectStrategy
 
 
 # Factory function (simplified - just delegates to registry)
-def create_strategy(strategy_name: str, config: dict = None) -> AssignmentStrategy:
+def create_strategy(
+        strategy_name: str,
+        config: Optional[Union[SNAPSConfig, dict]] = None,
+) -> AssignmentStrategy:
     """
     Factory function to create assignment strategies.
     Strategies are auto-registered via @StrategyRegistry.register decorator.

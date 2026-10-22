@@ -126,6 +126,19 @@ class SNAPSConfig(BaseModel):
         """Load configuration from YAML file"""
         with open(config_path) as f:
             data = yaml.safe_load(f)
+        # Resource paths explicitly written relative to the config file should
+        # remain usable when the pipeline is invoked from another directory.
+        path_fields = (
+            'pred_correction_file',
+            'delta_correlation_mean_corrected_file',
+            'delta_correlation_cov_corrected_file',
+            'delta_correlation_mean_file',
+            'delta_correlation_cov_file',
+        )
+        for field in path_fields:
+            value = data.get(field)
+            if isinstance(value, str) and value.startswith('./'):
+                data[field] = str(config_path.parent / value[2:])
         return cls(**data)
 
     def merge(self, overrides: dict) -> 'SNAPSConfig':

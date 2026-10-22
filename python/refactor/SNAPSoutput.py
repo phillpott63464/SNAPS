@@ -48,7 +48,7 @@ class FormatOutput():
     def _output(self, result: AssignmentResult, obs_chain: str = 'A'):
         ...
 
-    def output(self, result: AssignmentResult, spec: OutputSpec):
+    def output(self, result: AssignmentResult, spec: OutputSpec) -> None:
         output = self._output(result)
         with self._open_or_stdout(spec.output_file, 'w') as fp:
             print(output, file=fp)
