@@ -222,68 +222,14 @@ class SNAPS_assigner:
         return self.log_prob_matrix
 
     def calc_mismatch_matrix(self, threshold=0.2):
-        """Calculate matrix of the mismatch between i and i-1 observed carbon
-        shifts for all spin system pairs. Also, make matrix of number of
-        consistent sequential links for all spin system pairs.
+        from modules.assigner_functions import calc_mismatch_matrix
 
-        Parameters
-        threshold: The cutoff value beyond which a seq link is considered bad
-        """
-        obs = self.obs.copy()
+        result = calc_mismatch_matrix(self.obs, threshold, self.logger)
+        if result is None:
+            return None
+        self.mismatch_matrix, self.consistent_links_matrix = result
+        return result
 
-        # First check if there are any sequential atoms
-        carbons = pd.Series(["C","CA","CB"])
-        carbons_m1 = carbons + "_m1"
-        seq_atoms = carbons[carbons.isin(obs.columns) &
-                            carbons_m1.isin(obs.columns)]
-
-        if seq_atoms.size==0:
-            # You can't make a mismatch matrix
-            self.logger.warning("No sequential links in data - mismatch matrix not calculated.")
-            return(None)
-        else:
-            # Start with empty mismatch and consistent_links matrixes
-            mismatch_matrix = pd.DataFrame(0,
-                                           index=obs["SS_name"],
-                                           columns=obs["SS_name"])
-            mismatch_matrix.columns.name = "i"
-            mismatch_matrix.index.name = "i_m1"
-
-            consistent_links_matrix = mismatch_matrix.copy()
-
-            for atom in seq_atoms:
-                # Repeat the i and i-1 observed shifts into matrixes, and
-                # transpose one of them.
-                # This is the fastest way I've found to calculate this.
-                i_atom = (obs[atom].repeat(len(obs.index)).values.
-                          reshape([len(obs.index),-1]))
-                i_m1_atom = (obs[atom+"_m1"].repeat(len(obs.index)).values.
-                          reshape([len(obs.index),-1]).transpose())
-
-                mismatch_atom = pd.DataFrame(i_atom - i_m1_atom)
-
-                mismatch_atom.columns = obs["SS_name"]
-                mismatch_atom.columns.name = "i"
-                mismatch_atom.index = obs["SS_name"]
-                mismatch_atom.index.name = "i_m1"
-
-                consistent_links_atom = (abs(mismatch_atom) < threshold)
-
-                # Make a note of NA positions, and set them to default value
-                na_mask = np.isnan(mismatch_atom)
-                mismatch_atom[na_mask] = 0
-                consistent_links_atom[na_mask] = 0
-
-                # Update mismatch and consistent links matrixes
-                mismatch_matrix = mismatch_matrix.combine(abs(mismatch_atom), np.maximum)
-                consistent_links_matrix = consistent_links_matrix + consistent_links_atom
-
-            self.logger.info("Calculated mismatch and consistent_links matrixes (%dx%d)",
-                         mismatch_matrix.shape[0], mismatch_matrix.shape[1])
-
-            self.mismatch_matrix = mismatch_matrix
-            self.consistent_links_matrix = consistent_links_matrix
-            return(self.mismatch_matrix, consistent_links_matrix)
 
     def find_best_assignment(self, score_matrix, maximise=True, inc=None, exc=None,
                              dummy_rows=None, dummy_cols=None, return_none_all_dummy=False):
@@ -429,41 +375,28 @@ class SNAPS_assigner:
                     "Num_good_links_m1","Num_good_links_p1","Num_good_links","Confidence"]])
 
     def add_consistency_info(self, input_assign_df=None, threshold=0.2):
-        """ Find maximum mismatch and number of 'significant' mismatches for
-        each residue
+        from modules.assigner_functions import add_consistency_info
 
-        threshold: Minimum carbon shift difference for sequential residues to
-            count as mismatched
-        """
-
-        # If the user hasn't specified an assign_df, use one already calculated
-        # for this SNAPS_assigner instance
         if input_assign_df is None:
+            input_assign_df = self.assign_df
             set_assign_df = True
-            assign_df = self.assign_df.copy()
         else:
             set_assign_df = False
-            assign_df = input_assign_df.copy()
 
-        # First check if there are any sequential atoms
-        if self.sequential_atoms_present(assign_df.columns):
-            tmp = self.check_matching_consistency(assign_df, threshold)
-            assign_df = assign_df.merge(tmp, how="left")
-            self.logger.info("Finished checking assignment consistency")
-        else:
-            # You can't do a comparison without sequential atoms
-            assign_df["Max_mismatch_m1"] = np.NaN
-            assign_df["Max_mismatch_p1"] = np.NaN
-            assign_df["Num_good_links_m1"] = 0
-            assign_df["Num_good_links_p1"] = 0
-            assign_df["Confidence"] = "Undefined"
+        if self.mismatch_matrix is None or self.consistent_links_matrix is None:
+            self.calc_mismatch_matrix(threshold)
 
-            self.logger.warning("Couldn't calculate assignment confidence: "+
-                                "need sequential atom information")
-
+        result = add_consistency_info(
+            input_assign_df,
+            self.preds,
+            self.mismatch_matrix,
+            self.consistent_links_matrix,
+            threshold,
+            self.logger,
+        )
         if set_assign_df:
-            self.assign_df = assign_df
-        return(assign_df)
+            self.assign_df = result
+        return result
 
     def find_consistent_assignments(self, threshold=0.2, set_assign_df=False):
         """Try to find a consistent set of assignments by optimising both match

@@ -15,12 +15,16 @@ from modules.assigner_functions import (
     calc_log_prob_matrix,
     find_best_assignment,
     make_assign_df,
+    calc_mismatch_matrix,
+    add_consistency_info,
 )
+from modules.importer_functions import import_observed_shifts
 from refactor.SNAPSimporter import SNAPSImporter
 from pathlib import Path
 from pandas.testing import assert_frame_equal
 
 TEST_DATA = Path(__file__).parent / 'test_data'
+NAPS_SHIFTS = Path(__file__).parents[1] / 'data/P3a_L273R/naps_shifts.txt'
 
 
 @pytest.fixture
@@ -206,3 +210,61 @@ def test_make_assign_df(logger):
     expected = pd.read_pickle(TEST_DATA / 'assign_df.pickle')
 
     assert_frame_equal(assign_df, expected)
+
+
+def test_calc_mismatch_matrix(logger):
+    observed = import_observed_shifts(NAPS_SHIFTS, 'snaps')
+
+    mismatch, consistent_links = calc_mismatch_matrix(
+        observed,
+        threshold=0.2,
+        logger=logger,
+    )
+
+    assert mismatch.shape == (103, 103)
+    assert consistent_links.shape == (103, 103)
+    assert mismatch.loc[' 237AlaH', ' 238MetH'] == pytest.approx(0.057)
+    assert consistent_links.loc[' 237AlaH', ' 238MetH'] == 2
+    assert consistent_links.to_numpy().max() == 2
+
+
+def test_add_consistency_info(logger):
+    observed = import_observed_shifts(NAPS_SHIFTS, 'snaps')
+    preds, _ = import_predicted_shifts(
+        TEST_DATA / 'shiftx2.cs',
+        'shiftx2',
+        logger=logger,
+    )
+    mismatch, consistent_links = calc_mismatch_matrix(
+        observed,
+        threshold=0.2,
+        logger=logger,
+    )
+    matching = pd.DataFrame(
+        {
+            'Res_name': preds.index[:3],
+            'SS_name': observed.index[:3],
+        }
+    )
+    for atom in ('C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1'):
+        matching[atom] = 0.0
+
+    result = add_consistency_info(
+        matching,
+        preds,
+        mismatch,
+        consistent_links,
+        threshold=0.2,
+        logger=logger,
+    )
+
+    assert {
+        'Max_mismatch_m1',
+        'Max_mismatch_p1',
+        'Num_good_links_m1',
+        'Num_good_links_p1',
+        'Confidence',
+    }.issubset(result.columns)
+    assert result['Confidence'].tolist() == ['High', 'High', 'High']
+    assert result.loc[0, 'Num_good_links_p1'] == 2
+    assert result.loc[1, 'Num_good_links_m1'] == 2
