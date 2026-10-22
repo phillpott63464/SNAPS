@@ -1,12 +1,10 @@
-from refactor.dataclasses import InputSpec, OutputSpec, AnalysisResult
+from refactor.dataclasses import AnalysisResult
 from refactor.SNAPSimporter import SNAPSImporter
 from refactor.SNAPSstrategy import create_strategy
 from refactor.SNAPSconfig import SNAPSConfig
 from refactor.SNAPSoutput import create_output
 
 def run_pipeline(
-        input_spec: InputSpec,
-        output_spec: OutputSpec,
         config: SNAPSConfig,
         verbosity: int = 0,
 ) -> AnalysisResult:
@@ -14,14 +12,17 @@ def run_pipeline(
     Main pipeline - can be called from CLI or web service.
 
     Args:
-        input_spec: Input file specifications
-        output_spec: Output file specifications
         config: SNAPS configuration
         verbosity: Logging level (0=quiet, 1=info, 2=debug)
 
     Returns:
         Analysis results with assignments and metrics
     """
+
+    if config.obs_file is None or config.pred_file is None:
+        raise ValueError("obs_file and pred_file must be configured before running the pipeline")
+    if config.output_file is None:
+        raise ValueError("output_file must be configured before running the pipeline")
 
     # Setup logging
     config.logger.info("Starting SNAPS pipeline")
@@ -30,16 +31,16 @@ def run_pipeline(
     config.logger.info("Importing data...")
     importer = SNAPSImporter(config=config)
     data = importer.import_data(
-        obs_file=input_spec.obs_file,
-        pred_file=input_spec.pred_file,
-        obs_format=input_spec.obs_format,
-        pred_format=input_spec.pred_format,
-        obs_frame=input_spec.obs_frame,
-        pred_frame=input_spec.pred_frame,
-        obs_chain=input_spec.obs_chain,
-        pred_chain=input_spec.pred_chain,
-        aa_restraints_file=input_spec.aa_restraints_file,
-        aa_restraints_frame=input_spec.aa_restraints_frame,
+        obs_file=config.obs_file,
+        pred_file=config.pred_file,
+        obs_format=config.obs_format,
+        pred_format=config.pred_format,
+        obs_frame=config.obs_frame,
+        pred_frame=config.pred_frame,
+        obs_chain=config.obs_chain,
+        pred_chain=config.pred_chain,
+        aa_restraints_file=config.aa_restraints_file,
+        aa_restraints_frame=config.aa_restraints_frame,
     )
     config.logger.info(f"  {len(data.obs_shifts)} observed spin systems")
     config.logger.info(f"  {len(data.pred_shifts)} predicted residues")
@@ -62,9 +63,6 @@ def run_pipeline(
     # logger.info(f"  Quality: {analysis_result.quality_metrics}")
 
     # Stage 4: Output
-    output = create_output(output_spec.output_type, config)
-    output.output(assignment_result, output_spec)
-
     # Stage 5: Plots (optional)
     # if output_spec.hsqc_plot or output_spec.strip_plot:
     #     logger.info("Creating plots...")
@@ -77,6 +75,8 @@ def run_pipeline(
     #     if output_spec.strip_plot:
     #         plot_manager.create_plot('strip', analysis_result, data, output_spec.strip_plot)
     #         logger.info(f"  Strips → {output_spec.strip_plot}")
+    output = create_output(config.output_type, config)
+    output.output(assignment_result, config)
 
     config.logger.info("Pipeline complete")
     return assignment_result

@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import sys
 import pandas as pd
 from pynmrstar import Saveframe, Loop
-from refactor.dataclasses import AssignmentResult, OutputSpec
+from refactor.dataclasses import AssignmentResult
 from numpy import arange
 import string
 from contextlib import contextmanager
@@ -21,7 +21,6 @@ from SNAPS_assigner import SNAPS_assigner
 from NEF_reader import _split_path_and_frame, TRANSLATIONS_1_3_PROTEIN
 import logging
 from typing import Optional, List, Type, Dict
-from refactor.dataclasses import OutputSpec
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 
 class FormatOutput():
@@ -39,21 +38,23 @@ class FormatOutput():
     @staticmethod
     @contextmanager
     def _open_or_stdout(filename, *args, **kwargs):
-        if filename == '-':
+        if str(filename) == '-':
             yield sys.stdout
         else:
             with open(filename, *args, **kwargs) as f:
                 yield f
 
-    def _output(self, result: AssignmentResult, obs_chain: str = 'A'):
+    def _output(self, result: AssignmentResult, config: SNAPSConfig = None):
         ...
 
-    def output(self, result: AssignmentResult, spec: OutputSpec) -> None:
-        output = self._output(result)
-        with self._open_or_stdout(spec.output_file, 'w') as fp:
+    def output(self, result: AssignmentResult, config: SNAPSConfig) -> None:
+        output = self._output(result, config)
+        if config.output_file is None:
+            raise ValueError("output_file must be configured before writing output")
+        with self._open_or_stdout(config.output_file, 'w') as fp:
             print(output, file=fp)
 
-        print("Finished writing results to %s", spec.output_file)
+        print("Finished writing results to %s", config.output_file)
         #### Write chemical shift lists
         # Currently unimplemented
         # if spec.shift_output_file is not None:
@@ -95,7 +96,7 @@ class OutputRegistry:
 
 @OutputRegistry.register('NEF')
 class NEFOutput(FormatOutput):
-    def _output(self, result: AssignmentResult, spec: OutputSpec):
+    def _output(self, result: AssignmentResult, config: SNAPSConfig = None):
         save_frame = Saveframe.from_scratch('nefpls_assignments_snaps', 'nefpls_assignments')
 
         save_frame.add_tag('category', f'nefpls_assignments_snaps')
@@ -157,7 +158,7 @@ class NEFOutput(FormatOutput):
             'unassigned_sequence_code'].str.rstrip(string.ascii_letters)
         # nef_out_frame_assigned = nef_out_frame_assigned.replace({float.NaN: '.'})
 
-        nef_out_frame_assigned['chain_code'] = spec.obs_chain
+        nef_out_frame_assigned['chain_code'] = config.obs_chain
 
         # nef_out_frame_assigned['fragment_id'] = (nef_out_frame_assigned['sequence_code'].diff() > 1).cumsum() + 1
 
@@ -198,7 +199,7 @@ class NEFOutput(FormatOutput):
 
 @OutputRegistry.register('SNAPS')
 class SNAPSOutput(FormatOutput):
-    def _output(self, result: AssignmentResult, obs_chain: str = 'A'):
+    def _output(self, result: AssignmentResult, config: SNAPSConfig = None):
         table = []
         for df_index, df_row in result.assign_df.iterrows():
 

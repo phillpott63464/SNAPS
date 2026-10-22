@@ -14,13 +14,13 @@ class AssignmentStrategy(ABC):
     """Base class for assignment strategies"""
 
     name: str = ""  # Subclasses must set this
-    config: SNAPSConfig = SNAPSConfig()
+    config: Optional[SNAPSConfig] = None
 
     def __init__(self, config: Optional[Union[SNAPSConfig, dict]] = None):
         if config is None:
             self.config = build_config()
         elif isinstance(config, dict):
-            self.config = SNAPSConfig(**config)
+            self.config = build_config(cli_overrides=config)
         else:
             self.config = config
 

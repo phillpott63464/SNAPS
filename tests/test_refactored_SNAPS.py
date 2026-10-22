@@ -1,7 +1,6 @@
 from refactor.SNAPS import run_pipeline
 
-from refactor.dataclasses import InputSpec, OutputSpec
-from refactor.SNAPSoutput import build_config
+from refactor.SNAPSconfig import build_config
 import pytest
 
 from pathlib import Path
@@ -124,18 +123,15 @@ def test_run_snaps(
         ]
     )
 
-    input_spec = InputSpec(
-        obs_file=Path(measured_shifts),
-        pred_file=Path(expected_shifts),
+    config = build_config(
+        config_file=Path(config_file),
+        cli_overrides={
+            'obs_file': Path(measured_shifts),
+            'pred_file': Path(expected_shifts),
+            'output_file': out_file_refactor,
+        },
     )
 
-    output_spec = OutputSpec(
-        output_file=out_file_refactor,
-    )
-
-    config = build_config(config_file=Path(config_file))
-
-    run_pipeline(input_spec, output_spec, config)
+    run_pipeline(config)
 
     assert_frame_equal(pd.read_csv(out_file_refactor), pd.read_csv(out_file_legacy))
-

@@ -7,7 +7,8 @@ from refactor.SNAPSoutput import (
     SNAPSOutput,
     create_output,
 )
-from refactor.dataclasses import AssignmentResult, OutputSpec
+from refactor.dataclasses import AssignmentResult
+from refactor.SNAPSconfig import build_config
 
 
 def _assignment_result():
@@ -42,7 +43,7 @@ def test_snaps_output_writes_rendered_table_to_file(tmp_path):
 
     SNAPSOutput().output(
         _assignment_result(),
-        OutputSpec(output_file=output_file),
+        build_config(cli_overrides={"output_file": output_file}),
     )
 
     assert output_file.read_text().splitlines() == (
@@ -53,7 +54,7 @@ def test_snaps_output_writes_rendered_table_to_file(tmp_path):
 def test_snaps_output_writes_rendered_table_to_stdout(capsys):
     SNAPSOutput().output(
         _assignment_result(),
-        OutputSpec(output_file="-"),
+        build_config(cli_overrides={"output_file": "-"}),
     )
 
     captured = capsys.readouterr()

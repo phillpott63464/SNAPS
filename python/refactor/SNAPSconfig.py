@@ -8,6 +8,23 @@ import yaml
 class SNAPSConfig(BaseModel):
     """Configuration model with validation"""
 
+    # Input and output
+    obs_file: Optional[Path] = Field(default=None, description="Observed shifts file")
+    pred_file: Optional[Path] = Field(default=None, description="Predicted shifts file")
+    obs_format: Optional[str] = Field(default=None, description="Observed shifts format")
+    pred_format: Optional[str] = Field(default=None, description="Predicted shifts format")
+    obs_frame: Optional[str] = Field(default=None, description="Observed shifts frame")
+    pred_frame: Optional[str] = Field(default=None, description="Predicted shifts frame")
+    obs_chain: str = Field(default='A', description="Observed chain identifier")
+    pred_chain: str = Field(default='A', description="Predicted chain identifier")
+    aa_restraints_file: Optional[Path] = Field(default=None, description="Amino acid restraints file")
+    aa_restraints_frame: Optional[str] = Field(default=None, description="Amino acid restraints frame")
+    output_file: Optional[Path] = Field(default=None, description="Assignment output file")
+    output_type: str = Field(default='SNAPS', description="Assignment output format")
+    shift_output_file: Optional[Path] = Field(default=None, description="Chemical shift output file")
+    shift_output_type: Optional[str] = Field(default=None, description="Chemical shift output format")
+    shift_output_confidence: Optional[str] = Field(default=None, description="Chemical shift output confidence")
+
     logger: logging.Logger = Field(
         default_factory=lambda: logging.getLogger('snaps'),
         exclude=True,
@@ -119,7 +136,7 @@ class SNAPSConfig(BaseModel):
     def load_default(cls) -> 'SNAPSConfig':
         """Load default configuration"""
         # Built-in defaults
-        return cls()
+        return cls.model_validate({})
 
     @classmethod
     def load_from_file(cls, config_path: Path) -> 'SNAPSConfig':
@@ -139,13 +156,14 @@ class SNAPSConfig(BaseModel):
             value = data.get(field)
             if isinstance(value, str) and value.startswith('./'):
                 data[field] = str(config_path.parent / value[2:])
-        return cls(**data)
+        return cls.model_validate(data)
 
     def merge(self, overrides: dict) -> 'SNAPSConfig':
         """Merge with overrides, overrides take priority"""
         merged = self.model_dump()
+        merged['logger'] = self.logger
         merged.update({k: v for k, v in overrides.items() if v is not None})
-        return SNAPSConfig(**merged)
+        return SNAPSConfig.model_validate(merged)
 
 
 def build_config(
