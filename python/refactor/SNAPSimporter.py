@@ -15,17 +15,23 @@ from refactor.format_readers import (
 from refactor.dataclasses import ShiftData
 import pandas as pd
 import numpy as np
+from refactor.SNAPSconfig import SNAPSConfig, build_config
 
 class SNAPSImporter:
     """Orchestrates format readers to import all required data"""
 
-    def __init__(self, readers: Optional[List[FormatReader]] = None):
+    def __init__(self, readers: Optional[List[FormatReader]] = None, config: Optional[SNAPSConfig] = None):
         self.readers = self._default_readers()
         self._reader_by_format = {r.format_name: r for r in self.readers}
         self._reader_by_ext = {}
         for reader in self.readers:
             for ext in reader.file_extensions:
                 self._reader_by_ext.setdefault(ext, []).append(reader)
+
+        if config is None:
+            self.config = build_config()
+        else:
+            self.config = config
 
     def _default_readers(self) -> List[FormatReader]:
         """Load all available format readers"""
@@ -59,11 +65,6 @@ class SNAPSImporter:
         # Try each reader's can_read method
         for reader in self.readers:
             result = reader.can_read(file_path=file_path)
-            print(
-                f"Reader: {type(reader).__name__}, "
-                f"File: {file_path.name}, "
-                f"Can read: {result}"
-            )
             if result:
                 return reader
 
@@ -165,7 +166,10 @@ class SNAPSImporter:
             seq_df.loc[mask, 'Res_name'] = ambiguous_res_names
             # Note we don't update the Res_type in preds, because this is potentially
             # used for correcting the chemical shift
-            logger.warning(
+
+            # This isn't tested yet because I don't have sequence imports working yet
+            # TODO: test this
+            self.config.logger.warning(
                 (
                     'There were inconsistencies between the provided sequence '
                     'file and the predicted shifts. The following residues had '
@@ -241,9 +245,10 @@ class SNAPSImporter:
 
         # Get appropriate readers
         obs_reader = self._get_reader(obs_file, obs_format)
-        print(obs_reader)
         pred_reader = self._get_reader(pred_file, pred_format)
-        print(pred_reader)
+
+        self.config.logger.info(f'Observed shifts reader={obs_reader.format_name}')
+        self.config.logger.info(f'Predicted shifts reader={pred_reader.format_name}')
 
         # Import observed shifts
         obs_shifts = obs_reader.read_observed_shifts(

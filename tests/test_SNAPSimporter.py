@@ -4,6 +4,7 @@ the expected outputs are the same
 """
 
 from refactor.SNAPSimporter import SNAPSImporter
+from refactor.SNAPSconfig import build_config
 from modules.importer_functions import import_observed_shifts # original function (stateless version)
 from modules.assigner_functions import import_predicted_shifts
 import pytest
@@ -76,6 +77,31 @@ def test_SNAPSimporterExtensionMapping(logger):
 
     assert_frame_equal(expected_obs, result.obs_shifts)
     assert_frame_equal(expected_preds, result.pred_shifts)
+
+
+def test_SNAPSimporterLogsSelectedReaders(caplog):
+    configured_logger = logging.getLogger('test.snaps_importer_logging')
+    importer = SNAPSImporter(
+        config=build_config(cli_overrides={'logger': configured_logger})
+    )
+
+    with caplog.at_level(logging.INFO, logger=configured_logger.name):
+        importer.import_data(
+            pred_file=TEST_DATA / 'shiftx2.cs',
+            obs_file=TEST_DATA / 'P3a_L273R.nef',
+            pred_format='shiftx2',
+            obs_format='nef',
+        )
+
+    assert [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == configured_logger.name
+    ] == [
+        'Observed shifts reader=nef',
+        'Predicted shifts reader=shiftx2',
+    ]
+
 
 def test_SNAPSimporterCanRead(logger):
     # So this one tests if it can read files just from their signatures
