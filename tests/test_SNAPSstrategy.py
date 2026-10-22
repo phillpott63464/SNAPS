@@ -1,6 +1,6 @@
 from refactor.SNAPSstrategy import create_strategy
 from refactor.SNAPSimporter import SNAPSImporter
-from modules.assigner_functions import prepare_obs_preds, calc_log_prob_matrix, find_best_assignment, make_assign_df, import_predicted_shifts
+from modules.assigner_functions import prepare_obs_preds, calc_log_prob_matrix, find_best_assignment, make_assign_df, import_predicted_shifts, add_consistency_info, calc_mismatch_matrix
 from modules.importer_functions import import_observed_shifts
 from refactor.SNAPSconfig import build_config
 import pytest
@@ -647,6 +647,20 @@ def test_SNAPstragety_direct(pred_file, obs_file, pred_format, obs_format, logge
             matching=matching,
             logger=logger,
         )
+
+    result = calc_mismatch_matrix(obs=obs, logger=logger)
+    if result is not None:
+        mismatch_matrix, consistent_links_matrix = result
+    else:
+        mismatch_matrix, consistent_links_matrix = (None, None)
+
+    assign_df = add_consistency_info(
+        assign_df=assign_df,
+        preds=preds,
+        mismatch_matrix=mismatch_matrix,
+        consistent_links_matrix=consistent_links_matrix,
+        logger=logger
+    )
 
     importer = SNAPSImporter()
     strategy = create_strategy('direct')
