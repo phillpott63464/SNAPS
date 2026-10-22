@@ -60,6 +60,256 @@ def test_strategy_uses_logger_from_built_config(caplog):
     assert 'Started linear assignment' in caplog.text
 
 
+def test_find_best_assignment_logs_constraint_warnings(unit_strategy, caplog):
+    scores = pd.DataFrame(
+        [[10.0, 1.0, 2.0], [2.0, 9.0, 3.0], [4.0, 5.0, 8.0]],
+        index=pd.Index(['SS1', 'SS2', 'SS3'], name='SS_name'),
+        columns=pd.Index(['R1', 'R2', 'R3'], name='Res_name'),
+    )
+    inc = pd.DataFrame({
+        'SS_name': ['SS1', 'SS1', 'SS3'],
+        'Res_name': ['R1', 'R2', 'R3'],
+    })
+    exc = pd.DataFrame({'SS_name': ['SS3'], 'Res_name': ['R2']})
+
+    with caplog.at_level(logging.WARNING, logger=unit_strategy.config.logger.name):
+        unit_strategy.find_best_assignment(
+            scores,
+            inc=inc,
+            exc=exc,
+            dummy_rows=set(),
+            dummy_cols=set(),
+        )
+
+    warnings = [record.getMessage() for record in caplog.records]
+    assert 'Warning: entries in inc conflict with one another - dropping conflicts' in warnings
+    assert 'Some values in exc are also found in inc, so are redundant.' in warnings
+
+
+def test_calc_log_prob_matrix_logs_completion(unit_strategy, caplog):
+    obs = pd.DataFrame(
+        {'H': [1.0], 'Dummy_SS': [False]},
+        index=pd.Index(['SS1'], name='SS_name'),
+    )
+    preds = pd.DataFrame({
+        'Res_name': ['R1'],
+        'Res_type': ['A'],
+        'Dummy_res': [False],
+        'H': [1.0],
+    }, index=['R1'])
+    preds.index.name = 'Res_name'
+
+    with caplog.at_level(logging.INFO, logger=unit_strategy.config.logger.name):
+        unit_strategy.calc_log_prob_matrix(obs, preds)
+
+    assert 'Calculated log probability matrix (1x1)' in caplog.text
+
+
+def test_calc_log_prob_matrix_logs_prediction_correction(
+    tmp_path, caplog
+):
+    correction_file = tmp_path / 'linear_model.csv'
+    pd.DataFrame(
+        {
+            'Atom_type': ['H'],
+            'Res_type': ['A'],
+            'Grad': [0.0],
+            'Offset': [0.0],
+        },
+        index=['H_A'],
+    ).to_csv(correction_file)
+    config = build_config(
+        cli_overrides={
+            'logger': logging.getLogger('test.prediction_correction'),
+            'atom_set': {'H'},
+            'atom_sd': {'H': 1.0},
+            'delta_correlation': False,
+            'pred_correction': True,
+            'pred_correction_file': str(correction_file),
+        }
+    )
+    strategy = create_strategy('direct', config)
+    obs = pd.DataFrame(
+        {'H': [1.0], 'Dummy_SS': [False]},
+        index=pd.Index(['SS1'], name='SS_name'),
+    )
+    preds = pd.DataFrame({
+        'Res_name': ['R1'],
+        'Res_type': ['A'],
+        'Dummy_res': [False],
+        'H': [1.0],
+    }, index=['R1'])
+    preds.index.name = 'Res_name'
+
+    with caplog.at_level(logging.INFO, logger=config.logger.name):
+        strategy.calc_log_prob_matrix(obs, preds)
+
+    assert f'Imported pred_correction info from {correction_file}' in caplog.text
+    assert 'Calculating corrections to predicted shifts' in caplog.text
+
+
+def test_calc_log_prob_matrix_logs_correlated_error_processing(tmp_path, caplog):
+    mean_file = tmp_path / 'd_mean.csv'
+    cov_file = tmp_path / 'd_cov.csv'
+    pd.DataFrame({1: [0.0]}, index=['H']).to_csv(mean_file, header=False)
+    pd.DataFrame([[1.0]], index=['H'], columns=['H']).to_csv(cov_file)
+    config = build_config(
+        cli_overrides={
+            'logger': logging.getLogger('test.correlated_errors'),
+            'atom_set': {'H'},
+            'atom_sd': {'H': 1.0},
+            'delta_correlation': True,
+            'delta_correlation_mean_file': str(mean_file),
+            'delta_correlation_cov_file': str(cov_file),
+        }
+    )
+    strategy = create_strategy('direct', config)
+    obs = pd.DataFrame(
+        {'H': [1.0], 'Dummy_SS': [False]},
+        index=pd.Index(['SS1'], name='SS_name'),
+    )
+    preds = pd.DataFrame({
+        'Res_name': ['R1'],
+        'Res_type': ['A'],
+        'Dummy_res': [False],
+        'H': [1.0],
+    }, index=['R1'])
+    preds.index.name = 'Res_name'
+
+    with caplog.at_level(logging.INFO, logger=config.logger.name):
+        strategy.calc_log_prob_matrix(obs, preds)
+
+    assert (
+        f'Imported delta_correlation info from {mean_file} and {cov_file}'
+        in caplog.text
+    )
+    assert 'Accounting for correlated prediction errors' in caplog.text
+
+
+def test_calc_log_prob_matrix_logs_corrected_correlated_files(tmp_path, caplog):
+    correction_file = tmp_path / 'linear_model.csv'
+    corrected_mean_file = tmp_path / 'dd_mean.csv'
+    corrected_cov_file = tmp_path / 'dd_cov.csv'
+    pd.DataFrame(
+        {
+            'Atom_type': ['H'],
+            'Res_type': ['A'],
+            'Grad': [0.0],
+            'Offset': [0.0],
+        },
+        index=['H_A'],
+    ).to_csv(correction_file)
+    pd.DataFrame({1: [0.0]}, index=['H']).to_csv(
+        corrected_mean_file, header=False
+    )
+    pd.DataFrame([[1.0]], index=['H'], columns=['H']).to_csv(corrected_cov_file)
+    config = build_config(
+        cli_overrides={
+            'logger': logging.getLogger('test.corrected_correlated_errors'),
+            'atom_set': {'H'},
+            'atom_sd': {'H': 1.0},
+            'delta_correlation': True,
+            'pred_correction': True,
+            'pred_correction_file': str(correction_file),
+            'delta_correlation_mean_corrected_file': str(corrected_mean_file),
+            'delta_correlation_cov_corrected_file': str(corrected_cov_file),
+        }
+    )
+    strategy = create_strategy('direct', config)
+    obs = pd.DataFrame(
+        {'H': [1.0], 'Dummy_SS': [False]},
+        index=pd.Index(['SS1'], name='SS_name'),
+    )
+    preds = pd.DataFrame({
+        'Res_name': ['R1'],
+        'Res_type': ['A'],
+        'Dummy_res': [False],
+        'H': [1.0],
+    }, index=['R1'])
+    preds.index.name = 'Res_name'
+
+    with caplog.at_level(logging.INFO, logger=config.logger.name):
+        strategy.calc_log_prob_matrix(obs, preds)
+
+    assert (
+        f'Imported delta_correlation info from {corrected_mean_file} and '
+        f'{corrected_cov_file}' in caplog.text
+    )
+
+
+def test_find_best_assignment_logs_fixed_and_excluded_assignments(
+    unit_strategy, caplog
+):
+    scores = pd.DataFrame(
+        [[10.0, 1.0], [2.0, 9.0]],
+        index=pd.Index(['SS1', 'SS2'], name='SS_name'),
+        columns=pd.Index(['R1', 'R2'], name='Res_name'),
+    )
+    inc = pd.DataFrame({'SS_name': ['SS1'], 'Res_name': ['R1']})
+    exc = pd.DataFrame({'SS_name': ['SS2'], 'Res_name': ['R2']})
+
+    with caplog.at_level(logging.INFO, logger=unit_strategy.config.logger.name):
+        unit_strategy.find_best_assignment(
+            scores,
+            inc=inc,
+            exc=exc,
+            dummy_rows=set(),
+            dummy_cols=set(),
+        )
+
+    assert '1 assignments were fixed, 1 remain to be assigned' in caplog.text
+    assert 'Penalised 1 excluded row,column pairs' in caplog.text
+
+
+def test_find_best_assignment_logs_all_dummy_debug_message(unit_strategy, caplog):
+    scores = pd.DataFrame(
+        [[1.0]],
+        index=pd.Index(['DSS_1'], name='SS_name'),
+        columns=pd.Index(['DR_1'], name='Res_name'),
+    )
+
+    with caplog.at_level(logging.DEBUG, logger=unit_strategy.config.logger.name):
+        result = unit_strategy.find_best_assignment(
+            scores,
+            dummy_rows={'DSS_1'},
+            dummy_cols={'DR_1'},
+            return_none_all_dummy=True,
+        )
+
+    assert result is None
+    assert 'Score matrix includes only dummy rows/columns' in caplog.text
+
+
+def test_make_assign_df_logs_invalid_matching_warning(unit_strategy, caplog):
+    obs = pd.DataFrame({'SS_name': ['SS1'], 'H': [1.0]})
+    preds = pd.DataFrame({
+        'Res_name': ['R1'],
+        'Res_N': [1],
+        'Res_type': ['A'],
+        'Dummy_res': [False],
+        'H': [1.0],
+    })
+    log_prob_matrix = pd.DataFrame(
+        [[0.0]],
+        index=pd.Index(['SS1'], name='SS_name'),
+        columns=pd.Index(['R1'], name='Res_name'),
+    )
+
+    with caplog.at_level(logging.WARNING, logger=unit_strategy.config.logger.name):
+        with pytest.raises(KeyError):
+            unit_strategy.make_assign_df(
+                obs=obs,
+                preds=preds,
+                log_prob_matrix=log_prob_matrix,
+                matching=pd.DataFrame({'invalid': ['value']}),
+            )
+
+    assert (
+        'Cannot make assignment dataframe, as matching dataframe does not have '
+        'the correct columns'
+    ) in caplog.text
+
+
 def test_preprocessing_uses_configured_atom_schema_and_dummy_names(logger):
     config = build_config(
         cli_overrides={
