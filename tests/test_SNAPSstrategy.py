@@ -469,6 +469,29 @@ def test_SNAPSstrategy_preprocess(pred_file, obs_file, logger):
     assert_frame_equal(result_obs, expected_obs)
     assert_frame_equal(result_preds, expected_preds)
 
+
+def test_SNAPSstrategy_uses_configured_pred_offset():
+    config = build_config(
+        cli_overrides={
+            'pred_offset': 100,
+            'delta_correlation': False,
+        }
+    )
+    importer = SNAPSImporter(config=config)
+    imported = importer.import_data(
+        pred_file=TEST_DATA / 'shiftx2.cs',
+        obs_file=TEST_DATA / 'P3a_L273R.nef',
+    )
+    strategy = create_strategy('direct', config)
+    _, predictions = strategy.preprocess_obs_preds(
+        imported.obs_shifts,
+        imported.pred_shifts,
+    )
+
+    assert predictions['Res_N'].min() == 128
+    assert predictions.index[0].strip().startswith('128')
+
+
 @pytest.mark.parametrize(
     'pred_file, obs_file',
     [

@@ -21,7 +21,7 @@ class SNAPSImporter:
     """Orchestrates format readers to import all required data"""
 
     def __init__(self, readers: Optional[List[FormatReader]] = None, config: Optional[SNAPSConfig] = None):
-        self.readers = self._default_readers()
+        self.readers = readers if readers is not None else self._default_readers()
         self._reader_by_format = {r.format_name: r for r in self.readers}
         self._reader_by_ext = {}
         for reader in self.readers:
@@ -237,7 +237,6 @@ class SNAPSImporter:
             pred_frame: Optional[str] = None,
             obs_chain: str = 'A',
             pred_chain: str = 'A',
-            pred_offset: int = 0,
             aa_restraints_file: Optional[Path] = None,
             aa_restraints_frame: Optional[str] = None,
     ) -> ShiftData:
@@ -265,7 +264,7 @@ class SNAPSImporter:
             # offset=pred_offset
         )
 
-        pred_shifts = self.clean_preds(pred_shifts)
+        pred_shifts = self.clean_preds(pred_shifts, offset=self.config.pred_offset)
         obs_shifts = self.clean_obs(obs_shifts)
 
         # Import sequence

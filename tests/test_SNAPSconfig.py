@@ -37,6 +37,7 @@ supported_atom_types:
 - CA
 default_probability: 0.05
 shift_scale_factor: 1.25
+pred_offset: 7
 maximise_assignments: false
 dummy_predicted_prefix: PRED_
 dummy_observed_prefix: OBS_
@@ -85,6 +86,7 @@ def test_default():
     )
     assert config.default_probability == 0.01
     assert config.shift_scale_factor == 1.0
+    assert config.pred_offset == 0
     assert config.maximise_assignments is True
     assert config.dummy_predicted_prefix == 'DR_'
     assert config.dummy_observed_prefix == 'DSS_'
@@ -108,6 +110,7 @@ def test_complete(complete_config):
     assert sorted(config.supported_atom_types) == ['CA', 'H', 'N']
     assert config.default_probability == 0.05
     assert config.shift_scale_factor == 1.25
+    assert config.pred_offset == 7
     assert config.maximise_assignments is False
     assert config.dummy_predicted_prefix == 'PRED_'
     assert config.dummy_observed_prefix == 'OBS_'
@@ -132,6 +135,7 @@ def test_partial(partial_config):
         'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
     }
     assert config.seq_link_threshold == 0.70
+    assert config.pred_offset == 0
     assert config.iterate_until_consistent == True
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True
@@ -157,6 +161,7 @@ def complete_cli_overrides():
         'supported_atom_types': ['H', 'N', 'CA'],
         'default_probability': 0.05,
         'shift_scale_factor': 1.25,
+        'pred_offset': 10,
         'maximise_assignments': False,
         'dummy_predicted_prefix': 'PRED_',
         'dummy_observed_prefix': 'OBS_',
@@ -215,6 +220,7 @@ def test_cli_complete(complete_cli_overrides):
     assert sorted(config.supported_atom_types) == ['CA', 'H', 'N']
     assert config.default_probability == 0.05
     assert config.shift_scale_factor == 1.25
+    assert config.pred_offset == 10
     assert config.maximise_assignments is False
     assert config.dummy_predicted_prefix == 'PRED_'
     assert config.dummy_observed_prefix == 'OBS_'
@@ -240,6 +246,7 @@ def test_cli_partial(partial_cli_overrides):
         'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
     }
     assert config.seq_link_threshold == 0.70
+    assert config.pred_offset == 0
     assert config.iterate_until_consistent == True
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True

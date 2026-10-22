@@ -48,6 +48,10 @@ class SNAPSConfig(BaseModel):
         gt=0.0,
         description="Scale factor applied to atom standard deviations"
     )
+    pred_offset: int = Field(
+        default=0,
+        description="Offset applied to predicted residue numbers"
+    )
     maximise_assignments: bool = Field(
         default=True,
         description="Maximise assignment scores rather than minimise them"
