@@ -38,6 +38,64 @@ def test_strategy_factory_uses_built_config(unit_strategy):
     assert unit_strategy.config.delta_correlation is False
 
 
+def test_preprocessing_uses_configured_atom_schema_and_dummy_names(logger):
+    config = build_config(
+        cli_overrides={
+            'atom_set': {'H'},
+            'supported_atom_types': {'H', 'N'},
+            'dummy_predicted_prefix': 'PRED_',
+            'dummy_observed_prefix': 'OBS_',
+        }
+    )
+    strategy = create_strategy('direct', config)
+    obs = pd.DataFrame({
+        'SS_name': ['SS1', 'SS2'],
+        'H': [1.0, 2.0],
+        'N': [10.0, 20.0],
+    })
+    preds = pd.DataFrame({
+        'Res_N': [1, 2],
+        'Res_type': ['A', 'P'],
+        'Res_name': ['R1', 'R2'],
+        'Res_name_m1': [np.nan, 'R1'],
+        'Res_name_p1': ['R2', np.nan],
+        'H': [1.0, 2.0],
+        'N': [10.0, 20.0],
+    })
+
+    result_obs, result_preds = strategy.preprocess_obs_preds(obs, preds)
+
+    assert result_preds['Res_name'].tolist() == ['R1', 'PRED_1']
+    assert result_obs['SS_name'].tolist() == ['SS1', 'SS2']
+    assert 'N' not in result_obs.columns
+    assert 'N' not in result_preds.columns
+
+
+def test_log_probability_defaults_come_from_config(logger):
+    config = build_config(
+        cli_overrides={
+            'atom_set': {'H'},
+            'atom_sd': {'H': 2.0},
+            'delta_correlation': False,
+            'default_probability': 0.2,
+            'shift_scale_factor': 2.0,
+        }
+    )
+    strategy = create_strategy('direct', config)
+    obs = pd.DataFrame(
+        {'H': [np.nan], 'Dummy_SS': [False]},
+        index=pd.Index(['SS1'], name='SS_name'),
+    )
+    preds = pd.DataFrame(
+        {'H': [2.0], 'Dummy_res': [False]},
+        index=pd.Index(['R1'], name='Res_name'),
+    )
+
+    result = strategy.calc_log_prob_matrix(obs, preds, logger=logger)
+
+    assert result.loc['SS1', 'R1'] == pytest.approx(np.log10(0.2))
+
+
 def test_calc_log_prob_matrix_calculates_independent_atom_probabilities(
         unit_strategy, logger
 ):
@@ -163,11 +221,6 @@ def test_SNAPstrategy_log_prob_matrix(pred_file, obs_file, logger):
     log_prob_matrix = strategy.calc_log_prob_matrix(
         obs,
         preds,
-        pred_correction_file=strategy.config.pred_correction_file,
-        delta_correlation_mean_corrected_file=strategy.config.delta_correlation_mean_corrected_file,
-        delta_correlation_cov_corrected_file=strategy.config.delta_correlation_cov_corrected_file,
-        delta_correlation_mean_file=strategy.config.delta_correlation_mean_file,
-        delta_correlation_cov_file=strategy.config.delta_correlation_cov_file,
         logger=logger,
     )
 
@@ -207,11 +260,6 @@ def test_SNAPstrategy_find_best_assignment(pred_file, obs_file, logger):
     log_prob_matrix = strategy.calc_log_prob_matrix(
         obs,
         preds,
-        pred_correction_file=strategy.config.pred_correction_file,
-        delta_correlation_mean_corrected_file=strategy.config.delta_correlation_mean_corrected_file,
-        delta_correlation_cov_corrected_file=strategy.config.delta_correlation_cov_corrected_file,
-        delta_correlation_mean_file=strategy.config.delta_correlation_mean_file,
-        delta_correlation_cov_file=strategy.config.delta_correlation_cov_file,
         logger=logger,
     )
 
@@ -252,11 +300,6 @@ def test_SNAPstrategy_make_assign_df(pred_file, obs_file, logger):
     log_prob_matrix = strategy.calc_log_prob_matrix(
         obs,
         preds,
-        pred_correction_file=strategy.config.pred_correction_file,
-        delta_correlation_mean_corrected_file=strategy.config.delta_correlation_mean_corrected_file,
-        delta_correlation_cov_corrected_file=strategy.config.delta_correlation_cov_corrected_file,
-        delta_correlation_mean_file=strategy.config.delta_correlation_mean_file,
-        delta_correlation_cov_file=strategy.config.delta_correlation_cov_file,
         logger=logger,
     )
 

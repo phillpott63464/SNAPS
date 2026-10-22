@@ -19,8 +19,37 @@ class SNAPSConfig(BaseModel):
         },
         description="Standard deviations for each atom type"
     )
+    supported_atom_types: Set[str] = Field(
+        default={'H', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1', 'HA'},
+        description="Atom columns accepted during preprocessing"
+    )
 
     # Assignment settings
+    default_probability: float = Field(
+        default=0.01,
+        gt=0.0,
+        le=1.0,
+        description="Probability assigned to a missing shift"
+    )
+    shift_scale_factor: float = Field(
+        default=1.0,
+        gt=0.0,
+        description="Scale factor applied to atom standard deviations"
+    )
+    maximise_assignments: bool = Field(
+        default=True,
+        description="Maximise assignment scores rather than minimise them"
+    )
+    dummy_predicted_prefix: str = Field(
+        default='DR_',
+        min_length=1,
+        description="Prefix used for dummy predicted residues"
+    )
+    dummy_observed_prefix: str = Field(
+        default='DSS_',
+        min_length=1,
+        description="Prefix used for dummy observed spin systems"
+    )
     seq_link_threshold: float = Field(
         default=0.45,
         ge=0.0,

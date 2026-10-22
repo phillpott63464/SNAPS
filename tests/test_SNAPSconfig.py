@@ -31,6 +31,15 @@ delta_correlation_mean_corrected_file: custom/dd_mean.csv
 delta_correlation_cov_corrected_file: custom/dd_cov.csv
 delta_correlation_mean_file: custom/d_mean.csv
 delta_correlation_cov_file: custom/d_cov.csv
+supported_atom_types:
+- H
+- N
+- CA
+default_probability: 0.05
+shift_scale_factor: 1.25
+maximise_assignments: false
+dummy_predicted_prefix: PRED_
+dummy_observed_prefix: OBS_
 
 # Strategy
 strategy: bayesian
@@ -71,6 +80,14 @@ def test_default():
         'H': 0.1726, 'N': 1.1169, 'HA': 0.1231,
         'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
     }
+    assert sorted(config.supported_atom_types) == sorted(
+        {'H', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1', 'HA'}
+    )
+    assert config.default_probability == 0.01
+    assert config.shift_scale_factor == 1.0
+    assert config.maximise_assignments is True
+    assert config.dummy_predicted_prefix == 'DR_'
+    assert config.dummy_observed_prefix == 'DSS_'
     assert config.seq_link_threshold == 0.45
     assert config.iterate_until_consistent == True
     assert config.use_ss_class_info == False
@@ -88,6 +105,12 @@ def test_complete(complete_config):
 
     assert sorted(config.atom_set) == sorted({'H', 'N', 'CA', 'CB'})
     assert config.atom_sd == {'H': 0.20, 'N': 1.25, 'HA': 0.15, 'CA': 0.50, 'CB': 0.60, 'C': 0.65}
+    assert sorted(config.supported_atom_types) == ['CA', 'H', 'N']
+    assert config.default_probability == 0.05
+    assert config.shift_scale_factor == 1.25
+    assert config.maximise_assignments is False
+    assert config.dummy_predicted_prefix == 'PRED_'
+    assert config.dummy_observed_prefix == 'OBS_'
     assert config.seq_link_threshold == 0.60
     assert config.iterate_until_consistent == False
     assert config.use_ss_class_info == True
@@ -131,6 +154,12 @@ def complete_cli_overrides():
             'CB': 0.60,
             'C': 0.65
         },
+        'supported_atom_types': ['H', 'N', 'CA'],
+        'default_probability': 0.05,
+        'shift_scale_factor': 1.25,
+        'maximise_assignments': False,
+        'dummy_predicted_prefix': 'PRED_',
+        'dummy_observed_prefix': 'OBS_',
         'seq_link_threshold': 0.60,
         'iterate_until_consistent': False,
         'use_ss_class_info': True,
@@ -183,6 +212,12 @@ def test_cli_complete(complete_cli_overrides):
         'H': 0.20, 'N': 1.25, 'HA': 0.15,
         'CA': 0.50, 'CB': 0.60, 'C': 0.65
     }
+    assert sorted(config.supported_atom_types) == ['CA', 'H', 'N']
+    assert config.default_probability == 0.05
+    assert config.shift_scale_factor == 1.25
+    assert config.maximise_assignments is False
+    assert config.dummy_predicted_prefix == 'PRED_'
+    assert config.dummy_observed_prefix == 'OBS_'
     assert config.seq_link_threshold == 0.60
     assert config.iterate_until_consistent == False
     assert config.use_ss_class_info == True

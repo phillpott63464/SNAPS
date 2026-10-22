@@ -44,8 +44,10 @@ class AssignmentStrategy(ABC):
 
         #### Delete any prolines in preds
         print("Removing %d prolines from predictions"
-                         % sum(preds["Res_type"]=="P"))
-        preds = preds.drop(preds.index[preds["Res_type"]=="P"])
+                         % sum(preds["Res_type"] == "P"))
+        preds = preds.drop(
+            preds.index[preds["Res_type"] == "P"]
+        )
 
         # Remove references to deleted residues from Res_name_m1/p1
         preds.loc[~preds["Res_name_m1"].isin(preds["Res_name"]), "Res_name_m1"] = np.NaN
@@ -55,7 +57,7 @@ class AssignmentStrategy(ABC):
         # self.pars["atom_set"] is the set of atoms to be used in the analysis
 
         # Get all non-atom columns
-        all_atoms = {"H","N","C","CA","CB","C_m1","CA_m1","CB_m1","HA"}
+        all_atoms = self.config.supported_atom_types
         obs_metadata = sorted(set(obs.columns).difference(all_atoms))
         preds_metadata = sorted(set(preds.columns).
                               difference(all_atoms))
@@ -75,16 +77,28 @@ class AssignmentStrategy(ABC):
         M = len(preds.index)
 
         if N>M:     # If there are more spin systems than predictions
-            dummies = pd.DataFrame(np.NaN, columns = preds.columns,
-                        index=["DR_"+str(i) for i in 1+np.arange(N-M)])
+            dummies = pd.DataFrame(
+                np.NaN,
+                columns=preds.columns,
+                index=[
+                    self.config.dummy_predicted_prefix + str(i)
+                    for i in 1 + np.arange(N - M)
+                ],
+            )
             dummies["Res_name"] = dummies.index
             dummies["Dummy_res"] = True
             #preds = preds.append(dummies)
             preds = pd.concat([preds, dummies])
             print("Added %d dummy predicted residues" % len(dummies.index))
         elif M>N:
-            dummies = pd.DataFrame(np.NaN, columns = obs.columns,
-                        index=["DSS_"+str(i) for i in 1+np.arange(M-N)])
+            dummies = pd.DataFrame(
+                np.NaN,
+                columns=obs.columns,
+                index=[
+                    self.config.dummy_observed_prefix + str(i)
+                    for i in 1 + np.arange(M - N)
+                ],
+            )
             dummies["SS_name"] = dummies.index
             dummies["Dummy_SS"] = True
             # obs = obs.append(dummies)
@@ -98,13 +112,6 @@ class AssignmentStrategy(ABC):
         self,
         obs: pd.DataFrame,
         preds: pd.DataFrame,
-        pred_correction_file=None,
-        delta_correlation_mean_corrected_file=None,
-        delta_correlation_cov_corrected_file=None,
-        delta_correlation_mean_file=None,
-        delta_correlation_cov_file=None,
-        sf=1,
-        default_prob=0.01,
         logger=None,
     ) -> pd.DataFrame:
         """Calculate a matrix of -log10(match probabilities).
@@ -123,8 +130,9 @@ class AssignmentStrategy(ABC):
             Parameters
             atom_sd: A dictionary containing the expected standard error in the
                 predictions for each atom type
-            sf: A scale factor that multiplies the atom_sd
-            default_prob: penalty for missing data
+            The configured shift scale factor is applied to atom standard
+            deviations, and the configured default probability penalizes
+            missing data.
             """
         obs = obs.copy()
         preds = preds.copy()
@@ -132,9 +140,10 @@ class AssignmentStrategy(ABC):
 
         if self.config.pred_correction:
             # Import parameters for correcting the shifts
-            lm_pars = pd.read_csv(pred_correction_file, index_col=0)
+            lm_pars = pd.read_csv(self.config.pred_correction_file, index_col=0)
             logger.info(
-                'Imported pred_correction info from %s' % pred_correction_file
+                'Imported pred_correction info from %s'
+                % self.config.pred_correction_file
             )
 
         if self.config.delta_correlation:
@@ -143,34 +152,34 @@ class AssignmentStrategy(ABC):
             # same order as the 'atoms' list defined above.
             if self.config.pred_correction:
                 d_mean = pd.read_csv(
-                    delta_correlation_mean_corrected_file,
+                    self.config.delta_correlation_mean_corrected_file,
                     header=None,
                     index_col=0,
                 ).loc[atoms, 1]
                 d_cov = pd.read_csv(
-                    delta_correlation_cov_corrected_file, index_col=0
+                    self.config.delta_correlation_cov_corrected_file, index_col=0
                 ).loc[atoms, atoms]
                 logger.info(
                     'Imported delta_correlation info from %s and %s'
                     % (
-                        delta_correlation_mean_corrected_file,
-                        delta_correlation_cov_corrected_file,
+                        self.config.delta_correlation_mean_corrected_file,
+                        self.config.delta_correlation_cov_corrected_file,
                     )
                 )
             else:
                 d_mean = pd.read_csv(
-                    delta_correlation_mean_file,
+                    self.config.delta_correlation_mean_file,
                     header=None,
                     index_col=0,
                 ).loc[atoms, 1]
-                d_cov = pd.read_csv(delta_correlation_cov_file, index_col=0).loc[
-                    atoms, atoms
-                ]
+                d_cov = pd.read_csv(
+                    self.config.delta_correlation_cov_file, index_col=0
+                ).loc[atoms, atoms]
                 logger.info(
                     'Imported delta_correlation info from %s and %s'
                     % (
-                        delta_correlation_mean_file,
-                        delta_correlation_cov_file,
+                        self.config.delta_correlation_mean_file,
+                        self.config.delta_correlation_cov_file,
                     )
                 )
 
@@ -251,13 +260,17 @@ class AssignmentStrategy(ABC):
 
                 # Calculate the log probability density
                 prob_atom = pd.DataFrame(
-                    norm.logpdf(delta_atom, scale=self.config.atom_sd[atom]),
+                    norm.logpdf(
+                        delta_atom,
+                        scale=self.config.atom_sd[atom]
+                        * self.config.shift_scale_factor,
+                    ),
                     index=obs.index,
                     columns=preds.index,
                 )
 
                 # Replace former NA values with a default value
-                prob_atom[na_mask] = log10(default_prob)
+                prob_atom[na_mask] = log10(self.config.default_probability)
 
                 # Add to the log prob matrix
                 log_prob_matrix = log_prob_matrix + prob_atom
@@ -284,7 +297,10 @@ class AssignmentStrategy(ABC):
             # Apply a penalty for missing data
             na_matrix = na_mask.sum(axis=-1)  # Count how many NA values for
             # each Res/SS pair
-            log_prob_matrix = log_prob_matrix + log10(default_prob) * na_matrix
+            log_prob_matrix = (
+                log_prob_matrix
+                + log10(self.config.default_probability) * na_matrix
+            )
 
         # HP - this is the section of code that uses amino acid restraints. As you can see, it is commented out. Thus I won't bother implementing AA restraints yet into the refactor. Because I can't test what it does.
         #        if self.pars["use_ss_class_info"]:
@@ -368,17 +384,12 @@ class DirectStragety(AssignmentStrategy):
     def assign(self, data: ShiftData, set_assign_df: bool = True) -> AssignmentResult:
         obs, preds = self.preprocess_obs_preds(data.obs_shifts, data.pred_shifts)
         logger = logging.getLogger('direct')
-        log_prob = self.calc_log_prob_matrix(obs, preds,
-                                             pred_correction_file=self.config.pred_correction_file,
-                                             delta_correlation_mean_corrected_file=self.config.delta_correlation_mean_corrected_file,
-                                             delta_correlation_cov_corrected_file=self.config.delta_correlation_cov_corrected_file,
-                                             delta_correlation_mean_file=self.config.delta_correlation_mean_file,
-                                             delta_correlation_cov_file=self.config.delta_correlation_cov_file,
-                                             logger=logger,
-                                             )
+        log_prob = self.calc_log_prob_matrix(obs, preds, logger=logger)
 
         matching = self.find_best_assignment(
-            score_matrix=log_prob, maximise=True, logger=logger
+            score_matrix=log_prob,
+            maximise=self.config.maximise_assignments,
+            logger=logger,
         )
         assign_df = self.make_assign_df(
             obs=obs,
