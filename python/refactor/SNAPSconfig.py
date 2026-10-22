@@ -1,11 +1,23 @@
 from pathlib import Path
 from typing import Optional, List, Dict, Set
+import logging
 from pydantic import BaseModel, Field
 import yaml
 
 
 class SNAPSConfig(BaseModel):
     """Configuration model with validation"""
+
+    logger: logging.Logger = Field(
+        default_factory=lambda: logging.getLogger('snaps'),
+        exclude=True,
+        description="Logger used by the assignment pipeline"
+    )
+
+    # Enables pydantic to hold a logger, otherwise it complains
+    model_config = {
+        'arbitrary_types_allowed': True,
+    }
 
     # Atom settings
     atom_set: Set[str] = Field(

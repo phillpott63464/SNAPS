@@ -10,8 +10,6 @@ from modules.assigner_functions import df_lookup
 
 from scipy.optimize import linear_sum_assignment
 
-import logging
-
 class AssignmentStrategy(ABC):
     """Base class for assignment strategies"""
 
@@ -112,7 +110,6 @@ class AssignmentStrategy(ABC):
         self,
         obs: pd.DataFrame,
         preds: pd.DataFrame,
-        logger=None,
     ) -> pd.DataFrame:
         """Calculate a matrix of -log10(match probabilities).
 
@@ -141,7 +138,7 @@ class AssignmentStrategy(ABC):
         if self.config.pred_correction:
             # Import parameters for correcting the shifts
             lm_pars = pd.read_csv(self.config.pred_correction_file, index_col=0)
-            logger.info(
+            self.config.logger.info(
                 'Imported pred_correction info from %s'
                 % self.config.pred_correction_file
             )
@@ -159,7 +156,7 @@ class AssignmentStrategy(ABC):
                 d_cov = pd.read_csv(
                     self.config.delta_correlation_cov_corrected_file, index_col=0
                 ).loc[atoms, atoms]
-                logger.info(
+                self.config.logger.info(
                     'Imported delta_correlation info from %s and %s'
                     % (
                         self.config.delta_correlation_mean_corrected_file,
@@ -175,7 +172,7 @@ class AssignmentStrategy(ABC):
                 d_cov = pd.read_csv(
                     self.config.delta_correlation_cov_file, index_col=0
                 ).loc[atoms, atoms]
-                logger.info(
+                self.config.logger.info(
                     'Imported delta_correlation info from %s and %s'
                     % (
                         self.config.delta_correlation_mean_file,
@@ -216,7 +213,7 @@ class AssignmentStrategy(ABC):
             # If correcting the predictions, subtract a linear function of the
             # observed shift from each predicted shift
             if self.config.pred_correction:
-                logger.info('Calculating corrections to predicted shifts')
+                self.config.logger.info('Calculating corrections to predicted shifts')
                 preds_corr_atom = preds_atom
                 for res in preds['Res_type'].dropna().unique():
                     if (atom + '_' + res) in lm_pars.index:
@@ -276,7 +273,7 @@ class AssignmentStrategy(ABC):
                 log_prob_matrix = log_prob_matrix + prob_atom
 
         if self.config.delta_correlation:
-            logger.info('Accounting for correlated prediction errors')
+            self.config.logger.info('Accounting for correlated prediction errors')
 
             # Combine the delta matrixes from each atom type into a single 3D matrix
             delta_mat = np.array(delta_list)
@@ -336,7 +333,7 @@ class AssignmentStrategy(ABC):
         log_prob_matrix.index.name = 'SS_name'
         log_prob_matrix.columns.name = 'Res_name'
 
-        logger.info(
+        self.config.logger.info(
             'Calculated log probability matrix (%dx%d)',
             log_prob_matrix.shape[0],
             log_prob_matrix.shape[1],
@@ -383,20 +380,17 @@ class StrategyRegistry:
 class DirectStragety(AssignmentStrategy):
     def assign(self, data: ShiftData, set_assign_df: bool = True) -> AssignmentResult:
         obs, preds = self.preprocess_obs_preds(data.obs_shifts, data.pred_shifts)
-        logger = logging.getLogger('direct')
-        log_prob = self.calc_log_prob_matrix(obs, preds, logger=logger)
+        log_prob = self.calc_log_prob_matrix(obs, preds)
 
         matching = self.find_best_assignment(
             score_matrix=log_prob,
             maximise=self.config.maximise_assignments,
-            logger=logger,
         )
         assign_df = self.make_assign_df(
             obs=obs,
             preds=preds,
             log_prob_matrix=log_prob,
             matching=matching,
-            logger=logger,
         )
 
         # assignments = self.add_consistency_info(assign_df) # Not sure what this does but important?
@@ -420,7 +414,6 @@ class DirectStragety(AssignmentStrategy):
             dummy_rows=None,
             dummy_cols=None,
             return_none_all_dummy=False,
-            logger=None,
     ):
         """Use the Hungarian algorithm to find the highest scoring assignment,
         with constraints. Generalised so it can be used for assigning either
@@ -440,7 +433,7 @@ class DirectStragety(AssignmentStrategy):
         row_name = score_matrix.index.name
         col_name = score_matrix.columns.name
 
-        logger.info('Started linear assignment')
+        self.config.logger.info('Started linear assignment')
 
         if inc is not None:
             # Check for conflicting entries in inc
@@ -448,7 +441,7 @@ class DirectStragety(AssignmentStrategy):
                 col_name
             ].duplicated(keep=False)
             if any(conflicts):
-                logger.warning(
+                self.config.logger.warning(
                     'Warning: entries in inc conflict with one another - dropping conflicts'
                 )
                 # print(inc[conflicts])
@@ -461,7 +454,7 @@ class DirectStragety(AssignmentStrategy):
                     col_name
                 ].isin(inc[col_name])
                 if any(exc_in_inc):
-                    logger.warning(
+                    self.config.logger.warning(
                         'Some values in exc are also found in inc, so are redundant.'
                     )
                     # print(exc[exc_in_inc])
@@ -473,7 +466,7 @@ class DirectStragety(AssignmentStrategy):
             score_matrix_reduced = score_matrix.drop(index=inc[row_name]).drop(
                 columns=inc[col_name]
             )
-            logger.info(
+            self.config.logger.info(
                 '%d assignments were fixed, %d remain to be assigned'
                 % (len(inc), len(score_matrix_reduced.index))
             )
@@ -486,7 +479,7 @@ class DirectStragety(AssignmentStrategy):
             if set(score_matrix_reduced.index).issubset(dummy_rows) or set(
                     score_matrix_reduced.columns
             ).issubset(dummy_cols):
-                logger.debug('Score matrix includes only dummy rows/columns')
+                self.config.logger.debug('Score matrix includes only dummy rows/columns')
                 return None
 
         if exc is not None:
@@ -511,7 +504,7 @@ class DirectStragety(AssignmentStrategy):
                 else:
                     score_matrix_reduced.loc[r['SS_name'], r['Res_name']] = penalty
 
-            logger.info('Penalised %d excluded row,column pairs' % len(exc.index))
+            self.config.logger.info('Penalised %d excluded row,column pairs' % len(exc.index))
 
         if maximise:
             row_ind, col_ind = linear_sum_assignment(-1 * score_matrix_reduced)
@@ -540,7 +533,6 @@ class DirectStragety(AssignmentStrategy):
             preds: pd.DataFrame,
             log_prob_matrix: pd.DataFrame,
             matching: pd.DataFrame,
-            logger=None,
     ):
         """Make a dataframe with full assignment information, given a dataframe
         of SS_name and Res_name.
@@ -554,7 +546,7 @@ class DirectStragety(AssignmentStrategy):
         extra_cols = set(matching.columns).difference({'SS_name', 'Res_name'})
 
         if not {'SS_name', 'Res_name'}.issubset(matching.columns):
-            logger.warning(
+            self.config.logger.warning(
                 'Cannot make assignment dataframe, as matching'
                 + ' dataframe does not have the correct columns'
             )

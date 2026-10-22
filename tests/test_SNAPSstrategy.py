@@ -38,6 +38,28 @@ def test_strategy_factory_uses_built_config(unit_strategy):
     assert unit_strategy.config.delta_correlation is False
 
 
+def test_strategy_uses_logger_from_built_config(caplog):
+    configured_logger = logging.getLogger('test.configured_strategy')
+    config = build_config(
+        cli_overrides={
+            'logger': configured_logger,
+            'delta_correlation': False,
+        }
+    )
+    strategy = create_strategy('direct', config)
+    scores = pd.DataFrame(
+        [[1.0]],
+        index=pd.Index(['SS1'], name='SS_name'),
+        columns=pd.Index(['R1'], name='Res_name'),
+    )
+
+    with caplog.at_level(logging.INFO, logger=configured_logger.name):
+        strategy.find_best_assignment(scores)
+
+    assert strategy.config.logger is configured_logger
+    assert 'Started linear assignment' in caplog.text
+
+
 def test_preprocessing_uses_configured_atom_schema_and_dummy_names(logger):
     config = build_config(
         cli_overrides={
@@ -91,7 +113,7 @@ def test_log_probability_defaults_come_from_config(logger):
         index=pd.Index(['R1'], name='Res_name'),
     )
 
-    result = strategy.calc_log_prob_matrix(obs, preds, logger=logger)
+    result = strategy.calc_log_prob_matrix(obs, preds)
 
     assert result.loc['SS1', 'R1'] == pytest.approx(np.log10(0.2))
 
@@ -108,7 +130,7 @@ def test_calc_log_prob_matrix_calculates_independent_atom_probabilities(
         index=pd.Index(['R1'], name='Res_name'),
     )
 
-    result = unit_strategy.calc_log_prob_matrix(obs, preds, logger=logger)
+    result = unit_strategy.calc_log_prob_matrix(obs, preds)
     expected = norm.logpdf(0.5, scale=0.5) + norm.logpdf(0.0, scale=1.0)
 
     assert result.index.name == 'SS_name'
@@ -126,7 +148,7 @@ def test_calc_log_prob_matrix_penalises_missing_shifts(unit_strategy, logger):
         index=pd.Index(['R1'], name='Res_name'),
     )
 
-    result = unit_strategy.calc_log_prob_matrix(obs, preds, logger=logger)
+    result = unit_strategy.calc_log_prob_matrix(obs, preds)
     expected = np.log10(0.01) + norm.logpdf(0.0, scale=1.0)
 
     assert result.loc['SS1', 'R1'] == pytest.approx(expected)
@@ -139,7 +161,7 @@ def test_find_best_assignment_maximises_scores(unit_strategy, logger):
         columns=pd.Index(['R1', 'R2'], name='Res_name'),
     )
 
-    result = unit_strategy.find_best_assignment(scores, logger=logger)
+    result = unit_strategy.find_best_assignment(scores)
 
     assert set(zip(result['SS_name'], result['Res_name'])) == {
         ('SS1', 'R1'),
@@ -160,7 +182,6 @@ def test_find_best_assignment_honours_required_assignment(
     result = unit_strategy.find_best_assignment(
         scores,
         inc=required,
-        logger=logger,
     )
 
     assert set(zip(result['SS_name'], result['Res_name'])) == {
@@ -221,7 +242,6 @@ def test_SNAPstrategy_log_prob_matrix(pred_file, obs_file, logger):
     log_prob_matrix = strategy.calc_log_prob_matrix(
         obs,
         preds,
-        logger=logger,
     )
 
     expected_log_prob_matrix = calc_log_prob_matrix(
@@ -260,13 +280,11 @@ def test_SNAPstrategy_find_best_assignment(pred_file, obs_file, logger):
     log_prob_matrix = strategy.calc_log_prob_matrix(
         obs,
         preds,
-        logger=logger,
     )
 
     matching = strategy.find_best_assignment(
         score_matrix=log_prob_matrix,
         maximise=True,
-        logger=logger,
     )
 
     expected = find_best_assignment(
@@ -300,13 +318,11 @@ def test_SNAPstrategy_make_assign_df(pred_file, obs_file, logger):
     log_prob_matrix = strategy.calc_log_prob_matrix(
         obs,
         preds,
-        logger=logger,
     )
 
     matching = strategy.find_best_assignment(
         score_matrix=log_prob_matrix,
         maximise=True,
-        logger=logger,
     )
 
     assign_df = strategy.make_assign_df(
@@ -314,7 +330,6 @@ def test_SNAPstrategy_make_assign_df(pred_file, obs_file, logger):
         preds=preds,
         log_prob_matrix=log_prob_matrix,
         matching=matching,
-        logger=logger,
     )
 
     expected = make_assign_df(
