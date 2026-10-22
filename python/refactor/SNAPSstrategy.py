@@ -573,11 +573,28 @@ class StrategyRegistry:
         return strategy_class(config)
 
 @StrategyRegistry.register('direct')
-class DirectStragety(AssignmentStrategy):
-    def assign(self, data: ShiftData, set_assign_df: bool = True) -> AssignmentResult:
-        obs, preds = self.preprocess_obs_preds(data.obs_shifts, data.pred_shifts)
-        log_prob = self.calc_log_prob_matrix(obs, preds)
+class DirectStrategy(AssignmentStrategy):
+    def prepare(self, data: ShiftData):
+        """Prepare input data and calculate the unmodified score matrix."""
+        obs, preds = self.preprocess_obs_preds(
+            data.obs_shifts, data.pred_shifts
+        )
+        return obs, preds, self.calc_log_prob_matrix(obs, preds)
 
+    def assign(
+            self, data: ShiftData, set_assign_df: bool = True
+    ) -> AssignmentResult:
+        """Perform direct assignment from raw shift data."""
+        obs, preds, log_prob = self.prepare(data)
+        return self.assign_from_matrix(obs, preds, log_prob)
+
+    def assign_from_matrix(
+            self,
+            obs: pd.DataFrame,
+            preds: pd.DataFrame,
+            log_prob: pd.DataFrame,
+    ) -> AssignmentResult:
+        """Solve an assignment using an already calculated score matrix."""
         matching = self.find_best_assignment(
             score_matrix=log_prob,
             maximise=self.config.maximise_assignments,
@@ -589,7 +606,11 @@ class DirectStragety(AssignmentStrategy):
             matching=matching,
         )
 
-        result = self.calc_mismatch_matrix(obs=obs, logger=self.config.logger)
+        result = self.calc_mismatch_matrix(
+            obs=obs,
+            threshold=self.config.seq_link_threshold,
+            logger=self.config.logger,
+        )
         if result is not None:
             mismatch_matrix, consistent_links_matrix = result
         else:
@@ -600,6 +621,7 @@ class DirectStragety(AssignmentStrategy):
             preds=preds,
             mismatch_matrix=mismatch_matrix,
             consistent_links_matrix=consistent_links_matrix,
+            threshold=self.config.seq_link_threshold,
             logger=self.config.logger
         )
 
@@ -607,6 +629,10 @@ class DirectStragety(AssignmentStrategy):
             assignments=matching,
             log_prob_matrix=log_prob,
             assign_df=assign_df,
+            mismatch_matrix=mismatch_matrix,
+            confidence=assign_df[
+                ['SS_name', 'Res_name', 'Confidence']
+            ] if 'Confidence' in assign_df else None,
             metadata={
                 'strategy': 'direct',
                 'config': self.config,
@@ -797,39 +823,90 @@ class DirectStragety(AssignmentStrategy):
 
 @StrategyRegistry.register('iterative')
 class IterativeStrategy(AssignmentStrategy):
-    """Iterative consistency-based assignment"""
+    """Iterative refinement of direct assignment."""
 
     def assign(self, data: ShiftData) -> AssignmentResult:
-        # Calculate probability matrix
-        log_prob = self._calc_log_prob_matrix(data)
-
-        # Iterate until consistent
-        assignments = self._iterate_until_consistent(
-            data,
-            log_prob,
-            threshold=self.config.get('seq_link_threshold', 0.45)
+        direct = DirectStrategy(config=self.config)
+        obs, preds, original_log_prob = direct.prepare(data)
+        initial_result = direct.assign_from_matrix(
+            obs, preds, original_log_prob
         )
-
-        return AssignmentResult(
-            assignments=assignments,
-            log_prob_matrix=log_prob,
-            metadata={
-                'strategy': 'iterative',
-                'config': self.config,
-            }
+        return self._iterate_until_consistent(
+            obs=obs,
+            preds=preds,
+            original_log_prob=original_log_prob,
+            direct=direct,
+            initial_result=initial_result,
         )
-
-
 
     def _iterate_until_consistent(
             self,
-            data: ShiftData,
-            log_prob: pd.DataFrame,
-            threshold: float
-    ) -> pd.DataFrame:
+            obs: pd.DataFrame,
+            preds: pd.DataFrame,
+            original_log_prob: pd.DataFrame,
+            direct: DirectStrategy,
+            initial_result: AssignmentResult,
+    ) -> AssignmentResult:
         """Iterate assignments until sequentially consistent"""
-        # Implementation from current SNAPS_assigner
-        ...
+        threshold = self.config.seq_link_threshold
+        best_result = initial_result
+        best_count = initial_result.assign_df['Confidence'].isin(
+            ['High', 'Medium']
+        ).sum()
+
+        mismatch_result = direct.calc_mismatch_matrix(
+            obs=obs, threshold=threshold, logger=self.config.logger
+        )
+        if mismatch_result is None:
+            best_result.log_prob_matrix = original_log_prob
+            best_result.metadata['strategy'] = 'iterative'
+            return best_result
+        mismatch_matrix, _ = mismatch_result
+
+        while True:
+            confident = best_result.assign_df.loc[
+                best_result.assign_df['Confidence'].isin(['High', 'Medium']),
+                ['Res_name', 'SS_name'],
+            ]
+            working_log_prob = original_log_prob.copy()
+            assignment_by_residue = confident.set_index('Res_name')['SS_name']
+
+            for res, ss in assignment_by_residue.items():
+                res_m1 = preds.loc[res, 'Res_name_m1']
+                res_p1 = preds.loc[res, 'Res_name_p1']
+                penalty = working_log_prob.min().min()
+
+                if not pd.isna(res_m1):
+                    allowed_ss = mismatch_matrix.loc[:, ss] <= threshold
+                    working_log_prob.loc[~allowed_ss, res_m1] += penalty
+                if not pd.isna(res_p1):
+                    allowed_ss = mismatch_matrix.loc[ss, :] <= threshold
+                    working_log_prob.loc[~allowed_ss, res_p1] += penalty
+
+            candidate = direct.assign_from_matrix(
+                obs, preds, working_log_prob
+            )
+            candidate_count = candidate.assign_df['Confidence'].isin(
+                ['High', 'Medium']
+            ).sum()
+            self.config.logger.info(
+                'At the current stage, there are %d high or medium '
+                'confidence assignments',
+                candidate_count,
+            )
+
+            if candidate_count <= best_count:
+                break
+            best_result = candidate
+            best_count = candidate_count
+
+        best_result.log_prob_matrix = original_log_prob
+        best_result.metadata['strategy'] = 'iterative'
+        return best_result
+
+
+# Backwards-compatible name retained for callers of the initial refactor.
+DirectStragety = DirectStrategy
 
 
 

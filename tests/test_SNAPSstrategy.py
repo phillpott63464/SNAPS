@@ -1,5 +1,11 @@
-from refactor.SNAPSstrategy import create_strategy
+from refactor.SNAPSstrategy import (
+    DirectStrategy,
+    IterativeStrategy,
+    create_strategy,
+)
 from refactor.SNAPSimporter import SNAPSImporter
+from refactor.dataclasses import ShiftData
+from SNAPS_assigner import SNAPS_assigner
 from modules.assigner_functions import prepare_obs_preds, calc_log_prob_matrix, find_best_assignment, make_assign_df, import_predicted_shifts, add_consistency_info, calc_mismatch_matrix
 from modules.importer_functions import import_observed_shifts
 from refactor.SNAPSconfig import build_config
@@ -674,3 +680,144 @@ def test_SNAPstragety_direct(pred_file, obs_file, pred_format, obs_format, logge
     assert_frame_equal(assigned.assign_df, assign_df)
     assert_frame_equal(assigned.assignments, matching)
     assert_frame_equal(assigned.log_prob_matrix, log_prob_matrix)
+
+
+def _sequential_shift_data():
+    """Small deterministic dataset with three sequential predicted residues."""
+    obs = pd.DataFrame(
+        {
+            'SS_name': ['SS1', 'SS2', 'SS3'],
+            'H': [1.0, 2.0, 3.0],
+            'N': [10.0, 20.0, 30.0],
+            'C': [101.0, 102.0, 103.0],
+            'CA': [11.0, 12.0, 13.0],
+            'CB': [21.0, 22.0, 23.0],
+            'C_m1': [100.0, 101.0, 102.0],
+            'CA_m1': [10.0, 11.0, 12.0],
+            'CB_m1': [20.0, 21.0, 22.0],
+        }
+    )
+    preds = pd.DataFrame(
+        {
+            'Res_name': ['R1', 'R2', 'R3'],
+            'Res_N': [1, 2, 3],
+            'Res_type': ['A', 'A', 'A'],
+            'Res_name_m1': [np.nan, 'R1', 'R2'],
+            'Res_name_p1': ['R2', 'R3', np.nan],
+            'H': [1.0, 2.0, 3.0],
+            'N': [10.0, 20.0, 30.0],
+            'C': [101.0, 102.0, 103.0],
+            'CA': [11.0, 12.0, 13.0],
+            'CB': [21.0, 22.0, 23.0],
+            'C_m1': [100.0, 101.0, 102.0],
+            'CA_m1': [10.0, 11.0, 12.0],
+            'CB_m1': [20.0, 21.0, 22.0],
+        }
+    )
+    obs.index = obs['SS_name']
+    obs.index.name = None
+    preds.index = preds['Res_name']
+    preds.index.name = None
+    return ShiftData(obs_shifts=obs, pred_shifts=preds)
+
+
+def _comparison_config():
+    return build_config(
+        cli_overrides={
+            'atom_set': {
+                'H', 'N', 'C', 'CA', 'CB',
+                'C_m1', 'CA_m1', 'CB_m1',
+            },
+            'atom_sd': {
+                'H': 0.1711, 'N': 1.1169, 'C': 0.5330,
+                'CA': 0.4412, 'CB': 0.5163,
+                'C_m1': 0.5530, 'CA_m1': 0.4412, 'CB_m1': 0.5163,
+            },
+            'delta_correlation': False,
+            'seq_link_threshold': 0.2,
+        }
+    )
+
+
+def test_direct_assign_from_matrix_uses_precomputed_scores():
+    data = _sequential_shift_data()
+    strategy = create_strategy('direct', config=_comparison_config())
+    obs, preds = strategy.preprocess_obs_preds(
+        data.obs_shifts, data.pred_shifts
+    )
+    scores = pd.DataFrame(
+        [[9.0, 1.0], [2.0, 8.0]],
+        index=pd.Index(['SS1', 'SS2'], name='SS_name'),
+        columns=pd.Index(['R1', 'R2'], name='Res_name'),
+    )
+    obs = obs.iloc[:2].copy()
+    preds = preds.iloc[:2].copy()
+
+    strategy.calc_log_prob_matrix = lambda *_args, **_kwargs: (
+        pytest.fail('assign_from_matrix recalculated the score matrix')
+    )
+    result = strategy.assign_from_matrix(obs, preds, scores)
+
+    assert_frame_equal(result.log_prob_matrix, scores)
+    assert set(zip(result.assignments['SS_name'], result.assignments['Res_name'])) == {
+        ('SS1', 'R1'), ('SS2', 'R2')
+    }
+
+
+def _legacy_iterative_result(data, config):
+    legacy = SNAPS_assigner()
+    legacy.pars.update(
+        {
+            'atom_set': config.atom_set,
+            'atom_sd': config.atom_sd,
+            'delta_correlation': False,
+            'pred_correction': False,
+            'seq_link_threshold': config.seq_link_threshold,
+            'pred_correction_file': config.pred_correction_file,
+            'delta_correlation_mean_file': config.delta_correlation_mean_file,
+            'delta_correlation_cov_file': config.delta_correlation_cov_file,
+            'delta_correlation_mean_corrected_file': (
+                config.delta_correlation_mean_corrected_file
+            ),
+            'delta_correlation_cov_corrected_file': (
+                config.delta_correlation_cov_corrected_file
+            ),
+        }
+    )
+    legacy.logger = config.logger
+    legacy.obs, legacy.preds = prepare_obs_preds(
+        data.obs_shifts, data.pred_shifts, legacy.logger,
+        atom_set=legacy.pars['atom_set'],
+    )
+    legacy.log_prob_matrix = calc_log_prob_matrix(
+        obs=legacy.obs,
+        preds=legacy.preds,
+        delta_correlation=False,
+        atom_sd=config.atom_sd,
+        logger=legacy.logger,
+        atom_set=legacy.pars['atom_set'],
+    )
+    return legacy.find_consistent_assignments(
+        threshold=config.seq_link_threshold
+    )
+
+
+def test_iterative_strategy_matches_legacy_snaps_assigner():
+    data = _sequential_shift_data()
+    config = _comparison_config()
+    refactored = create_strategy('iterative', config).assign(data)
+    legacy = _legacy_iterative_result(data, config)
+
+    columns = [
+        'SS_name', 'Res_name', 'Max_mismatch_m1', 'Max_mismatch_p1',
+        'Max_mismatch', 'Num_good_links_m1', 'Num_good_links_p1',
+        'Num_good_links', 'Confidence',
+    ]
+    assert_frame_equal(
+        refactored.assign_df[columns].reset_index(drop=True),
+        legacy[columns].reset_index(drop=True),
+    )
+    assert_frame_equal(
+        refactored.log_prob_matrix,
+        create_strategy('direct', config).assign(data).log_prob_matrix,
+    )
