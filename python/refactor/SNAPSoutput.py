@@ -263,13 +263,18 @@ class NEFOutput(FormatOutput):
 class SNAPSOutput(FormatOutput):
     def _output(self, result: AssignmentResult, config: SNAPSConfig = None):
         table = []
+        headings = [
+            heading
+            for heading in self.headings
+            if heading in result.assign_df.columns
+        ]
         for df_index, df_row in result.assign_df.iterrows():
 
             table_row = []
             table.append(table_row)
-            for heading in self.headings:
+            for heading in headings:
                 table_row.append(df_row[heading])
-        return tabulate(table, tablefmt='plain', headers=self.headings)
+        return tabulate(table, tablefmt='plain', headers=headings)
 
 
 # Factory function (simplified - just delegates to registry)
