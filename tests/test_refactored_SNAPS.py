@@ -23,14 +23,13 @@ TEST_DATA = Path(__file__).parent / 'test_data'
 
 
 @pytest.mark.parametrize(
-    'measured_shifts, expected_shifts, config_file, shift_type, expected_file, prediction_type',
+    'measured_shifts, expected_shifts, config_file, shift_type, prediction_type',
     [
         (
             'data/P3a_L273R/ccpn_resonances.txt',
             'data/P3a_L273R/shiftx2.cs',
             'config/config_yaml_2.txt',
             'ccpn',
-            TEST_DATA / 'p3a_ccpn_shiftx2_test_results',
             'shiftx2',
         ),
         (
@@ -38,7 +37,6 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             'data/P3a_L273R/shiftx2.cs',
             'config/config_yaml_2.txt',
             'nmrpipe',
-            TEST_DATA / 'p3a_nmrpipe_shiftx2_test_results',
             'shiftx2',
         ),
         (
@@ -46,7 +44,6 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             'data/P3a_L273R/shiftx2.cs',
             'config/config_yaml_2.txt',
             'nef',
-            TEST_DATA / 'p3a_nef_shiftx2_test_results',
             'shiftx2',
         ),
         (
@@ -54,7 +51,6 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             'data/P3a_L273R/P3a_L273R_sparta.tab',
             'config/config_yaml_2.txt',
             'ccpn',
-            TEST_DATA / 'p3a_ccpn_sparta_test_results',
             'sparta+',
         ),
         (
@@ -62,7 +58,6 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             'data/P3a_L273R/P3a_L273R_sparta.tab',
             'config/config_yaml_2.txt',
             'nmrpipe',
-            TEST_DATA / 'p3a_nmrpipe_sparta_test_results',
             'sparta+',
         ),
         (
@@ -70,7 +65,6 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             'data/P3a_L273R/P3a_L273R_sparta.tab',
             'config/config_yaml_2.txt',
             'nef',
-            TEST_DATA / 'p3a_nef_sparta_test_results',
             'sparta+',
         ),
         (
@@ -78,7 +72,6 @@ TEST_DATA = Path(__file__).parent / 'test_data'
             'data/P3a_L273R/P3a_L273R_sparta.tab',
             'config/config_yaml_2.txt',
             'sparky',
-            TEST_DATA / 'p3a_sparky_sparta_test_results',
             'sparta+',
         ),
     ],
@@ -98,7 +91,6 @@ def test_run_snaps(
     expected_shifts,
     config_file,
     shift_type,
-    expected_file,
     prediction_type,
 ):
     out_file_legacy = tmp_path / 'out_legacy.txt'
