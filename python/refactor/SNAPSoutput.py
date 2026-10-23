@@ -2,8 +2,14 @@ from pathlib import Path
 from contextlib import contextmanager
 import sys
 import pandas as pd
+import numpy as np
+from bokeh.embed import json_item
+from bokeh.layouts import gridplot
+from bokeh.models import ColumnDataSource, LabelSet, Range1d, Span
+from bokeh.plotting import figure, output_file, save
 from pynmrstar import Saveframe, Loop
 from refactor.dataclasses import AssignmentResult
+from refactor.dataclasses import ShiftData
 from numpy import arange
 import string
 from contextlib import contextmanager
@@ -63,6 +69,221 @@ class FormatOutput:
         # if spec.shift_output_file is not None:
         #     assigner.output_shiftlist(spec.shift_output_file, spec.shift_output_type,
         #                               confidence_list=spec.shift_output_confidence)
+
+    def plot_graphs(self, assignment_result: AssignmentResult, data: Optional[ShiftData] = None):
+        if self.config.hsqc_plot_file is not None:
+            self.plot_hsqc(
+                assignment_result,
+                outfile=self.config.hsqc_plot_file,
+            )
+            self.config.logger.info('Wrote HSQC plot to %s', self.config.hsqc_plot_file)
+        if self.config.strip_plot_file is not None:
+            strip_plot = self.plot_strips(
+                assignment_result,
+                data,
+                config=self.config,
+                outfile=self.config.strip_plot_file,
+            )
+            if strip_plot is not None:
+                self.config.logger.info('Wrote strip plot to %s', self.config.strip_plot_file)
+
+    @staticmethod
+    def _write_plot(plot, outfile, format):
+        if outfile is None:
+            return
+        outfile = Path(outfile)
+        outfile.parent.mkdir(parents=True, exist_ok=True)
+        if format == 'html':
+            output_file(outfile)
+            save(plot)
+        elif format == 'png':
+            from bokeh.io import export_png
+
+            export_png(plot, filename=outfile)
+        else:
+            raise ValueError(f"Unsupported plot format: {format}")
+
+    @staticmethod
+    def _sequential_atoms_present(columns):
+        return any(
+            atom in columns and f'{atom}_m1' in columns
+            for atom in ('C', 'CA', 'CB')
+        )
+
+    def plot_strips(
+        self,
+        result: AssignmentResult,
+        data: ShiftData,
+        config: SNAPSConfig = None,
+        outfile=None,
+        format='html',
+        return_json=True,
+        plot_width=1000,
+    ):
+        """Create a sequential strip plot from an assignment result."""
+        df = result.assign_df
+        if not self._sequential_atoms_present(df.columns):
+            return None
+
+        sequence = data.pred_shifts[['Res_name', 'Res_N', 'Res_type']].copy()
+        df = pd.merge(sequence, df, how='left', on=['Res_name', 'Res_N', 'Res_type'])
+        df['Dummy_res'] = df['Dummy_res'].fillna(False)
+        df['Dummy_SS'] = df['Dummy_SS'].fillna(True)
+        plot_range = figure(x_range=df['Res_name'].tolist()).x_range
+        plots = []
+        colourmap = {
+            'High': 'green',
+            'Medium': 'yellowgreen',
+            'Low': 'orange',
+            'Unreliable': 'red',
+            'Undefined': 'grey',
+        }
+
+        confidence = figure(
+            title=(
+                'Confidence plot'
+                ' (pan/zoom tools can be accessed at top right;'
+                ' mouse over the plot to see observed spin system name)'
+            ),
+            x_range=plot_range,
+            y_range=Range1d(0, 1.5),
+            tools='xpan, xwheel_zoom,hover,save,reset',
+            tooltips=[('Pred', '@Res_name'), ('Obs', '@SS_name')],
+            height=100,
+            width=plot_width,
+        )
+        for level, colour in colourmap.items():
+            source = ColumnDataSource(df[df['Confidence'] == level])
+            confidence.vbar(
+                x='Res_name',
+                top=1,
+                width=1,
+                color=colour,
+                legend_label=level,
+                source=source,
+            )
+        confidence.legend.orientation = 'horizontal'
+        confidence.legend.location = 'top_center'
+        confidence.legend.padding = 0
+        confidence.legend.margin = 0
+        confidence.xaxis.major_label_orientation = np.pi / 2
+        confidence.axis.visible = False
+        plots.append(confidence)
+
+        mismatch = figure(
+            title='Mismatch plot',
+            y_axis_label='Mismatch (ppm)',
+            x_range=plot_range,
+            tools='xpan, xwheel_zoom,save,reset',
+            height=200,
+            width=plot_width,
+        )
+        mismatch.vbar(
+            x=df['Res_name'],
+            top=df[['Max_mismatch_m1', 'Max_mismatch_p1']].max(axis=1),
+            width=1,
+        )
+        threshold = config.seq_link_threshold if config else 0.45
+        mismatch.add_layout(
+            Span(
+                location=threshold,
+                dimension='width',
+                line_dash='dashed',
+                line_color='red',
+            )
+        )
+        mismatch.xaxis.major_label_orientation = np.pi / 2
+        plots.append(mismatch)
+
+        carbons = [
+            atom for atom in ('C', 'CA', 'CB')
+            if atom in df.columns and f'{atom}_m1' in df.columns
+        ]
+        for atom in carbons:
+            plot = figure(
+                y_axis_label=f'{atom} (ppm)',
+                x_range=plot_range,
+                tools='xpan, xwheel_zoom,save,reset',
+                height=200,
+                width=plot_width,
+            )
+            valid = df.loc[
+                ~df['Dummy_res'].astype(bool),
+                ['Res_N', 'Res_name', atom, f'{atom}_m1'],
+            ]
+            lines = valid[['Res_name', atom, f'{atom}_m1']].copy()
+            lines[f'{atom}_z'] = np.nan
+            lines = lines.melt(
+                id_vars=['Res_name'],
+                value_vars=[atom, f'{atom}_m1', f'{atom}_z'],
+                var_name='Atom_type',
+                value_name='Shift',
+            ).sort_values(['Res_name', 'Atom_type'], ascending=[True, False])
+            plot.line(lines['Res_name'], lines['Shift'], line_color='black', line_dash='dashed')
+            horizontal = valid[['Res_name', atom, f'{atom}_m1']].copy()
+            horizontal[f'{atom}_a'] = np.nan
+            horizontal = horizontal.melt(
+                id_vars=['Res_name'],
+                value_vars=[atom, f'{atom}_m1', f'{atom}_a'],
+                var_name='Atom_type',
+                value_name='Shift',
+            ).sort_values(['Res_name', 'Atom_type'], ascending=[True, False])
+            plot.line(horizontal['Res_name'], horizontal['Shift'], line_color='black')
+            plot.circle(df['Res_name'], df[atom], fill_color='blue', size=5)
+            plot.circle(df['Res_name'], df[f'{atom}_m1'], fill_color='red', size=5)
+            values = df[[atom, f'{atom}_m1']].max().max(), df[[atom, f'{atom}_m1']].min().min()
+            plot.y_range = Range1d(values[0] + 5, values[1] - 5)
+            plot.xaxis.major_label_orientation = np.pi / 2
+            plot.xaxis.visible = False
+            plots.append(plot)
+
+        plots[-1].xaxis.visible = True
+        plot = gridplot(plots, ncols=1)
+        self._write_plot(plot, outfile, format)
+        return json_item(plot, 'strip_plot') if return_json else plot
+
+    def plot_hsqc(
+        self,
+        result: AssignmentResult,
+        outfile=None,
+        format='html',
+        return_json=True,
+        plot_width=750,
+    ):
+        """Create an HSQC plot coloured by assignment confidence."""
+        assign_df = result.assign_df.copy()
+        plot = figure(
+            title='HSQC',
+            x_axis_label='1H (ppm)',
+            y_axis_label='15N (ppm)',
+            height=plot_width,
+            width=plot_width,
+        )
+        colourmap = {
+            'High': 'green',
+            'Medium': 'yellowgreen',
+            'Low': 'orange',
+            'Unreliable': 'red',
+            'Undefined': 'grey',
+        }
+        for level, colour in colourmap.items():
+            points = assign_df[assign_df['Confidence'] == level]
+            plot.circle(points['H'], points['N'], color=colour, legend_label=level)
+        plot.add_layout(
+            LabelSet(
+                x='H',
+                y='N',
+                text='Res_name',
+                source=ColumnDataSource(assign_df),
+                text_font_size='10pt',
+            )
+        )
+        plot.x_range = Range1d(assign_df['H'].max() + 1, assign_df['H'].min() - 1)
+        plot.y_range = Range1d(assign_df['N'].max() + 5, assign_df['N'].min() - 5)
+        plot.legend.orientation = 'horizontal'
+        self._write_plot(plot, outfile, format)
+        return json_item(plot) if return_json else plot
+
 
 
 class OutputRegistry:

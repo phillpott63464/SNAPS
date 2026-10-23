@@ -57,6 +57,14 @@ class SNAPSConfig(BaseModel):
     log_file: Optional[Path] = Field(
         default=None, description='Log file'
     )
+    hsqc_plot_file: Optional[Path] = Field(
+        default=None,
+        description='File for a labelled HSQC plot (.html)'
+    )
+    strip_plot_file: Optional[Path] = Field(
+        default=None,
+        description='File for a labelled strip plot (.html)'
+    )
 
     logger: logging.Logger = Field(
         default_factory=lambda: logging.getLogger('snaps'),

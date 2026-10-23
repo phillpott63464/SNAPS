@@ -82,6 +82,7 @@ def run_pipeline(
     #         logger.info(f"  Strips → {output_spec.strip_plot}")
     output = create_output(config.output_type, config)
     output.output(assignment_result, config)
+    output.plot_graphs(assignment_result=assignment_result, data=data)
 
     config.logger.info('Pipeline complete')
     return assignment_result
