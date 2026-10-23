@@ -72,23 +72,40 @@ def _parse_atom_sd(values: Optional[List[str]]) -> Optional[Dict[str, float]]:
 
 @app.command()
 def main(
-    obs_file: Path = typer.Option(
-        ..., "--obs-file", help="Observed shifts file.", rich_help_panel="Required"
+    shift_file: Optional[Path] = typer.Argument(
+        None, help="Observed shifts file (or a NEF file containing both lists)."
     ),
-    pred_file: Path = typer.Option(
-        ..., "--pred-file", help="Predicted shifts file.", rich_help_panel="Required"
+    pred_file: Optional[Path] = typer.Argument(
+        None, help="Predicted shifts file."
     ),
-    output_file: Path = typer.Option(
-        ...,
-        "--output-file",
+    output_file: Optional[Path] = typer.Argument(
+        None, help="Assignment output file (default: -)."
+    ),
+    shift_file_option: Optional[Path] = typer.Option(
+        None,
+        "--shift_file",
+        "--shift-file",
+        help="Observed shifts file.",
+        rich_help_panel="Common",
+    ),
+    pred_file_option: Optional[Path] = typer.Option(
+        None,
+        "--pred_file",
+        "--pred-file",
+        help="Predicted shifts file.",
+        rich_help_panel="Common",
+    ),
+    output_file_option: Path = typer.Option(
+        Path("-"),
         "--output_file",
-        help="Assignment output file.",
-        rich_help_panel="Required",
+        "--output-file",
+        help="Assignment output file (default: -).",
+        rich_help_panel="Common",
     ),
     config_file: Optional[Path] = typer.Option(
         None,
-        "--config-file",
         "--config_file",
+        "--config-file",
         "-c",
         help="YAML configuration file. CLI options override file values.",
         rich_help_panel="Common",
@@ -102,6 +119,7 @@ def main(
     ),
     obs_format: Optional[str] = typer.Option(
         None,
+        "--obs_format",
         "--obs-format",
         help="Observed shifts format.",
         show_default=_display_default(DEFAULT_CONFIG.obs_format, "autodetected"),
@@ -109,16 +127,17 @@ def main(
     ),
     pred_format: Optional[str] = typer.Option(
         None,
+        "--pred_format",
         "--pred-format",
         help="Predicted shifts format.",
         show_default=_display_default(DEFAULT_CONFIG.pred_format, "autodetected"),
         rich_help_panel="Common",
     ),
     obs_frame: Optional[str] = typer.Option(
-        None, "--obs-frame", help="Observed shifts frame.", rich_help_panel="Common"
+        None, "--obs_frame", "--obs-frame", help="Observed shifts frame.", rich_help_panel="Common"
     ),
     pred_frame: Optional[str] = typer.Option(
-        None, "--pred-frame", help="Predicted shifts frame.", rich_help_panel="Common"
+        None, "--pred_frame", "--pred-frame", help="Predicted shifts frame.", rich_help_panel="Common"
     ),
     advanced: bool = typer.Option(
         False,
@@ -129,6 +148,7 @@ def main(
     ),
     obs_chain: Optional[str] = typer.Option(
         None,
+        "--obs_chain",
         "--obs-chain",
         help="Observed chain identifier.",
         show_default=str(DEFAULT_CONFIG.obs_chain),
@@ -136,6 +156,7 @@ def main(
     ),
     pred_chain: Optional[str] = typer.Option(
         None,
+        "--pred_chain",
         "--pred-chain",
         help="Predicted chain identifier.",
         show_default=str(DEFAULT_CONFIG.pred_chain),
@@ -143,6 +164,7 @@ def main(
     ),
     aa_restraints_file: Optional[Path] = typer.Option(
         None,
+        "--aa_restraints_file",
         "--aa-restraints-file",
         help="Amino acid restraints file.",
         rich_help_panel="Advanced",
@@ -150,6 +172,7 @@ def main(
     ),
     aa_restraints_frame: Optional[str] = typer.Option(
         None,
+        "--aa_restraints_frame",
         "--aa-restraints-frame",
         help="Amino acid restraints frame.",
         rich_help_panel="Advanced",
@@ -157,19 +180,21 @@ def main(
     ),
     output_type: Optional[str] = typer.Option(
         None,
+        "--output_type",
         "--output-type",
         help="Assignment output format.",
         show_default=str(DEFAULT_CONFIG.output_type),
         rich_help_panel="Common",
     ),
     shift_output_file: Optional[Path] = typer.Option(
-        None, "--shift-output-file", help="Chemical shift output file.", rich_help_panel="Advanced", hidden=True
+        None, "--shift_output_file", "--shift-output-file", help="Chemical shift output file.", rich_help_panel="Advanced", hidden=True
     ),
     shift_output_type: Optional[str] = typer.Option(
-        None, "--shift-output-type", help="Chemical shift output format.", rich_help_panel="Advanced", hidden=True
+        None, "--shift_output_type", "--shift-output-type", help="Chemical shift output format.", rich_help_panel="Advanced", hidden=True
     ),
     shift_output_confidence: Optional[str] = typer.Option(
         None,
+        "--shift_output_confidence",
         "--shift-output-confidence",
         help="Chemical shift output confidence.",
         rich_help_panel="Advanced",
@@ -177,6 +202,7 @@ def main(
     ),
     atom_set: Optional[List[str]] = typer.Option(
         None,
+        "--atom_set",
         "--atom-set",
         help="Atom type to use; repeat for multiple atom types.",
         rich_help_panel="Advanced",
@@ -184,6 +210,7 @@ def main(
     ),
     atom_sd: Optional[List[str]] = typer.Option(
         None,
+        "--atom_sd",
         "--atom-sd",
         help="Atom standard deviation as ATOM=VALUE; repeatable.",
         rich_help_panel="Advanced",
@@ -191,6 +218,7 @@ def main(
     ),
     supported_atom_types: Optional[List[str]] = typer.Option(
         None,
+        "--supported_atom_types",
         "--supported-atom-types",
         help="Accepted atom type; repeat for multiple atom types.",
         rich_help_panel="Advanced",
@@ -198,6 +226,7 @@ def main(
     ),
     default_probability: Optional[float] = typer.Option(
         None,
+        "--default_probability",
         "--default-probability",
         help="Probability assigned to a missing shift.",
         show_default=str(DEFAULT_CONFIG.default_probability),
@@ -206,6 +235,7 @@ def main(
     ),
     shift_scale_factor: Optional[float] = typer.Option(
         None,
+        "--shift_scale_factor",
         "--shift-scale-factor",
         help="Scale factor for atom standard deviations.",
         show_default=str(DEFAULT_CONFIG.shift_scale_factor),
@@ -214,6 +244,7 @@ def main(
     ),
     pred_offset: Optional[int] = typer.Option(
         None,
+        "--pred_offset",
         "--pred-offset",
         help="Offset applied to predicted residue numbers.",
         show_default=str(DEFAULT_CONFIG.pred_offset),
@@ -222,6 +253,7 @@ def main(
     ),
     maximise_assignments: Optional[bool] = typer.Option(
         None,
+        "--maximise_assignments/--minimise_assignments",
         "--maximise-assignments/--minimise-assignments",
         help="Maximise assignment scores rather than minimise them.",
         show_default=str(DEFAULT_CONFIG.maximise_assignments),
@@ -230,6 +262,7 @@ def main(
     ),
     dummy_predicted_prefix: Optional[str] = typer.Option(
         None,
+        "--dummy_predicted_prefix",
         "--dummy-predicted-prefix",
         help="Prefix for dummy predicted residues.",
         show_default=str(DEFAULT_CONFIG.dummy_predicted_prefix),
@@ -238,6 +271,7 @@ def main(
     ),
     dummy_observed_prefix: Optional[str] = typer.Option(
         None,
+        "--dummy_observed_prefix",
         "--dummy-observed-prefix",
         help="Prefix for dummy observed spin systems.",
         show_default=str(DEFAULT_CONFIG.dummy_observed_prefix),
@@ -246,6 +280,7 @@ def main(
     ),
     seq_link_threshold: Optional[float] = typer.Option(
         None,
+        "--seq_link_threshold",
         "--seq-link-threshold",
         help="Carbon shift threshold for sequential links.",
         show_default=str(DEFAULT_CONFIG.seq_link_threshold),
@@ -254,6 +289,7 @@ def main(
     ),
     iterate_until_consistent: Optional[bool] = typer.Option(
         None,
+        "--iterate_until_consistent/--no-iterate_until_consistent",
         "--iterate-until-consistent/--no-iterate-until-consistent",
         help="Iterate assignments until sequentially consistent.",
         show_default=str(DEFAULT_CONFIG.iterate_until_consistent),
@@ -262,6 +298,7 @@ def main(
     ),
     use_ss_class_info: Optional[bool] = typer.Option(
         None,
+        "--use_ss_class_info/--no-use_ss_class_info",
         "--use-ss-class-info/--no-use-ss-class-info",
         help="Use amino acid class restraints.",
         show_default=str(DEFAULT_CONFIG.use_ss_class_info),
@@ -270,6 +307,7 @@ def main(
     ),
     delta_correlation: Optional[bool] = typer.Option(
         None,
+        "--delta_correlation/--no-delta_correlation",
         "--delta-correlation/--no-delta-correlation",
         help="Account for correlations in prediction errors.",
         show_default=str(DEFAULT_CONFIG.delta_correlation),
@@ -278,6 +316,7 @@ def main(
     ),
     pred_correction: Optional[bool] = typer.Option(
         None,
+        "--pred_correction/--no_pred_correction",
         "--pred-correction/--no-pred-correction",
         help="Use prediction correction.",
         show_default=str(DEFAULT_CONFIG.pred_correction),
@@ -286,6 +325,7 @@ def main(
     ),
     pred_correction_file: Optional[str] = typer.Option(
         None,
+        "--pred_correction_file",
         "--pred-correction-file",
         help="Linear prediction correction parameters.",
         show_default=str(DEFAULT_CONFIG.pred_correction_file),
@@ -294,6 +334,7 @@ def main(
     ),
     delta_correlation_mean_corrected_file: Optional[str] = typer.Option(
         None,
+        "--delta_correlation_mean_corrected_file",
         "--delta-correlation-mean-corrected-file",
         help="Corrected prediction error means.",
         show_default=str(DEFAULT_CONFIG.delta_correlation_mean_corrected_file),
@@ -302,6 +343,7 @@ def main(
     ),
     delta_correlation_cov_corrected_file: Optional[str] = typer.Option(
         None,
+        "--delta_correlation_cov_corrected_file",
         "--delta-correlation-cov-corrected-file",
         help="Corrected prediction error covariances.",
         show_default=str(DEFAULT_CONFIG.delta_correlation_cov_corrected_file),
@@ -310,6 +352,7 @@ def main(
     ),
     delta_correlation_mean_file: Optional[str] = typer.Option(
         None,
+        "--delta_correlation_mean_file",
         "--delta-correlation-mean-file",
         help="Prediction error means.",
         show_default=str(DEFAULT_CONFIG.delta_correlation_mean_file),
@@ -318,6 +361,7 @@ def main(
     ),
     delta_correlation_cov_file: Optional[str] = typer.Option(
         None,
+        "--delta_correlation_cov_file",
         "--delta-correlation-cov-file",
         help="Prediction error covariances.",
         show_default=str(DEFAULT_CONFIG.delta_correlation_cov_file),
@@ -326,8 +370,27 @@ def main(
     ),
 ) -> None:
     """Run the SNAPS assignment pipeline."""
+    shift_file = shift_file_option or shift_file
+    pred_file = pred_file_option or pred_file
+    if output_file is None:
+        output_file = output_file_option
+    elif output_file_option != Path("-"):
+        output_file = output_file_option
+
+    if shift_file is None:
+        raise typer.BadParameter(
+            "a shift_file must be provided as a positional argument or with --shift_file"
+        )
+    if pred_file is None:
+        if shift_file.suffix.lower() == ".nef":
+            pred_file = shift_file
+        else:
+            raise typer.BadParameter(
+                "a pred_file must be provided unless shift_file is a NEF file"
+            )
+
     overrides = {
-        "obs_file": obs_file,
+        "obs_file": shift_file,
         "pred_file": pred_file,
         "obs_format": obs_format,
         "pred_format": pred_format,
