@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, List, Dict, Set
+from typing import Optional, List, Dict, Set, Literal
 import logging
 from pydantic import BaseModel, Field
 import yaml
@@ -20,7 +20,7 @@ class SNAPSConfig(BaseModel):
     aa_restraints_file: Optional[Path] = Field(default=None, description="Amino acid restraints file")
     aa_restraints_frame: Optional[str] = Field(default=None, description="Amino acid restraints frame")
     output_file: Optional[Path] = Field(default=None, description="Assignment output file")
-    output_type: str = Field(default='SNAPS', description="Assignment output format")
+    output_type: str = Field(default='snaps', description="Assignment output format")
     shift_output_file: Optional[Path] = Field(default=None, description="Chemical shift output file")
     shift_output_type: Optional[str] = Field(default=None, description="Chemical shift output format")
     shift_output_confidence: Optional[str] = Field(default=None, description="Chemical shift output confidence")
@@ -127,7 +127,7 @@ class SNAPSConfig(BaseModel):
     )
 
     # Strategy
-    strategy: str = Field(
+    strategy: Literal['direct', 'iterative', 'bayesian'] = Field(
         default='direct',
         description="Assignment strategy: iterative, direct, bayesian"
     )
