@@ -24,6 +24,7 @@ COMMON_OPTIONS = {
     'pred_chain',
     'strategy',
     'output_type',
+    'log_file'
 }
 EXCLUDED_FIELDS = {'obs_file', 'pred_file', 'output_file', 'logger'}
 

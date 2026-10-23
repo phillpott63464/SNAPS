@@ -54,6 +54,9 @@ class SNAPSConfig(BaseModel):
     shift_output_confidence: Optional[str] = Field(
         default=None, description='Chemical shift output confidence'
     )
+    log_file: Optional[Path] = Field(
+        default=None, description='Log file'
+    )
 
     logger: logging.Logger = Field(
         default_factory=lambda: logging.getLogger('snaps'),
@@ -217,7 +220,16 @@ def build_config(
     if cli_overrides:
         config = config.merge(cli_overrides)
 
-    # Double triple check that everything is deterministic
-    config.atom_set = config.atom_set
+    if config.log_file is not None:
+        config.logger.setLevel(logging.DEBUG)
+        log_handler = logging.FileHandler(config.log_file, mode='w')
+        log_handler.setLevel(logging.DEBUG)
+        log_handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S"))
+        config.logger.addHandler(log_handler)
+
+    #
+    # # Double triple check that everything is deterministic
+    # config.atom_set = config.atom_set
 
     return config
