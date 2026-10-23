@@ -480,12 +480,16 @@ class NEFReader(FormatReader):
         except (OSError, UnicodeError):
             return False
 
-    def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
-        obs = read_nef_obs_shifts_from_file_to_pandas(file_path, chain=None)
+    def read_observed_shifts(
+        self, file_path: Path, chain: str = 'A'
+    ) -> Optional[pd.DataFrame]:
+        obs = read_nef_obs_shifts_from_file_to_pandas(file_path, chain=chain)
         return obs
 
-    def read_predicted_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
-        preds = read_nef_pred_shifts_from_file_to_pandas(file_path, chain=None)
+    def read_predicted_shifts(
+        self, file_path: Path, chain: str = 'A'
+    ) -> Optional[pd.DataFrame]:
+        preds = read_nef_pred_shifts_from_file_to_pandas(file_path, chain=chain)
         preds = preds[['Res_N', 'Res_type', 'Atom_type', 'Shift']]
         preds['Res_N'] = preds['Res_N'].astype(int)
 
