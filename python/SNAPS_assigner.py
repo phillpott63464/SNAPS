@@ -785,7 +785,7 @@ class SNAPS_assigner:
         # Plot the peaks
         for k in colourmap.keys():
             tmp = assign_df[assign_df["Confidence"]==k]
-            plt.circle(tmp["H"], tmp["N"], color=colourmap[k], legend=k)
+            plt.circle(tmp["H"], tmp["N"], color=colourmap[k], legend_label=k)
 
         # Label the points
         df = ColumnDataSource(assign_df)
