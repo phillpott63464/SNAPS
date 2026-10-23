@@ -94,7 +94,7 @@ class OutputRegistry:
         output = cls.get(name)
         return output(config)
 
-@OutputRegistry.register('NEF')
+@OutputRegistry.register('nef')
 class NEFOutput(FormatOutput):
     def _output(self, result: AssignmentResult, config: SNAPSConfig = None):
         save_frame = Saveframe.from_scratch('nefpls_assignments_snaps', 'nefpls_assignments')
@@ -197,7 +197,7 @@ class NEFOutput(FormatOutput):
         loop.add_data(output_frame.to_dict('records'))
         return str(save_frame)
 
-@OutputRegistry.register('SNAPS')
+@OutputRegistry.register('snaps')
 class SNAPSOutput(FormatOutput):
     def _output(self, result: AssignmentResult, config: SNAPSConfig = None):
         table = []
