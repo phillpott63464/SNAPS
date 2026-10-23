@@ -13,8 +13,8 @@ from refactor.SNAPSconfig import build_config
 
 def _assignment_result():
     headings = SNAPSOutput.headings
-    first = {heading: f"first_{heading}" for heading in headings}
-    second = {heading: f"second_{heading}" for heading in headings}
+    first = {heading: f'first_{heading}' for heading in headings}
+    second = {heading: f'second_{heading}' for heading in headings}
     # Deliberately use a different column order: SNAPS output has a fixed format.
     assign_df = pd.DataFrame([first, second], columns=list(reversed(headings)))
     return AssignmentResult(
@@ -31,19 +31,19 @@ def test_snaps_output_uses_heading_order_and_preserves_rows():
 
     assert lines[0].split() == SNAPSOutput.headings
     assert lines[1].split() == [
-        f"first_{heading}" for heading in SNAPSOutput.headings
+        f'first_{heading}' for heading in SNAPSOutput.headings
     ]
     assert lines[2].split() == [
-        f"second_{heading}" for heading in SNAPSOutput.headings
+        f'second_{heading}' for heading in SNAPSOutput.headings
     ]
 
 
 def test_snaps_output_writes_rendered_table_to_file(tmp_path):
-    output_file = tmp_path / "assignments.txt"
+    output_file = tmp_path / 'assignments.txt'
 
     SNAPSOutput().output(
         _assignment_result(),
-        build_config(cli_overrides={"output_file": output_file}),
+        build_config(cli_overrides={'output_file': output_file}),
     )
 
     assert output_file.read_text().splitlines() == (
@@ -54,7 +54,7 @@ def test_snaps_output_writes_rendered_table_to_file(tmp_path):
 def test_snaps_output_writes_rendered_table_to_stdout(capsys):
     SNAPSOutput().output(
         _assignment_result(),
-        build_config(cli_overrides={"output_file": "-"}),
+        build_config(cli_overrides={'output_file': '-'}),
     )
 
     captured = capsys.readouterr()
@@ -62,19 +62,19 @@ def test_snaps_output_writes_rendered_table_to_stdout(capsys):
 
 
 def test_output_registry_registers_snaps_and_factory_preserves_config():
-    config = {"format": "plain"}
+    config = {'format': 'plain'}
 
-    assert OutputRegistry.get("snaps") is SNAPSOutput
-    assert "snaps" in OutputRegistry.list_names()
+    assert OutputRegistry.get('snaps') is SNAPSOutput
+    assert 'snaps' in OutputRegistry.list_names()
 
-    output = create_output("snaps", config)
+    output = create_output('snaps', config)
     assert isinstance(output, SNAPSOutput)
     assert output.config is config
 
 
 def test_output_registry_rejects_unknown_output():
-    with pytest.raises(ValueError, match="Unknown strategy: missing"):
-        OutputRegistry.get("missing")
+    with pytest.raises(ValueError, match='Unknown strategy: missing'):
+        OutputRegistry.get('missing')
 
 
 def test_format_output_requires_subclasses_to_implement_rendering():

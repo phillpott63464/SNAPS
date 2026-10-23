@@ -135,6 +135,7 @@ def test_calc_log_prob_matrix(logger):
 
     assert_frame_equal(log_prob_matrix, expected_result)
 
+
 def test_find_best_assignment(logger):
     importer = SNAPSImporter()
     imported = importer.import_data(
@@ -158,11 +159,14 @@ def test_find_best_assignment(logger):
         logger=logger,
     )
 
-    matching = find_best_assignment(log_prob_matrix, maximise=True, logger=logger)
+    matching = find_best_assignment(
+        log_prob_matrix, maximise=True, logger=logger
+    )
 
     expected = pd.read_pickle(TEST_DATA / 'matching.pickle')
 
     assert_frame_equal(matching, expected)
+
 
 def test_make_assign_df(logger):
     importer = SNAPSImporter()
@@ -187,15 +191,17 @@ def test_make_assign_df(logger):
         logger=logger,
     )
 
-    matching = find_best_assignment(log_prob_matrix, maximise=True, logger=logger)
+    matching = find_best_assignment(
+        log_prob_matrix, maximise=True, logger=logger
+    )
 
-    print("obs index:", obs.index.names)
-    print("preds index:", preds.index.names)
-    print("matching index:", matching.index.names)
+    print('obs index:', obs.index.names)
+    print('preds index:', preds.index.names)
+    print('matching index:', matching.index.names)
 
-    print("obs columns:", obs.columns.tolist())
-    print("preds columns:", preds.columns.tolist())
-    print("matching columns:", matching.columns.tolist())
+    print('obs columns:', obs.columns.tolist())
+    print('preds columns:', preds.columns.tolist())
+    print('matching columns:', matching.columns.tolist())
 
     assign_df = make_assign_df(
         obs=obs,

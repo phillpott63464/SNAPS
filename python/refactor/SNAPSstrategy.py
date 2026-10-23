@@ -10,10 +10,11 @@ from modules.assigner_functions import df_lookup
 
 from scipy.optimize import linear_sum_assignment
 
+
 class AssignmentStrategy(ABC):
     """Base class for assignment strategies"""
 
-    name: str = ""  # Subclasses must set this
+    name: str = ''  # Subclasses must set this
     config: Optional[SNAPSConfig] = None
 
     def __init__(self, config: Optional[Union[SNAPSConfig, dict]] = None):
@@ -43,15 +44,19 @@ class AssignmentStrategy(ABC):
         """
 
         #### Delete any prolines in preds
-        print("Removing %d prolines from predictions"
-                         % sum(preds["Res_type"] == "P"))
-        preds = preds.drop(
-            preds.index[preds["Res_type"] == "P"]
+        print(
+            'Removing %d prolines from predictions'
+            % sum(preds['Res_type'] == 'P')
         )
+        preds = preds.drop(preds.index[preds['Res_type'] == 'P'])
 
         # Remove references to deleted residues from Res_name_m1/p1
-        preds.loc[~preds["Res_name_m1"].isin(preds["Res_name"]), "Res_name_m1"] = np.NaN
-        preds.loc[~preds["Res_name_p1"].isin(preds["Res_name"]), "Res_name_p1"] = np.NaN
+        preds.loc[
+            ~preds['Res_name_m1'].isin(preds['Res_name']), 'Res_name_m1'
+        ] = np.NaN
+        preds.loc[
+            ~preds['Res_name_p1'].isin(preds['Res_name']), 'Res_name_p1'
+        ] = np.NaN
 
         #### Restrict atom types
         # self.pars["atom_set"] is the set of atoms to be used in the analysis
@@ -59,24 +64,29 @@ class AssignmentStrategy(ABC):
         # Get all non-atom columns
         all_atoms = self.config.supported_atom_types
         obs_metadata = sorted(set(obs.columns).difference(all_atoms))
-        preds_metadata = sorted(set(preds.columns).
-                              difference(all_atoms))
+        preds_metadata = sorted(set(preds.columns).difference(all_atoms))
         # Get atoms that are in atom_set *and* present in both obs and preds
-        shared_atoms = sorted(list(self.config.atom_set.intersection(obs.columns).intersection(preds.columns))) # It has to be a set before this point but has to be a list past this point, oddly
-        obs = obs.loc[:,obs_metadata+shared_atoms]
-        preds = preds.loc[:,preds_metadata+shared_atoms]
+        shared_atoms = sorted(
+            list(
+                self.config.atom_set.intersection(obs.columns).intersection(
+                    preds.columns
+                )
+            )
+        )   # It has to be a set before this point but has to be a list past this point, oddly
+        obs = obs.loc[:, obs_metadata + shared_atoms]
+        preds = preds.loc[:, preds_metadata + shared_atoms]
 
-        print("Restricted atom types to %s" % ",".join(shared_atoms))
+        print('Restricted atom types to %s' % ','.join(shared_atoms))
 
         #### Create dummy rows
         # Create columns to keep track of dummy status
-        preds["Dummy_res"] = False
-        obs["Dummy_SS"] = False
+        preds['Dummy_res'] = False
+        obs['Dummy_SS'] = False
 
         N = len(obs.index)
         M = len(preds.index)
 
-        if N>M:     # If there are more spin systems than predictions
+        if N > M:     # If there are more spin systems than predictions
             dummies = pd.DataFrame(
                 np.NaN,
                 columns=preds.columns,
@@ -85,12 +95,12 @@ class AssignmentStrategy(ABC):
                     for i in 1 + np.arange(N - M)
                 ],
             )
-            dummies["Res_name"] = dummies.index
-            dummies["Dummy_res"] = True
-            #preds = preds.append(dummies)
+            dummies['Res_name'] = dummies.index
+            dummies['Dummy_res'] = True
+            # preds = preds.append(dummies)
             preds = pd.concat([preds, dummies])
-            print("Added %d dummy predicted residues" % len(dummies.index))
-        elif M>N:
+            print('Added %d dummy predicted residues' % len(dummies.index))
+        elif M > N:
             dummies = pd.DataFrame(
                 np.NaN,
                 columns=obs.columns,
@@ -99,13 +109,13 @@ class AssignmentStrategy(ABC):
                     for i in 1 + np.arange(M - N)
                 ],
             )
-            dummies["SS_name"] = dummies.index
-            dummies["Dummy_SS"] = True
+            dummies['SS_name'] = dummies.index
+            dummies['Dummy_SS'] = True
             # obs = obs.append(dummies)
             obs = pd.concat([obs, dummies])
-            print("Added %d dummy observed residues" % len(dummies.index))
+            print('Added %d dummy observed residues' % len(dummies.index))
 
-        return(obs, preds)
+        return (obs, preds)
 
     # Same with this
     def calc_log_prob_matrix(
@@ -115,31 +125,33 @@ class AssignmentStrategy(ABC):
     ) -> pd.DataFrame:
         """Calculate a matrix of -log10(match probabilities).
 
-            By probability, we mean the value of the probability density function,
-            assuming the prediction errors follow a Gaussian distribution.
-            If self.pars["delta_correlation"]==True, correlations in errors between
-            different atom types will be accounted for.
-            If self.pars["pred_correction"]==True, a linear correction will be
-            applied to the predicted shifts to compensate for prediction bias
-            towards random coil values.
+        By probability, we mean the value of the probability density function,
+        assuming the prediction errors follow a Gaussian distribution.
+        If self.pars["delta_correlation"]==True, correlations in errors between
+        different atom types will be accounted for.
+        If self.pars["pred_correction"]==True, a linear correction will be
+        applied to the predicted shifts to compensate for prediction bias
+        towards random coil values.
 
-            Returns
-            A DataFrame containing the log probabilities
+        Returns
+        A DataFrame containing the log probabilities
 
-            Parameters
-            atom_sd: A dictionary containing the expected standard error in the
-                predictions for each atom type
-            The configured shift scale factor is applied to atom standard
-            deviations, and the configured default probability penalizes
-            missing data.
-            """
+        Parameters
+        atom_sd: A dictionary containing the expected standard error in the
+            predictions for each atom type
+        The configured shift scale factor is applied to atom standard
+        deviations, and the configured default probability penalizes
+        missing data.
+        """
         obs = obs.copy()
         preds = preds.copy()
         atoms = sorted(self.config.atom_set.intersection(obs.columns))
 
         if self.config.pred_correction:
             # Import parameters for correcting the shifts
-            lm_pars = pd.read_csv(self.config.pred_correction_file, index_col=0)
+            lm_pars = pd.read_csv(
+                self.config.pred_correction_file, index_col=0
+            )
             self.config.logger.info(
                 'Imported pred_correction info from %s'
                 % self.config.pred_correction_file
@@ -156,7 +168,8 @@ class AssignmentStrategy(ABC):
                     index_col=0,
                 ).loc[atoms, 1]
                 d_cov = pd.read_csv(
-                    self.config.delta_correlation_cov_corrected_file, index_col=0
+                    self.config.delta_correlation_cov_corrected_file,
+                    index_col=0,
                 ).loc[atoms, atoms]
                 self.config.logger.info(
                     'Imported delta_correlation info from %s and %s'
@@ -215,13 +228,15 @@ class AssignmentStrategy(ABC):
             # If correcting the predictions, subtract a linear function of the
             # observed shift from each predicted shift
             if self.config.pred_correction:
-                self.config.logger.info('Calculating corrections to predicted shifts')
+                self.config.logger.info(
+                    'Calculating corrections to predicted shifts'
+                )
                 preds_corr_atom = preds_atom
                 for res in preds['Res_type'].dropna().unique():
                     if (atom + '_' + res) in lm_pars.index:
                         # Find shifts of the current atom/residue combination
                         mask = (lm_pars['Atom_type'] == atom) & (
-                                lm_pars['Res_type'] == res
+                            lm_pars['Res_type'] == res
                         )
 
                         # Look up model parameters
@@ -232,16 +247,16 @@ class AssignmentStrategy(ABC):
                         if atom in ('C_m1', 'CA_m1', 'CB_m1'):
                             mask = preds['Res_type_m1'] == res
                             preds_corr_atom.loc[:, mask] = (
-                                    preds_atom.loc[:, mask]
-                                    - grad * obs_atom.loc[:, mask]
-                                    - offset
+                                preds_atom.loc[:, mask]
+                                - grad * obs_atom.loc[:, mask]
+                                - offset
                             )
                         else:
                             mask = preds['Res_type'] == res
                             preds_corr_atom.loc[:, mask] = (
-                                    preds_atom.loc[:, mask]
-                                    - grad * obs_atom.loc[:, mask]
-                                    - offset
+                                preds_atom.loc[:, mask]
+                                - grad * obs_atom.loc[:, mask]
+                                - offset
                             )
 
                 delta_atom = preds_corr_atom - obs_atom
@@ -275,7 +290,9 @@ class AssignmentStrategy(ABC):
                 log_prob_matrix = log_prob_matrix + prob_atom
 
         if self.config.delta_correlation:
-            self.config.logger.info('Accounting for correlated prediction errors')
+            self.config.logger.info(
+                'Accounting for correlated prediction errors'
+            )
 
             # Combine the delta matrixes from each atom type into a single 3D matrix
             delta_mat = np.array(delta_list)
@@ -347,9 +364,8 @@ class AssignmentStrategy(ABC):
         """Calculate pairwise sequential carbon mismatches for observed shifts."""
         carbons = pd.Series(['C', 'CA', 'CB'])
         seq_atoms = carbons[
-            carbons.isin(obs.columns)
-            & (carbons + '_m1').isin(obs.columns)
-            ]
+            carbons.isin(obs.columns) & (carbons + '_m1').isin(obs.columns)
+        ]
 
         if seq_atoms.empty:
             if logger:
@@ -367,7 +383,8 @@ class AssignmentStrategy(ABC):
 
         for atom in seq_atoms:
             mismatch_atom = pd.DataFrame(
-                obs[atom].to_numpy()[:, None] - obs[f'{atom}_m1'].to_numpy()[None, :],
+                obs[atom].to_numpy()[:, None]
+                - obs[f'{atom}_m1'].to_numpy()[None, :],
                 index=obs['SS_name'],
                 columns=obs['SS_name'],
             )
@@ -383,7 +400,7 @@ class AssignmentStrategy(ABC):
                 abs(mismatch_atom), np.maximum
             )
             consistent_links_matrix = (
-                    consistent_links_matrix + consistent_links_atom
+                consistent_links_matrix + consistent_links_atom
             )
 
         if logger:
@@ -395,19 +412,24 @@ class AssignmentStrategy(ABC):
         return mismatch_matrix, consistent_links_matrix
 
     def add_consistency_info(
-            self,
-            assign_df,
-            preds,
-            mismatch_matrix=None,
-            consistent_links_matrix=None,
-            threshold=0.2,
-            logger=None,
+        self,
+        assign_df,
+        preds,
+        mismatch_matrix=None,
+        consistent_links_matrix=None,
+        threshold=0.2,
+        logger=None,
     ):
         """Add sequential mismatch metrics and confidence to assignments."""
         assign_df = assign_df.copy()
         sequential_atoms = {
-                               'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1'
-                           }.issubset(assign_df.columns) or any(
+            'C',
+            'CA',
+            'CB',
+            'C_m1',
+            'CA_m1',
+            'CB_m1',
+        }.issubset(assign_df.columns) or any(
             atom in assign_df.columns and f'{atom}_m1' in assign_df.columns
             for atom in ('C', 'CA', 'CB')
         )
@@ -456,44 +478,52 @@ class AssignmentStrategy(ABC):
         tmp_m1 = tmp.dropna(subset=['SS_name_m1'])
         tmp_p1 = tmp.dropna(subset=['SS_name_p1'])
         tmp['Max_mismatch_m1'] = pd.Series(
-            list(df_lookup(
-                mismatch_matrix,
-                tmp_m1['SS_name_m1'],
-                tmp_m1['SS_name'],
-            )),
+            list(
+                df_lookup(
+                    mismatch_matrix,
+                    tmp_m1['SS_name_m1'],
+                    tmp_m1['SS_name'],
+                )
+            ),
             index=tmp_m1.index,
         )
         tmp['Max_mismatch_p1'] = pd.Series(
-            list(df_lookup(
-                mismatch_matrix,
-                tmp_p1['SS_name'],
-                tmp_p1['SS_name_p1'],
-            )),
+            list(
+                df_lookup(
+                    mismatch_matrix,
+                    tmp_p1['SS_name'],
+                    tmp_p1['SS_name_p1'],
+                )
+            ),
             index=tmp_p1.index,
         )
-        tmp['Max_mismatch'] = tmp[
-            ['Max_mismatch_m1', 'Max_mismatch_p1']
-        ].max(axis=1)
+        tmp['Max_mismatch'] = tmp[['Max_mismatch_m1', 'Max_mismatch_p1']].max(
+            axis=1
+        )
         tmp['Num_good_links_m1'] = pd.Series(
-            list(df_lookup(
-                consistent_links_matrix,
-                tmp_m1['SS_name_m1'],
-                tmp_m1['SS_name'],
-            )),
+            list(
+                df_lookup(
+                    consistent_links_matrix,
+                    tmp_m1['SS_name_m1'],
+                    tmp_m1['SS_name'],
+                )
+            ),
             index=tmp_m1.index,
         )
         tmp['Num_good_links_p1'] = pd.Series(
-            list(df_lookup(
-                consistent_links_matrix,
-                tmp_p1['SS_name'],
-                tmp_p1['SS_name_p1'],
-            )),
+            list(
+                df_lookup(
+                    consistent_links_matrix,
+                    tmp_p1['SS_name'],
+                    tmp_p1['SS_name_p1'],
+                )
+            ),
             index=tmp_p1.index,
         )
         tmp['Num_good_links_m1'] = tmp['Num_good_links_m1'].fillna(0)
         tmp['Num_good_links_p1'] = tmp['Num_good_links_p1'].fillna(0)
         tmp['Num_good_links'] = (
-                tmp['Num_good_links_m1'] + tmp['Num_good_links_p1']
+            tmp['Num_good_links_m1'] + tmp['Num_good_links_p1']
         )
 
         for direction in ('m1', 'p1'):
@@ -505,7 +535,8 @@ class AssignmentStrategy(ABC):
                 tmp[f'Num_good_links_{direction}'] > 1, f'Conf_{direction}'
             ] = 'S'
             tmp.loc[
-                tmp[f'Max_mismatch_{direction}'] > threshold, f'Conf_{direction}'
+                tmp[f'Max_mismatch_{direction}'] > threshold,
+                f'Conf_{direction}',
             ] = 'X'
 
         tmp['Conf2'] = tmp['Conf_m1'] + tmp['Conf_p1']
@@ -515,33 +546,48 @@ class AssignmentStrategy(ABC):
         )
         tmp['Confidence'] = tmp['Conf2'].replace(
             {
-                'SS': 'High', 'SW': 'High', 'SN': 'High', 'WW': 'High',
-                'SX': 'Medium', 'WN': 'Medium', 'WX': 'Low',
-                'NX': 'Unreliable', 'XX': 'Unreliable', 'NN': 'Undefined',
+                'SS': 'High',
+                'SW': 'High',
+                'SN': 'High',
+                'WW': 'High',
+                'SX': 'Medium',
+                'WN': 'Medium',
+                'WX': 'Low',
+                'NX': 'Unreliable',
+                'XX': 'Unreliable',
+                'NN': 'Undefined',
             }
         )
         if logger:
             summary = ', '.join(
                 f'{count} {confidence}'
-                for confidence, count in
-                tmp['Confidence'].value_counts().sort_values(
-                    ascending=False
-                ).items()
+                for confidence, count in tmp['Confidence']
+                .value_counts()
+                .sort_values(ascending=False)
+                .items()
             )
             logger.info('Calculated assignment confidence: ' + summary)
 
         consistency = tmp[
             [
-                'SS_name', 'Res_name', 'Max_mismatch_m1', 'Max_mismatch_p1',
-                'Max_mismatch', 'Num_good_links_m1', 'Num_good_links_p1',
-                'Num_good_links', 'Confidence',
+                'SS_name',
+                'Res_name',
+                'Max_mismatch_m1',
+                'Max_mismatch_p1',
+                'Max_mismatch',
+                'Num_good_links_m1',
+                'Num_good_links_p1',
+                'Num_good_links',
+                'Confidence',
             ]
         ]
         return assign_df.merge(consistency, how='left')
 
+
 # Strategy registry for self-registration
 class StrategyRegistry:
     """Registry for self-registering assignment strategies"""
+
     _strategies: Dict[str, Type[AssignmentStrategy]] = {}
 
     @classmethod
@@ -560,7 +606,9 @@ class StrategyRegistry:
         """Get strategy class by name"""
         if name not in cls._strategies:
             available = ', '.join(cls._strategies.keys())
-            raise ValueError(f"Unknown strategy: {name}. Available: {available}")
+            raise ValueError(
+                f'Unknown strategy: {name}. Available: {available}'
+            )
         return cls._strategies[name]
 
     @classmethod
@@ -570,13 +618,14 @@ class StrategyRegistry:
 
     @classmethod
     def create(
-            cls,
-            name: str,
-            config: Optional[Union[SNAPSConfig, dict]] = None,
+        cls,
+        name: str,
+        config: Optional[Union[SNAPSConfig, dict]] = None,
     ) -> AssignmentStrategy:
         """Factory method to create a strategy instance"""
         strategy_class = cls.get(name)
         return strategy_class(config)
+
 
 @StrategyRegistry.register('direct')
 class DirectStrategy(AssignmentStrategy):
@@ -588,17 +637,17 @@ class DirectStrategy(AssignmentStrategy):
         return obs, preds, self.calc_log_prob_matrix(obs, preds)
 
     def assign(
-            self, data: ShiftData, set_assign_df: bool = True
+        self, data: ShiftData, set_assign_df: bool = True
     ) -> AssignmentResult:
         """Perform direct assignment from raw shift data."""
         obs, preds, log_prob = self.prepare(data)
         return self.assign_from_matrix(obs, preds, log_prob)
 
     def assign_from_matrix(
-            self,
-            obs: pd.DataFrame,
-            preds: pd.DataFrame,
-            log_prob: pd.DataFrame,
+        self,
+        obs: pd.DataFrame,
+        preds: pd.DataFrame,
+        log_prob: pd.DataFrame,
     ) -> AssignmentResult:
         """Solve an assignment using an already calculated score matrix."""
         matching = self.find_best_assignment(
@@ -628,7 +677,7 @@ class DirectStrategy(AssignmentStrategy):
             mismatch_matrix=mismatch_matrix,
             consistent_links_matrix=consistent_links_matrix,
             threshold=self.config.seq_link_threshold,
-            logger=self.config.logger
+            logger=self.config.logger,
         )
 
         return AssignmentResult(
@@ -636,24 +685,24 @@ class DirectStrategy(AssignmentStrategy):
             log_prob_matrix=log_prob,
             assign_df=assign_df,
             mismatch_matrix=mismatch_matrix,
-            confidence=assign_df[
-                ['SS_name', 'Res_name', 'Confidence']
-            ] if 'Confidence' in assign_df else None,
+            confidence=assign_df[['SS_name', 'Res_name', 'Confidence']]
+            if 'Confidence' in assign_df
+            else None,
             metadata={
                 'strategy': 'direct',
                 'config': self.config,
-            }
+            },
         )
 
     def find_best_assignment(
-            self,
-            score_matrix,
-            maximise=True,
-            inc=None,
-            exc=None,
-            dummy_rows=None,
-            dummy_cols=None,
-            return_none_all_dummy=False,
+        self,
+        score_matrix,
+        maximise=True,
+        inc=None,
+        exc=None,
+        dummy_rows=None,
+        dummy_cols=None,
+        return_none_all_dummy=False,
     ):
         """Use the Hungarian algorithm to find the highest scoring assignment,
         with constraints. Generalised so it can be used for assigning either
@@ -717,9 +766,11 @@ class DirectStrategy(AssignmentStrategy):
         # assignment will not be meaningful. In this case, may want to return None
         if return_none_all_dummy:
             if set(score_matrix_reduced.index).issubset(dummy_rows) or set(
-                    score_matrix_reduced.columns
+                score_matrix_reduced.columns
             ).issubset(dummy_cols):
-                self.config.logger.debug('Score matrix includes only dummy rows/columns')
+                self.config.logger.debug(
+                    'Score matrix includes only dummy rows/columns'
+                )
                 return None
 
         if exc is not None:
@@ -730,10 +781,10 @@ class DirectStrategy(AssignmentStrategy):
                 penalty = 2 * score_matrix.abs().max().max()
 
             for (
-                    i,
-                    r,
+                i,
+                r,
             ) in (
-                    exc.iterrows()
+                exc.iterrows()
             ):  # iterates over (index, row as pd.Series) tuples
                 # If one side of an exclude pair is a dummy row or column,
                 # exclude *all* dummy rows and columns
@@ -742,9 +793,13 @@ class DirectStrategy(AssignmentStrategy):
                 elif r[col_name] in dummy_cols:
                     score_matrix_reduced.loc[dummy_rows, r[col_name]] = penalty
                 else:
-                    score_matrix_reduced.loc[r['SS_name'], r['Res_name']] = penalty
+                    score_matrix_reduced.loc[
+                        r['SS_name'], r['Res_name']
+                    ] = penalty
 
-            self.config.logger.info('Penalised %d excluded row,column pairs' % len(exc.index))
+            self.config.logger.info(
+                'Penalised %d excluded row,column pairs' % len(exc.index)
+            )
 
         if maximise:
             row_ind, col_ind = linear_sum_assignment(-1 * score_matrix_reduced)
@@ -768,11 +823,11 @@ class DirectStrategy(AssignmentStrategy):
             return matching_reduced
 
     def make_assign_df(
-            self,
-            obs: pd.DataFrame,
-            preds: pd.DataFrame,
-            log_prob_matrix: pd.DataFrame,
-            matching: pd.DataFrame,
+        self,
+        obs: pd.DataFrame,
+        preds: pd.DataFrame,
+        log_prob_matrix: pd.DataFrame,
+        matching: pd.DataFrame,
     ):
         """Make a dataframe with full assignment information, given a dataframe
         of SS_name and Res_name.
@@ -781,7 +836,9 @@ class DirectStrategy(AssignmentStrategy):
         """
         obs = obs.copy()
         preds = preds.copy()
-        obs.index.name = 'name'  # Needed to avoid error when merging dataframes.
+        obs.index.name = (
+            'name'  # Needed to avoid error when merging dataframes.
+        )
         valid_atoms = sorted(self.config.atom_set)
         extra_cols = set(matching.columns).difference({'SS_name', 'Res_name'})
 
@@ -800,10 +857,12 @@ class DirectStrategy(AssignmentStrategy):
         assign_df = assign_df[
             ['Res_name', 'Res_N', 'Res_type', 'SS_name', 'Dummy_res']
             + sorted(extra_cols)
-            ]
+        ]
         assign_df = pd.merge(
             assign_df,
-            obs.loc[:, obs.columns.isin(['SS_name', 'Dummy_SS'] + valid_atoms)],
+            obs.loc[
+                :, obs.columns.isin(['SS_name', 'Dummy_SS'] + valid_atoms)
+            ],
             on='SS_name',
             how='left',
         )
@@ -827,6 +886,7 @@ class DirectStrategy(AssignmentStrategy):
 
         return assign_df
 
+
 @StrategyRegistry.register('iterative')
 class IterativeStrategy(AssignmentStrategy):
     """Iterative refinement of direct assignment."""
@@ -846,19 +906,21 @@ class IterativeStrategy(AssignmentStrategy):
         )
 
     def _iterate_until_consistent(
-            self,
-            obs: pd.DataFrame,
-            preds: pd.DataFrame,
-            original_log_prob: pd.DataFrame,
-            direct: DirectStrategy,
-            initial_result: AssignmentResult,
+        self,
+        obs: pd.DataFrame,
+        preds: pd.DataFrame,
+        original_log_prob: pd.DataFrame,
+        direct: DirectStrategy,
+        initial_result: AssignmentResult,
     ) -> AssignmentResult:
         """Iterate assignments until sequentially consistent"""
         threshold = self.config.seq_link_threshold
         best_result = initial_result
-        best_count = initial_result.assign_df['Confidence'].isin(
-            ['High', 'Medium']
-        ).sum()
+        best_count = (
+            initial_result.assign_df['Confidence']
+            .isin(['High', 'Medium'])
+            .sum()
+        )
 
         mismatch_result = direct.calc_mismatch_matrix(
             obs=obs, threshold=threshold, logger=self.config.logger
@@ -889,12 +951,12 @@ class IterativeStrategy(AssignmentStrategy):
                     allowed_ss = mismatch_matrix.loc[ss, :] <= threshold
                     working_log_prob.loc[~allowed_ss, res_p1] += penalty
 
-            candidate = direct.assign_from_matrix(
-                obs, preds, working_log_prob
+            candidate = direct.assign_from_matrix(obs, preds, working_log_prob)
+            candidate_count = (
+                candidate.assign_df['Confidence']
+                .isin(['High', 'Medium'])
+                .sum()
             )
-            candidate_count = candidate.assign_df['Confidence'].isin(
-                ['High', 'Medium']
-            ).sum()
             self.config.logger.info(
                 'At the current stage, there are %d high or medium '
                 'confidence assignments',
@@ -915,11 +977,10 @@ class IterativeStrategy(AssignmentStrategy):
 DirectStragety = DirectStrategy
 
 
-
 # Factory function (simplified - just delegates to registry)
 def create_strategy(
-        strategy_name: str,
-        config: Optional[Union[SNAPSConfig, dict]] = None,
+    strategy_name: str,
+    config: Optional[Union[SNAPSConfig, dict]] = None,
 ) -> AssignmentStrategy:
     """
     Factory function to create assignment strategies.

@@ -2,15 +2,22 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 from datetime import datetime
 import pandas as pd
+
+
 @dataclass
 class ShiftData:
     """Container for all imported shift data"""
+
     obs_shifts: pd.DataFrame  # Observed shifts (i, i-1)
     pred_shifts: pd.DataFrame  # Predicted shifts (i, i-1)
     sequence: Optional[pd.DataFrame] = None  # Protein sequence
-    aa_restraints: Optional[pd.DataFrame] = None  # Amino acid type restraints # This is currently unimplemented as it was unimplemented in the original SNAPS
+    aa_restraints: Optional[
+        pd.DataFrame
+    ] = None  # Amino acid type restraints # This is currently unimplemented as it was unimplemented in the original SNAPS
     unlabel_restraints: Optional[pd.DataFrame] = None  # Unlabelling info
-    metadata: Dict[str, Any] = field(default_factory=dict)  # Sources, timestamps
+    metadata: Dict[str, Any] = field(
+        default_factory=dict
+    )  # Sources, timestamps
 
     def __post_init__(self):
         """Add timestamp if not present"""
@@ -21,6 +28,7 @@ class ShiftData:
 @dataclass
 class AssignmentResult:
     """Results from assignment strategy"""
+
     assignments: pd.DataFrame  # Main assignment table
     assign_df: pd.DataFrame    # Assignment dataframe as originally implemented in SNAPS
     log_prob_matrix: Optional[pd.DataFrame] = None
@@ -39,6 +47,7 @@ class AssignmentResult:
 @dataclass
 class AnalysisResult:
     """Results from analysis"""
+
     consistency_metrics: Optional[Dict[str, Any]]
     quality_metrics: Optional[Dict[str, Any]]
     enriched_assignments: Optional[pd.DataFrame]

@@ -514,6 +514,7 @@ def test_file_extensions(request, reader, formats):
     reader = request.getfixturevalue(reader)
     assert reader.file_extensions == formats
 
+
 READERS = [
     'nefreader',
     'nmrpipereader',
@@ -550,6 +551,7 @@ VALID_FILES = {
     'shiftx2reader': {'shiftx2_file'},
     'spartareader': {'sparta_file'},
 }
+
 
 @pytest.mark.parametrize(
     'reader, file, expected',
@@ -603,6 +605,7 @@ def test_read_observed_shifts_positive(request, reader, file):
 
     assert_frame_equal(result, expected_result)
 
+
 @pytest.mark.parametrize(
     'reader, file',
     [
@@ -617,6 +620,7 @@ def test_read_observed_shifts_negative(request, reader, file):
     file_path, _ = file
     result = reader.read_observed_shifts(file_path)
     assert result == None
+
 
 @pytest.mark.parametrize(
     'reader, file',
@@ -634,6 +638,7 @@ def test_read_predicted_shifts_positive(request, reader, file):
     result = reader.read_predicted_shifts(file_path)
 
     assert_frame_equal(result, expected_result)
+
 
 @pytest.mark.parametrize(
     'reader, file',

@@ -128,8 +128,14 @@ def test_run_snaps(
     except:
         raise AssertionError('Column headers do not match')
 
-    outputted_cost = sum((outputted[key] - outputted[f'{key}_pred']).abs().sum() for key in ['CA', 'HA', 'H', 'CB', 'C', 'N'])
-    expected_cost = sum((expected[key] - expected[f'{key}_pred']).abs().sum() for key in ['CA', 'HA', 'H', 'CB', 'C', 'N'])
+    outputted_cost = sum(
+        (outputted[key] - outputted[f'{key}_pred']).abs().sum()
+        for key in ['CA', 'HA', 'H', 'CB', 'C', 'N']
+    )
+    expected_cost = sum(
+        (expected[key] - expected[f'{key}_pred']).abs().sum()
+        for key in ['CA', 'HA', 'H', 'CB', 'C', 'N']
+    )
 
     if outputted_cost > expected_cost:
         raise AssertionError('Assignment has gotten worse')
@@ -140,5 +146,9 @@ def test_run_snaps(
             raise AssertionError('Assignment has changed with same cost')
     elif outputted_cost < expected_cost:
         if list(outputted['Res_name']) == list(expected['Res_name']):
-            raise AssertionError('Assignment has not changed, but cost has - issue with data imports?')
-        raise Warning('Assignment has reduced in cost - this is probably an improvement! But double check.')
+            raise AssertionError(
+                'Assignment has not changed, but cost has - issue with data imports?'
+            )
+        raise Warning(
+            'Assignment has reduced in cost - this is probably an improvement! But double check.'
+        )

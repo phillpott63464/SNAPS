@@ -10,18 +10,25 @@ from refactor.format_readers import (
     SnapsReader,
     XeasyReader,
     MarsReader,
-    FormatReader
+    FormatReader,
 )
 from refactor.dataclasses import ShiftData
 import pandas as pd
 import numpy as np
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 
+
 class SNAPSImporter:
     """Orchestrates format readers to import all required data"""
 
-    def __init__(self, readers: Optional[List[FormatReader]] = None, config: Optional[SNAPSConfig] = None):
-        self.readers = readers if readers is not None else self._default_readers()
+    def __init__(
+        self,
+        readers: Optional[List[FormatReader]] = None,
+        config: Optional[SNAPSConfig] = None,
+    ):
+        self.readers = (
+            readers if readers is not None else self._default_readers()
+        )
         self._reader_by_format = {r.format_name: r for r in self.readers}
         self._reader_by_ext = {}
         for reader in self.readers:
@@ -48,9 +55,7 @@ class SNAPSImporter:
         ]
 
     def _get_reader(
-            self,
-            file_path: Path,
-            format_hint: Optional[str] = None
+        self, file_path: Path, format_hint: Optional[str] = None
     ) -> FormatReader:
         """Find appropriate reader for file"""
         # Try format hint first
@@ -68,15 +73,21 @@ class SNAPSImporter:
             if result:
                 return reader
 
-        raise ValueError(f"No reader found for {file_path}")
+        raise ValueError(f'No reader found for {file_path}')
 
     def clean_obs(self, obs_shift):
-        obs_shift = obs_shift.loc[obs_shift["Atom_type"].isin(["H", "HA", "N", "C", "CA", "CB",
-                                                               "C_m1", "CA_m1", "CB_m1"]), :]
+        obs_shift = obs_shift.loc[
+            obs_shift['Atom_type'].isin(
+                ['H', 'HA', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1']
+            ),
+            :,
+        ]
 
         # Convert from long to wide
-        obs_shift = obs_shift.pivot(index="SS_name", columns="Atom_type", values="Shift")
-        obs_shift.insert(0, "SS_name", obs_shift.index.values)
+        obs_shift = obs_shift.pivot(
+            index='SS_name', columns='Atom_type', values='Shift'
+        )
+        obs_shift.insert(0, 'SS_name', obs_shift.index.values)
 
         # the index name shouldn't match a column name!
         obs_shift.index.name = None
@@ -157,10 +168,10 @@ class SNAPSImporter:
 
         if any(mask):
             ambiguous_res_names = (
-                    seq_df.loc[mask, 'Res_name']
-                    + '('
-                    + preds.loc[mask, 'Res_type']
-                    + '?)'
+                seq_df.loc[mask, 'Res_name']
+                + '('
+                + preds.loc[mask, 'Res_type']
+                + '?)'
             )
             preds.loc[mask, 'Res_name'] = ambiguous_res_names
             seq_df.loc[mask, 'Res_name'] = ambiguous_res_names
@@ -223,22 +234,22 @@ class SNAPSImporter:
                 'Res_type_m1',
             ]
             + sorted(atom_set.intersection(preds.columns))
-            ]
+        ]
 
         return preds
 
     def import_data(
-            self,
-            obs_file: Path,
-            pred_file: Path,
-            obs_format: Optional[str] = None,
-            pred_format: Optional[str] = None,
-            obs_frame: Optional[str] = None,
-            pred_frame: Optional[str] = None,
-            obs_chain: str = 'A',
-            pred_chain: str = 'A',
-            aa_restraints_file: Optional[Path] = None,
-            aa_restraints_frame: Optional[str] = None,
+        self,
+        obs_file: Path,
+        pred_file: Path,
+        obs_format: Optional[str] = None,
+        pred_format: Optional[str] = None,
+        obs_frame: Optional[str] = None,
+        pred_frame: Optional[str] = None,
+        obs_chain: str = 'A',
+        pred_chain: str = 'A',
+        aa_restraints_file: Optional[Path] = None,
+        aa_restraints_frame: Optional[str] = None,
     ) -> ShiftData:
         """Import all data and return structured container"""
 
@@ -246,8 +257,12 @@ class SNAPSImporter:
         obs_reader = self._get_reader(obs_file, obs_format)
         pred_reader = self._get_reader(pred_file, pred_format)
 
-        self.config.logger.info(f'Observed shifts reader={obs_reader.format_name}')
-        self.config.logger.info(f'Predicted shifts reader={pred_reader.format_name}')
+        self.config.logger.info(
+            f'Observed shifts reader={obs_reader.format_name}'
+        )
+        self.config.logger.info(
+            f'Predicted shifts reader={pred_reader.format_name}'
+        )
 
         # Import observed shifts
         obs_shifts = obs_reader.read_observed_shifts(
@@ -264,7 +279,9 @@ class SNAPSImporter:
             # offset=pred_offset
         )
 
-        pred_shifts = self.clean_preds(pred_shifts, offset=self.config.pred_offset)
+        pred_shifts = self.clean_preds(
+            pred_shifts, offset=self.config.pred_offset
+        )
         obs_shifts = self.clean_obs(obs_shifts)
 
         # Import sequence
@@ -291,5 +308,5 @@ class SNAPSImporter:
                 'pred_format': pred_reader.format_name,
                 'obs_frame': obs_frame,
                 'pred_frame': pred_frame,
-            }
+            },
         )

@@ -5,9 +5,10 @@ from pathlib import Path
 
 TEST_DATA = Path(__file__).parent / 'test_data'
 
+
 @pytest.mark.parametrize(
     'filetype',
-    ["csv", "json", "shiftx", "SPARTA+", "", "banana", "tinkywinky"]
+    ['csv', 'json', 'shiftx', 'SPARTA+', '', 'banana', 'tinkywinky'],
 )
 def test_invalid_filetypes(filetype, capsys):
     result = import_observed_shifts(filename='irrelevant', filetype=filetype)
@@ -15,20 +16,23 @@ def test_invalid_filetypes(filetype, capsys):
     captured = capsys.readouterr()
     assert result == None
     assert captured.out.strip() == (
-        f'import_obs_shifts: invalid filetype \'{filetype}\'.'
+        f"import_obs_shifts: invalid filetype '{filetype}'."
     )
 
+
 @pytest.mark.parametrize(
-    "filetype, filename, expected_filename",
+    'filetype, filename, expected_filename',
     [
-        ("ccpn", 'ccpn_resonances.txt', 'ccpn_snaps_internal'),
-        ("nef", 'P3a_L273R.nef', 'nef_snaps_internal'),
+        ('ccpn', 'ccpn_resonances.txt', 'ccpn_snaps_internal'),
+        ('nef', 'P3a_L273R.nef', 'nef_snaps_internal'),
         ('nmrpipe', 'nmrpipe_shifts.tab', 'nmrpipe_snaps_internal'),
         ('sparky', 'sparky_shifts.txt', 'sparky_snaps_internal'),
-     ]
+    ],
 )
 def test_file_formats(filetype, filename, expected_filename):
-    result = import_observed_shifts(filename=TEST_DATA / filename, filetype=filetype)
+    result = import_observed_shifts(
+        filename=TEST_DATA / filename, filetype=filetype
+    )
 
     # result.to_pickle(expected_filename)
 
@@ -43,10 +47,13 @@ def test_file_formats(filetype, filename, expected_filename):
         atol=1e-8,
     )
 
+
 @pytest.mark.parametrize(
-    "filetype, filename",
-    [('ccpn', 'P3a_L273R.nef'), ('nef', 'nmrpipe_shifts')]
+    'filetype, filename',
+    [('ccpn', 'P3a_L273R.nef'), ('nef', 'nmrpipe_shifts')],
 )
 def test_incorrect_file(filetype, filename):
     with pytest.raises(Exception):
-        result = import_observed_shifts(filename=TEST_DATA / filename, filetype=filetype)
+        result = import_observed_shifts(
+            filename=TEST_DATA / filename, filetype=filetype
+        )

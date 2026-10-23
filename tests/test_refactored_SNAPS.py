@@ -134,4 +134,6 @@ def test_run_snaps(
 
     run_pipeline(config)
 
-    assert_frame_equal(pd.read_csv(out_file_refactor), pd.read_csv(out_file_legacy))
+    assert_frame_equal(
+        pd.read_csv(out_file_refactor), pd.read_csv(out_file_legacy)
+    )

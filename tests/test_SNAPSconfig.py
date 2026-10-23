@@ -1,6 +1,7 @@
 from refactor.SNAPSconfig import build_config, SNAPSConfig
 import pytest
 
+
 @pytest.fixture
 def complete_config(tmp_path):
     file_path = tmp_path / 'config.yaml'
@@ -51,6 +52,7 @@ strategy: bayesian
 
     return file_path
 
+
 @pytest.fixture
 def partial_config(tmp_path):
     file_path = tmp_path / 'config.yaml'
@@ -61,6 +63,7 @@ seq_link_threshold: 0.70
         f.write(data)
 
     return file_path
+
 
 @pytest.fixture
 def out_of_range_config(tmp_path):
@@ -73,13 +76,20 @@ seq_link_threshold: 47
 
     return file_path
 
+
 def test_default():
     config = build_config()
 
-    assert sorted(config.atom_set) == sorted({'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'})
+    assert sorted(config.atom_set) == sorted(
+        {'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'}
+    )
     assert config.atom_sd == {
-        'H': 0.1726, 'N': 1.1169, 'HA': 0.1231,
-        'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
+        'H': 0.1726,
+        'N': 1.1169,
+        'HA': 0.1231,
+        'CA': 0.4412,
+        'CB': 0.5163,
+        'C': 0.5256,
     }
     assert sorted(config.supported_atom_types) == sorted(
         {'H', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1', 'HA'}
@@ -102,11 +112,19 @@ def test_default():
     assert config.delta_correlation_cov_file == 'config/d_cov.csv'
     assert config.strategy == 'direct'
 
+
 def test_complete(complete_config):
     config = build_config(config_file=complete_config)
 
     assert sorted(config.atom_set) == sorted({'H', 'N', 'CA', 'CB'})
-    assert config.atom_sd == {'H': 0.20, 'N': 1.25, 'HA': 0.15, 'CA': 0.50, 'CB': 0.60, 'C': 0.65}
+    assert config.atom_sd == {
+        'H': 0.20,
+        'N': 1.25,
+        'HA': 0.15,
+        'CA': 0.50,
+        'CB': 0.60,
+        'C': 0.65,
+    }
     assert sorted(config.supported_atom_types) == ['CA', 'H', 'N']
     assert config.default_probability == 0.05
     assert config.shift_scale_factor == 1.25
@@ -126,13 +144,20 @@ def test_complete(complete_config):
     assert config.delta_correlation_cov_file == 'custom/d_cov.csv'
     assert config.strategy == 'bayesian'
 
+
 def test_partial(partial_config):
     config = build_config(config_file=partial_config)
 
-    assert sorted(config.atom_set) == sorted({'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'})
+    assert sorted(config.atom_set) == sorted(
+        {'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'}
+    )
     assert config.atom_sd == {
-        'H': 0.1726, 'N': 1.1169, 'HA': 0.1231,
-        'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
+        'H': 0.1726,
+        'N': 1.1169,
+        'HA': 0.1231,
+        'CA': 0.4412,
+        'CB': 0.5163,
+        'C': 0.5256,
     }
     assert config.seq_link_threshold == 0.70
     assert config.pred_offset == 0
@@ -142,9 +167,11 @@ def test_partial(partial_config):
     assert config.pred_correction == False
     assert config.strategy == 'direct'
 
+
 def test_out_of_range(out_of_range_config):
     with pytest.raises(ValueError):
         config = build_config(config_file=out_of_range_config)
+
 
 @pytest.fixture
 def complete_cli_overrides():
@@ -156,7 +183,7 @@ def complete_cli_overrides():
             'HA': 0.15,
             'CA': 0.50,
             'CB': 0.60,
-            'C': 0.65
+            'C': 0.65,
         },
         'supported_atom_types': ['H', 'N', 'CA'],
         'default_probability': 0.05,
@@ -175,31 +202,33 @@ def complete_cli_overrides():
         'delta_correlation_cov_corrected_file': 'cli/dd_cov.csv',
         'delta_correlation_mean_file': 'cli/d_mean.csv',
         'delta_correlation_cov_file': 'cli/d_cov.csv',
-        'strategy': 'bayesian'
+        'strategy': 'bayesian',
     }
 
 
 @pytest.fixture
 def partial_cli_overrides():
-    return {
-        'seq_link_threshold': 0.70
-    }
+    return {'seq_link_threshold': 0.70}
 
 
 @pytest.fixture
 def out_of_range_cli_overrides():
-    return {
-        'seq_link_threshold': 47
-    }
+    return {'seq_link_threshold': 47}
 
 
 def test_cli_default():
     config = build_config(cli_overrides={})
 
-    assert sorted(config.atom_set) == sorted({'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'})
+    assert sorted(config.atom_set) == sorted(
+        {'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'}
+    )
     assert config.atom_sd == {
-        'H': 0.1726, 'N': 1.1169, 'HA': 0.1231,
-        'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
+        'H': 0.1726,
+        'N': 1.1169,
+        'HA': 0.1231,
+        'CA': 0.4412,
+        'CB': 0.5163,
+        'C': 0.5256,
     }
     assert config.seq_link_threshold == 0.45
     assert config.iterate_until_consistent == True
@@ -214,8 +243,12 @@ def test_cli_complete(complete_cli_overrides):
 
     assert sorted(config.atom_set) == sorted({'H', 'N', 'CA', 'CB'})
     assert config.atom_sd == {
-        'H': 0.20, 'N': 1.25, 'HA': 0.15,
-        'CA': 0.50, 'CB': 0.60, 'C': 0.65
+        'H': 0.20,
+        'N': 1.25,
+        'HA': 0.15,
+        'CA': 0.50,
+        'CB': 0.60,
+        'C': 0.65,
     }
     assert sorted(config.supported_atom_types) == ['CA', 'H', 'N']
     assert config.default_probability == 0.05
@@ -240,10 +273,16 @@ def test_cli_complete(complete_cli_overrides):
 def test_cli_partial(partial_cli_overrides):
     config = build_config(cli_overrides=partial_cli_overrides)
 
-    assert sorted(config.atom_set) == sorted({'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'})
+    assert sorted(config.atom_set) == sorted(
+        {'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'}
+    )
     assert config.atom_sd == {
-        'H': 0.1726, 'N': 1.1169, 'HA': 0.1231,
-        'CA': 0.4412, 'CB': 0.5163, 'C': 0.5256
+        'H': 0.1726,
+        'N': 1.1169,
+        'HA': 0.1231,
+        'CA': 0.4412,
+        'CB': 0.5163,
+        'C': 0.5256,
     }
     assert config.seq_link_threshold == 0.70
     assert config.pred_offset == 0
@@ -270,13 +309,10 @@ def test_cli_overrides_file(complete_config):
         'delta_correlation_mean_corrected_file': 'override/dd_mean.csv',
         'delta_correlation_cov_corrected_file': 'override/dd_cov.csv',
         'delta_correlation_mean_file': 'override/d_mean.csv',
-        'delta_correlation_cov_file': 'override/d_cov.csv'
+        'delta_correlation_cov_file': 'override/d_cov.csv',
     }
 
-    config = build_config(
-        config_file=complete_config,
-        cli_overrides=overrides
-    )
+    config = build_config(config_file=complete_config, cli_overrides=overrides)
 
     # Values overridden by CLI
     assert config.seq_link_threshold == 0.80
@@ -284,7 +320,9 @@ def test_cli_overrides_file(complete_config):
     assert config.iterate_until_consistent == True
     assert config.pred_correction == False
     assert config.pred_correction_file == 'override/linear_model.csv'
-    assert config.delta_correlation_mean_corrected_file == 'override/dd_mean.csv'
+    assert (
+        config.delta_correlation_mean_corrected_file == 'override/dd_mean.csv'
+    )
     assert config.delta_correlation_cov_corrected_file == 'override/dd_cov.csv'
     assert config.delta_correlation_mean_file == 'override/d_mean.csv'
     assert config.delta_correlation_cov_file == 'override/d_cov.csv'
@@ -292,8 +330,12 @@ def test_cli_overrides_file(complete_config):
     # Values retained from YAML
     assert sorted(config.atom_set) == sorted(['H', 'N', 'CA', 'CB'])
     assert config.atom_sd == {
-        'H': 0.20, 'N': 1.25, 'HA': 0.15,
-        'CA': 0.50, 'CB': 0.60, 'C': 0.65
+        'H': 0.20,
+        'N': 1.25,
+        'HA': 0.15,
+        'CA': 0.50,
+        'CB': 0.60,
+        'C': 0.65,
     }
     assert config.use_ss_class_info == True
     assert config.delta_correlation == False
@@ -305,7 +347,7 @@ def test_cli_none_overrides():
         'seq_link_threshold': None,
         'strategy': None,
         'pred_correction': None,
-        'use_ss_class_info': True
+        'use_ss_class_info': True,
     }
 
     config = build_config(cli_overrides=overrides)

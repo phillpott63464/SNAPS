@@ -28,8 +28,12 @@ def _is_bool(annotation: Any) -> bool:
 
 
 def _option_names(name: str) -> tuple[str, str]:
-    hyphenated = name.replace("_", "-")
-    return (f"--{name}", f"--{hyphenated}") if name != hyphenated else (f"--{name}",)
+    hyphenated = name.replace('_', '-')
+    return (
+        (f'--{name}', f'--{hyphenated}')
+        if name != hyphenated
+        else (f'--{name}',)
+    )
 
 
 def _field_cli_type(annotation: Any) -> Any:
@@ -55,18 +59,22 @@ def option_for_field(
     option_names = _option_names(name)
     is_bool = _is_bool(annotation)
     if is_bool:
-        hyphenated = name.replace("_", "-")
+        hyphenated = name.replace('_', '-')
         option_names = (
-            f"--{name}/--no-{name}",
-            f"--{hyphenated}/--no-{hyphenated}",
-        ) if name != hyphenated else (f"--{name}/--no-{name}",)
+            (
+                f'--{name}/--no-{name}',
+                f'--{hyphenated}/--no-{hyphenated}',
+            )
+            if name != hyphenated
+            else (f'--{name}/--no-{name}',)
+        )
 
     option = typer.Option(
         None,
         *option_names,
-        help=field.description or name.replace("_", " ").capitalize(),
+        help=field.description or name.replace('_', ' ').capitalize(),
         show_default=str(default),
-        rich_help_panel="Common" if name in common_options else "Advanced",
+        rich_help_panel='Common' if name in common_options else 'Advanced',
         hidden=name not in common_options,
     )
     return inspect.Parameter(
@@ -130,16 +138,16 @@ def convert_model_value(model: Any, name: str, value: Any) -> Any:
     if origin in (dict, Dict):
         result: Dict[str, float] = {}
         for item in value:
-            key, separator, raw_value = item.partition("=")
+            key, separator, raw_value = item.partition('=')
             if not separator or not key or not raw_value:
                 raise typer.BadParameter(
-                    f"{name} values must use KEY=VALUE (for example H=0.1726)"
+                    f'{name} values must use KEY=VALUE (for example H=0.1726)'
                 )
             try:
                 result[key] = float(raw_value)
             except ValueError as error:
                 raise typer.BadParameter(
-                    f"value for {key!r} in {name} must be a number"
+                    f'value for {key!r} in {name} must be a number'
                 ) from error
         return result
     return value

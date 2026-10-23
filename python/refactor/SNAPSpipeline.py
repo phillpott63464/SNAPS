@@ -4,9 +4,10 @@ from refactor.SNAPSstrategy import create_strategy
 from refactor.SNAPSconfig import SNAPSConfig
 from refactor.SNAPSoutput import create_output
 
+
 def run_pipeline(
-        config: SNAPSConfig,
-        verbosity: int = 0,
+    config: SNAPSConfig,
+    verbosity: int = 0,
 ) -> AnalysisResult:
     """
     Main pipeline - can be called from CLI or web service.
@@ -20,15 +21,19 @@ def run_pipeline(
     """
 
     if config.obs_file is None or config.pred_file is None:
-        raise ValueError("obs_file and pred_file must be configured before running the pipeline")
+        raise ValueError(
+            'obs_file and pred_file must be configured before running the pipeline'
+        )
     if config.output_file is None:
-        raise ValueError("output_file must be configured before running the pipeline")
+        raise ValueError(
+            'output_file must be configured before running the pipeline'
+        )
 
     # Setup logging
-    config.logger.info("Starting SNAPS pipeline")
+    config.logger.info('Starting SNAPS pipeline')
 
     # Stage 1: Import
-    config.logger.info("Importing data...")
+    config.logger.info('Importing data...')
     importer = SNAPSImporter(config=config)
     data = importer.import_data(
         obs_file=config.obs_file,
@@ -42,14 +47,14 @@ def run_pipeline(
         aa_restraints_file=config.aa_restraints_file,
         aa_restraints_frame=config.aa_restraints_frame,
     )
-    config.logger.info(f"  {len(data.obs_shifts)} observed spin systems")
-    config.logger.info(f"  {len(data.pred_shifts)} predicted residues")
+    config.logger.info(f'  {len(data.obs_shifts)} observed spin systems')
+    config.logger.info(f'  {len(data.pred_shifts)} predicted residues')
 
     # Stage 2: Assignment
-    config.logger.info(f"Running {config.strategy} assignment...")
+    config.logger.info(f'Running {config.strategy} assignment...')
     strategy = create_strategy(config.strategy, config)
     assignment_result = strategy.assign(data)
-    config.logger.info("  Assignments complete")
+    config.logger.info('  Assignments complete')
 
     # Stage 3: Analysis
     # This was not in the original and thus is not part of the refactor. Revisit when the refactor is done.
@@ -78,5 +83,5 @@ def run_pipeline(
     output = create_output(config.output_type, config)
     output.output(assignment_result, config)
 
-    config.logger.info("Pipeline complete")
+    config.logger.info('Pipeline complete')
     return assignment_result

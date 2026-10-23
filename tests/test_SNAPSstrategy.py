@@ -6,7 +6,15 @@ from refactor.SNAPSstrategy import (
 from refactor.SNAPSimporter import SNAPSImporter
 from refactor.dataclasses import ShiftData
 from SNAPS_assigner import SNAPS_assigner
-from modules.assigner_functions import prepare_obs_preds, calc_log_prob_matrix, find_best_assignment, make_assign_df, import_predicted_shifts, add_consistency_info, calc_mismatch_matrix
+from modules.assigner_functions import (
+    prepare_obs_preds,
+    calc_log_prob_matrix,
+    find_best_assignment,
+    make_assign_df,
+    import_predicted_shifts,
+    add_consistency_info,
+    calc_mismatch_matrix,
+)
 from modules.importer_functions import import_observed_shifts
 from refactor.SNAPSconfig import build_config
 import pytest
@@ -72,13 +80,17 @@ def test_find_best_assignment_logs_constraint_warnings(unit_strategy, caplog):
         index=pd.Index(['SS1', 'SS2', 'SS3'], name='SS_name'),
         columns=pd.Index(['R1', 'R2', 'R3'], name='Res_name'),
     )
-    inc = pd.DataFrame({
-        'SS_name': ['SS1', 'SS1', 'SS3'],
-        'Res_name': ['R1', 'R2', 'R3'],
-    })
+    inc = pd.DataFrame(
+        {
+            'SS_name': ['SS1', 'SS1', 'SS3'],
+            'Res_name': ['R1', 'R2', 'R3'],
+        }
+    )
     exc = pd.DataFrame({'SS_name': ['SS3'], 'Res_name': ['R2']})
 
-    with caplog.at_level(logging.WARNING, logger=unit_strategy.config.logger.name):
+    with caplog.at_level(
+        logging.WARNING, logger=unit_strategy.config.logger.name
+    ):
         unit_strategy.find_best_assignment(
             scores,
             inc=inc,
@@ -88,8 +100,14 @@ def test_find_best_assignment_logs_constraint_warnings(unit_strategy, caplog):
         )
 
     warnings = [record.getMessage() for record in caplog.records]
-    assert 'Warning: entries in inc conflict with one another - dropping conflicts' in warnings
-    assert 'Some values in exc are also found in inc, so are redundant.' in warnings
+    assert (
+        'Warning: entries in inc conflict with one another - dropping conflicts'
+        in warnings
+    )
+    assert (
+        'Some values in exc are also found in inc, so are redundant.'
+        in warnings
+    )
 
 
 def test_calc_log_prob_matrix_logs_completion(unit_strategy, caplog):
@@ -97,23 +115,26 @@ def test_calc_log_prob_matrix_logs_completion(unit_strategy, caplog):
         {'H': [1.0], 'Dummy_SS': [False]},
         index=pd.Index(['SS1'], name='SS_name'),
     )
-    preds = pd.DataFrame({
-        'Res_name': ['R1'],
-        'Res_type': ['A'],
-        'Dummy_res': [False],
-        'H': [1.0],
-    }, index=['R1'])
+    preds = pd.DataFrame(
+        {
+            'Res_name': ['R1'],
+            'Res_type': ['A'],
+            'Dummy_res': [False],
+            'H': [1.0],
+        },
+        index=['R1'],
+    )
     preds.index.name = 'Res_name'
 
-    with caplog.at_level(logging.INFO, logger=unit_strategy.config.logger.name):
+    with caplog.at_level(
+        logging.INFO, logger=unit_strategy.config.logger.name
+    ):
         unit_strategy.calc_log_prob_matrix(obs, preds)
 
     assert 'Calculated log probability matrix (1x1)' in caplog.text
 
 
-def test_calc_log_prob_matrix_logs_prediction_correction(
-    tmp_path, caplog
-):
+def test_calc_log_prob_matrix_logs_prediction_correction(tmp_path, caplog):
     correction_file = tmp_path / 'linear_model.csv'
     pd.DataFrame(
         {
@@ -139,22 +160,29 @@ def test_calc_log_prob_matrix_logs_prediction_correction(
         {'H': [1.0], 'Dummy_SS': [False]},
         index=pd.Index(['SS1'], name='SS_name'),
     )
-    preds = pd.DataFrame({
-        'Res_name': ['R1'],
-        'Res_type': ['A'],
-        'Dummy_res': [False],
-        'H': [1.0],
-    }, index=['R1'])
+    preds = pd.DataFrame(
+        {
+            'Res_name': ['R1'],
+            'Res_type': ['A'],
+            'Dummy_res': [False],
+            'H': [1.0],
+        },
+        index=['R1'],
+    )
     preds.index.name = 'Res_name'
 
     with caplog.at_level(logging.INFO, logger=config.logger.name):
         strategy.calc_log_prob_matrix(obs, preds)
 
-    assert f'Imported pred_correction info from {correction_file}' in caplog.text
+    assert (
+        f'Imported pred_correction info from {correction_file}' in caplog.text
+    )
     assert 'Calculating corrections to predicted shifts' in caplog.text
 
 
-def test_calc_log_prob_matrix_logs_correlated_error_processing(tmp_path, caplog):
+def test_calc_log_prob_matrix_logs_correlated_error_processing(
+    tmp_path, caplog
+):
     mean_file = tmp_path / 'd_mean.csv'
     cov_file = tmp_path / 'd_cov.csv'
     pd.DataFrame({1: [0.0]}, index=['H']).to_csv(mean_file, header=False)
@@ -174,12 +202,15 @@ def test_calc_log_prob_matrix_logs_correlated_error_processing(tmp_path, caplog)
         {'H': [1.0], 'Dummy_SS': [False]},
         index=pd.Index(['SS1'], name='SS_name'),
     )
-    preds = pd.DataFrame({
-        'Res_name': ['R1'],
-        'Res_type': ['A'],
-        'Dummy_res': [False],
-        'H': [1.0],
-    }, index=['R1'])
+    preds = pd.DataFrame(
+        {
+            'Res_name': ['R1'],
+            'Res_type': ['A'],
+            'Dummy_res': [False],
+            'H': [1.0],
+        },
+        index=['R1'],
+    )
     preds.index.name = 'Res_name'
 
     with caplog.at_level(logging.INFO, logger=config.logger.name):
@@ -192,7 +223,9 @@ def test_calc_log_prob_matrix_logs_correlated_error_processing(tmp_path, caplog)
     assert 'Accounting for correlated prediction errors' in caplog.text
 
 
-def test_calc_log_prob_matrix_logs_corrected_correlated_files(tmp_path, caplog):
+def test_calc_log_prob_matrix_logs_corrected_correlated_files(
+    tmp_path, caplog
+):
     correction_file = tmp_path / 'linear_model.csv'
     corrected_mean_file = tmp_path / 'dd_mean.csv'
     corrected_cov_file = tmp_path / 'dd_cov.csv'
@@ -208,7 +241,9 @@ def test_calc_log_prob_matrix_logs_corrected_correlated_files(tmp_path, caplog):
     pd.DataFrame({1: [0.0]}, index=['H']).to_csv(
         corrected_mean_file, header=False
     )
-    pd.DataFrame([[1.0]], index=['H'], columns=['H']).to_csv(corrected_cov_file)
+    pd.DataFrame([[1.0]], index=['H'], columns=['H']).to_csv(
+        corrected_cov_file
+    )
     config = build_config(
         cli_overrides={
             'logger': logging.getLogger('test.corrected_correlated_errors'),
@@ -226,12 +261,15 @@ def test_calc_log_prob_matrix_logs_corrected_correlated_files(tmp_path, caplog):
         {'H': [1.0], 'Dummy_SS': [False]},
         index=pd.Index(['SS1'], name='SS_name'),
     )
-    preds = pd.DataFrame({
-        'Res_name': ['R1'],
-        'Res_type': ['A'],
-        'Dummy_res': [False],
-        'H': [1.0],
-    }, index=['R1'])
+    preds = pd.DataFrame(
+        {
+            'Res_name': ['R1'],
+            'Res_type': ['A'],
+            'Dummy_res': [False],
+            'H': [1.0],
+        },
+        index=['R1'],
+    )
     preds.index.name = 'Res_name'
 
     with caplog.at_level(logging.INFO, logger=config.logger.name):
@@ -254,7 +292,9 @@ def test_find_best_assignment_logs_fixed_and_excluded_assignments(
     inc = pd.DataFrame({'SS_name': ['SS1'], 'Res_name': ['R1']})
     exc = pd.DataFrame({'SS_name': ['SS2'], 'Res_name': ['R2']})
 
-    with caplog.at_level(logging.INFO, logger=unit_strategy.config.logger.name):
+    with caplog.at_level(
+        logging.INFO, logger=unit_strategy.config.logger.name
+    ):
         unit_strategy.find_best_assignment(
             scores,
             inc=inc,
@@ -267,14 +307,18 @@ def test_find_best_assignment_logs_fixed_and_excluded_assignments(
     assert 'Penalised 1 excluded row,column pairs' in caplog.text
 
 
-def test_find_best_assignment_logs_all_dummy_debug_message(unit_strategy, caplog):
+def test_find_best_assignment_logs_all_dummy_debug_message(
+    unit_strategy, caplog
+):
     scores = pd.DataFrame(
         [[1.0]],
         index=pd.Index(['DSS_1'], name='SS_name'),
         columns=pd.Index(['DR_1'], name='Res_name'),
     )
 
-    with caplog.at_level(logging.DEBUG, logger=unit_strategy.config.logger.name):
+    with caplog.at_level(
+        logging.DEBUG, logger=unit_strategy.config.logger.name
+    ):
         result = unit_strategy.find_best_assignment(
             scores,
             dummy_rows={'DSS_1'},
@@ -288,20 +332,24 @@ def test_find_best_assignment_logs_all_dummy_debug_message(unit_strategy, caplog
 
 def test_make_assign_df_logs_invalid_matching_warning(unit_strategy, caplog):
     obs = pd.DataFrame({'SS_name': ['SS1'], 'H': [1.0]})
-    preds = pd.DataFrame({
-        'Res_name': ['R1'],
-        'Res_N': [1],
-        'Res_type': ['A'],
-        'Dummy_res': [False],
-        'H': [1.0],
-    })
+    preds = pd.DataFrame(
+        {
+            'Res_name': ['R1'],
+            'Res_N': [1],
+            'Res_type': ['A'],
+            'Dummy_res': [False],
+            'H': [1.0],
+        }
+    )
     log_prob_matrix = pd.DataFrame(
         [[0.0]],
         index=pd.Index(['SS1'], name='SS_name'),
         columns=pd.Index(['R1'], name='Res_name'),
     )
 
-    with caplog.at_level(logging.WARNING, logger=unit_strategy.config.logger.name):
+    with caplog.at_level(
+        logging.WARNING, logger=unit_strategy.config.logger.name
+    ):
         with pytest.raises(KeyError):
             unit_strategy.make_assign_df(
                 obs=obs,
@@ -326,20 +374,24 @@ def test_preprocessing_uses_configured_atom_schema_and_dummy_names(logger):
         }
     )
     strategy = create_strategy('direct', config)
-    obs = pd.DataFrame({
-        'SS_name': ['SS1', 'SS2'],
-        'H': [1.0, 2.0],
-        'N': [10.0, 20.0],
-    })
-    preds = pd.DataFrame({
-        'Res_N': [1, 2],
-        'Res_type': ['A', 'P'],
-        'Res_name': ['R1', 'R2'],
-        'Res_name_m1': [np.nan, 'R1'],
-        'Res_name_p1': ['R2', np.nan],
-        'H': [1.0, 2.0],
-        'N': [10.0, 20.0],
-    })
+    obs = pd.DataFrame(
+        {
+            'SS_name': ['SS1', 'SS2'],
+            'H': [1.0, 2.0],
+            'N': [10.0, 20.0],
+        }
+    )
+    preds = pd.DataFrame(
+        {
+            'Res_N': [1, 2],
+            'Res_type': ['A', 'P'],
+            'Res_name': ['R1', 'R2'],
+            'Res_name_m1': [np.nan, 'R1'],
+            'Res_name_p1': ['R2', np.nan],
+            'H': [1.0, 2.0],
+            'N': [10.0, 20.0],
+        }
+    )
 
     result_obs, result_preds = strategy.preprocess_obs_preds(obs, preds)
 
@@ -375,7 +427,7 @@ def test_log_probability_defaults_come_from_config(logger):
 
 
 def test_calc_log_prob_matrix_calculates_independent_atom_probabilities(
-        unit_strategy, logger
+    unit_strategy, logger
 ):
     obs = pd.DataFrame(
         {'H': [1.0], 'N': [10.0], 'Dummy_SS': [False]},
@@ -426,7 +478,7 @@ def test_find_best_assignment_maximises_scores(unit_strategy, logger):
 
 
 def test_find_best_assignment_honours_required_assignment(
-        unit_strategy, logger
+    unit_strategy, logger
 ):
     scores = pd.DataFrame(
         [[10.0, 1.0], [2.0, 9.0]],
@@ -536,6 +588,7 @@ def test_SNAPstrategy_log_prob_matrix(pred_file, obs_file, logger):
 
     assert_frame_equal(log_prob_matrix, expected_log_prob_matrix)
 
+
 @pytest.mark.parametrize(
     'pred_file, obs_file',
     [
@@ -621,6 +674,7 @@ def test_SNAPstrategy_make_assign_df(pred_file, obs_file, logger):
 
     assert_frame_equal(assign_df, expected)
 
+
 @pytest.mark.parametrize(
     'pred_file, obs_file, pred_format, obs_format',
     [
@@ -630,10 +684,16 @@ def test_SNAPstrategy_make_assign_df(pred_file, obs_file, logger):
         ('shiftx2.cs', 'sparky_shifts.txt', 'shiftx2', 'sparky'),
     ],
 )
-def test_SNAPstragety_direct(pred_file, obs_file, pred_format, obs_format, logger):
+def test_SNAPstragety_direct(
+    pred_file, obs_file, pred_format, obs_format, logger
+):
     # FULLY DEFAULT PATHWAY
-    obs = import_observed_shifts(filename = TEST_DATA / obs_file, filetype=obs_format)
-    preds, _ = import_predicted_shifts(filename = TEST_DATA / pred_file, filetype = pred_format, logger=logger)
+    obs = import_observed_shifts(
+        filename=TEST_DATA / obs_file, filetype=obs_format
+    )
+    preds, _ = import_predicted_shifts(
+        filename=TEST_DATA / pred_file, filetype=pred_format, logger=logger
+    )
     obs, preds = prepare_obs_preds(obs, preds, logger)
     log_prob_matrix = calc_log_prob_matrix(
         obs=obs,
@@ -645,14 +705,16 @@ def test_SNAPstragety_direct(pred_file, obs_file, pred_format, obs_format, logge
         delta_correlation_cov_file='config/d_cov.csv',
         logger=logger,
     )
-    matching = find_best_assignment(log_prob_matrix, maximise=True, logger=logger)
+    matching = find_best_assignment(
+        log_prob_matrix, maximise=True, logger=logger
+    )
     assign_df = make_assign_df(
-            obs=obs,
-            preds=preds,
-            log_prob_matrix=log_prob_matrix,
-            matching=matching,
-            logger=logger,
-        )
+        obs=obs,
+        preds=preds,
+        log_prob_matrix=log_prob_matrix,
+        matching=matching,
+        logger=logger,
+    )
 
     result = calc_mismatch_matrix(obs=obs, logger=logger)
     if result is not None:
@@ -665,7 +727,7 @@ def test_SNAPstragety_direct(pred_file, obs_file, pred_format, obs_format, logge
         preds=preds,
         mismatch_matrix=mismatch_matrix,
         consistent_links_matrix=consistent_links_matrix,
-        logger=logger
+        logger=logger,
     )
 
     importer = SNAPSImporter()
@@ -725,13 +787,24 @@ def _comparison_config():
     return build_config(
         cli_overrides={
             'atom_set': {
-                'H', 'N', 'C', 'CA', 'CB',
-                'C_m1', 'CA_m1', 'CB_m1',
+                'H',
+                'N',
+                'C',
+                'CA',
+                'CB',
+                'C_m1',
+                'CA_m1',
+                'CB_m1',
             },
             'atom_sd': {
-                'H': 0.1711, 'N': 1.1169, 'C': 0.5330,
-                'CA': 0.4412, 'CB': 0.5163,
-                'C_m1': 0.5530, 'CA_m1': 0.4412, 'CB_m1': 0.5163,
+                'H': 0.1711,
+                'N': 1.1169,
+                'C': 0.5330,
+                'CA': 0.4412,
+                'CB': 0.5163,
+                'C_m1': 0.5530,
+                'CA_m1': 0.4412,
+                'CB_m1': 0.5163,
             },
             'delta_correlation': False,
             'seq_link_threshold': 0.2,
@@ -759,9 +832,9 @@ def test_direct_assign_from_matrix_uses_precomputed_scores():
     result = strategy.assign_from_matrix(obs, preds, scores)
 
     assert_frame_equal(result.log_prob_matrix, scores)
-    assert set(zip(result.assignments['SS_name'], result.assignments['Res_name'])) == {
-        ('SS1', 'R1'), ('SS2', 'R2')
-    }
+    assert set(
+        zip(result.assignments['SS_name'], result.assignments['Res_name'])
+    ) == {('SS1', 'R1'), ('SS2', 'R2')}
 
 
 def _legacy_iterative_result(data, config):
@@ -786,7 +859,9 @@ def _legacy_iterative_result(data, config):
     )
     legacy.logger = config.logger
     legacy.obs, legacy.preds = prepare_obs_preds(
-        data.obs_shifts, data.pred_shifts, legacy.logger,
+        data.obs_shifts,
+        data.pred_shifts,
+        legacy.logger,
         atom_set=legacy.pars['atom_set'],
     )
     legacy.log_prob_matrix = calc_log_prob_matrix(
@@ -809,9 +884,15 @@ def test_iterative_strategy_matches_legacy_snaps_assigner():
     legacy = _legacy_iterative_result(data, config)
 
     columns = [
-        'SS_name', 'Res_name', 'Max_mismatch_m1', 'Max_mismatch_p1',
-        'Max_mismatch', 'Num_good_links_m1', 'Num_good_links_p1',
-        'Num_good_links', 'Confidence',
+        'SS_name',
+        'Res_name',
+        'Max_mismatch_m1',
+        'Max_mismatch_p1',
+        'Max_mismatch',
+        'Num_good_links_m1',
+        'Num_good_links_p1',
+        'Num_good_links',
+        'Confidence',
     ]
     assert_frame_equal(
         refactored.assign_df[columns].reset_index(drop=True),
