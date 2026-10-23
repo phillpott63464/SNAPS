@@ -64,10 +64,10 @@ def test_snaps_output_writes_rendered_table_to_stdout(capsys):
 def test_output_registry_registers_snaps_and_factory_preserves_config():
     config = {"format": "plain"}
 
-    assert OutputRegistry.get("SNAPS") is SNAPSOutput
-    assert "SNAPS" in OutputRegistry.list_names()
+    assert OutputRegistry.get("snaps") is SNAPSOutput
+    assert "snaps" in OutputRegistry.list_names()
 
-    output = create_output("SNAPS", config)
+    output = create_output("snaps", config)
     assert isinstance(output, SNAPSOutput)
     assert output.config is config
 
