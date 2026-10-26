@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import pytest
-from numpy import NaN
+from numpy import nan as NaN
 from pandas.testing import assert_frame_equal
 from pynmrstar import Entry
 
@@ -243,12 +243,12 @@ EXPECTED_IN.columns.names = ['Atom_type']
 I did not want to comment this out but I genuinely have no idea what this test is for and the problem seems to be in pynmrstar so who knows 
 """
 
-# def test_import_aa_type_info_nef():
-#     importer = SNAPS_importer()
-#     importer.import_obs_shifts(TEST_DATA / 'nef_resonances_4_test.nef', 'nef')
-#
-#     with open(TEST_DATA / 'nef_aa_types.nef', 'r') as file_handle:
-#         entry = Entry.from_file(file_handle, convert_data_types=True)
-#     result = importer.import_aa_type_info_nef(entry)
-#
-#     assert_frame_equal(EXPECTED_IN, result, check_exact=False, rtol=0.01)
+def test_import_aa_type_info_nef():
+    importer = SNAPS_importer()
+    importer.import_obs_shifts(TEST_DATA / 'nef_resonances_4_test.nef', 'nef')
+
+    with open(TEST_DATA / 'nef_aa_types.nef', 'r') as file_handle:
+        entry = Entry.from_file(file_handle, convert_data_types=True)
+    result = importer.import_aa_type_info_nef(entry)
+
+    assert_frame_equal(EXPECTED_IN, result, check_exact=False, rtol=0.01)

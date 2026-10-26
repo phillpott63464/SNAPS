@@ -337,11 +337,16 @@ class SNAPS_importer:
         REQUIRED_TAG_SET = set([f'{RESIDUE_TYPES_TAG}.{tag}' for tag in 'chain_code sequence_code residue_type'.split()])
         LEN_RESIDUE_TYPES = len(RESIDUE_TYPES_FRAME)
 
-        file_name, frame_name = _split_path_and_frame(file_name)
-        entry = Entry.from_file(file_name)
+        if isinstance(file_name, Entry):
+            entry = file_name
+            frame_name = None
+        else:
+            file_name, frame_name = _split_path_and_frame(file_name)
+            entry = Entry.from_file(file_name)
 
         frames = entry.get_saveframes_by_category('nefpls_residue_types')
-        frames = [frame for frame in frames if frame.name[LEN_RESIDUE_TYPES:].strip('_') == frame_name]
+        if frame_name is not None:
+            frames = [frame for frame in frames if frame.name[LEN_RESIDUE_TYPES:].strip('_') == frame_name]
 
         restraints = {}
 
