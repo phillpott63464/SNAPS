@@ -268,7 +268,13 @@ class FormatOutput:
         }
         for level, colour in colourmap.items():
             points = assign_df[assign_df['Confidence'] == level]
-            plot.circle(points['H'], points['N'], color=colour, legend_label=level)
+            plot.circle(
+                points['H'],
+                points['N'],
+                size=8,
+                color=colour,
+                legend_label=level,
+            )
         plot.add_layout(
             LabelSet(
                 x='H',

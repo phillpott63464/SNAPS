@@ -135,7 +135,7 @@ class SNAPSImporter:
                 {
                     'Res_N': sorted(missing_residue_numbers),
                     'Res_type': 'X',
-                    'Res_name': np.NaN,
+                    'Res_name': np.nan,
                 }
             )
             tmp['Res_name'] = tmp['Res_N'].astype(str) + tmp['Res_type']

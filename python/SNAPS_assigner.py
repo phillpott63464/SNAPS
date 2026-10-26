@@ -694,7 +694,7 @@ class SNAPS_assigner:
                 # Introduce NaN's to break the line into discontinuous segments
                 # "_z" in name is to ensure it sorts after the atom+"_m1" shifts
                 # eg. CA, CA_m1, CA_z
-                vlines[atom+"_z"] = np.NaN
+                vlines[atom+"_z"] = np.nan
                 # Convert from wide to long
                 vlines = vlines.melt(id_vars=["Res_name"],
                                      value_vars=[atom, atom+"_m1", atom+"_z"],
@@ -710,7 +710,7 @@ class SNAPS_assigner:
                 # Introduce NaN's to break the line into discontinuous segments
                 # "_a" in name ensures it sorts between the atom and atom+"_m1" shifts
                 # eg. CA, CA_a, CA_m1
-                hlines[atom+"_a"] = np.NaN
+                hlines[atom+"_a"] = np.nan
                 # Convert from wide to long
                 hlines = hlines.melt(id_vars=["Res_name"],
                                      value_vars=[atom, atom+"_m1", atom+"_a"],

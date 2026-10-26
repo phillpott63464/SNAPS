@@ -380,7 +380,7 @@ class SNAPS_importer:
                             sequence_code = '-'.join(sequence_code_fields[:-1])
 
                     # TODO: we should select a chain!
-                    ss_name = f'{sequence_code}'
+                    ss_name = f'{sequence_code}'.lstrip('@')
 
 
                     if residue_type in TRANSLATIONS_3_1_PROTEIN:
@@ -652,5 +652,3 @@ class SNAPS_importer:
         
         return(df)
         
-
-

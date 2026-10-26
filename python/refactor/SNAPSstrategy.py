@@ -53,10 +53,10 @@ class AssignmentStrategy(ABC):
         # Remove references to deleted residues from Res_name_m1/p1
         preds.loc[
             ~preds['Res_name_m1'].isin(preds['Res_name']), 'Res_name_m1'
-        ] = np.NaN
+        ] = np.nan
         preds.loc[
             ~preds['Res_name_p1'].isin(preds['Res_name']), 'Res_name_p1'
-        ] = np.NaN
+        ] = np.nan
 
         #### Restrict atom types
         # self.pars["atom_set"] is the set of atoms to be used in the analysis
@@ -88,7 +88,7 @@ class AssignmentStrategy(ABC):
 
         if N > M:     # If there are more spin systems than predictions
             dummies = pd.DataFrame(
-                np.NaN,
+                np.nan,
                 columns=preds.columns,
                 index=[
                     self.config.dummy_predicted_prefix + str(i)
@@ -102,7 +102,7 @@ class AssignmentStrategy(ABC):
             print('Added %d dummy predicted residues' % len(dummies.index))
         elif M > N:
             dummies = pd.DataFrame(
-                np.NaN,
+                np.nan,
                 columns=obs.columns,
                 index=[
                     self.config.dummy_observed_prefix + str(i)
@@ -807,6 +807,27 @@ class DirectStrategy(AssignmentStrategy):
             # maximise it.
         else:
             row_ind, col_ind = linear_sum_assignment(score_matrix_reduced)
+
+        dummy_columns = {
+            index for index, column in enumerate(score_matrix_reduced.columns)
+            if str(column).strip().startswith('DR_')
+        }
+        assignments = dict(zip(row_ind, col_ind))
+        for dummy_row, dummy_column in list(assignments.items()):
+            if dummy_column not in dummy_columns:
+                continue
+            for real_row, real_column in assignments.items():
+                if real_row <= dummy_row or real_column in dummy_columns:
+                    continue
+                current = score_matrix_reduced.iloc[dummy_row, dummy_column]
+                current += score_matrix_reduced.iloc[real_row, real_column]
+                swapped = score_matrix_reduced.iloc[dummy_row, real_column]
+                swapped += score_matrix_reduced.iloc[real_row, dummy_column]
+                if np.isclose(current, swapped, rtol=0, atol=1e-8):
+                    assignments[dummy_row], assignments[real_row] = real_column, dummy_column
+                    break
+        row_ind = np.array(sorted(assignments))
+        col_ind = np.array([assignments[row] for row in row_ind])
 
         # Construct results dataframe
         matching_reduced = pd.DataFrame(

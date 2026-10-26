@@ -113,7 +113,7 @@ def import_predicted_shifts(
                 {
                     'Res_N': sorted(missing_residue_numbers),
                     'Res_type': 'X',
-                    'Res_name': np.NaN,
+                    'Res_name': np.nan,
                 }
             )
             tmp['Res_name'] = tmp['Res_N'].astype(str) + tmp['Res_type']
@@ -264,10 +264,10 @@ def prepare_obs_preds(
     # Remove references to deleted residues from Res_name_m1/p1
     preds.loc[
         ~preds['Res_name_m1'].isin(preds['Res_name']), 'Res_name_m1'
-    ] = np.NaN
+    ] = np.nan
     preds.loc[
         ~preds['Res_name_p1'].isin(preds['Res_name']), 'Res_name_p1'
-    ] = np.NaN
+    ] = np.nan
 
     #### Restrict atom types
     # self.pars["atom_set"] is the set of atoms to be used in the analysis
@@ -295,7 +295,7 @@ def prepare_obs_preds(
 
     if N > M:     # If there are more spin systems than predictions
         dummies = pd.DataFrame(
-            np.NaN,
+            np.nan,
             columns=preds.columns,
             index=['DR_' + str(i) for i in 1 + np.arange(N - M)],
         )
@@ -306,7 +306,7 @@ def prepare_obs_preds(
         logger.info('Added %d dummy predicted residues' % len(dummies.index))
     elif M > N:
         dummies = pd.DataFrame(
-            np.NaN,
+            np.nan,
             columns=obs.columns,
             index=['DSS_' + str(i) for i in 1 + np.arange(M - N)],
         )
@@ -667,6 +667,29 @@ def find_best_assignment(
     else:
         row_ind, col_ind = linear_sum_assignment(score_matrix_reduced)
 
+    # Resolve exact-score dummy ties consistently across solver versions.
+    dummy_columns = {
+        column_index
+        for column_index, column in enumerate(score_matrix_reduced.columns)
+        if str(column).strip().startswith('DR_')
+    }
+    assignments = dict(zip(row_ind, col_ind))
+    for dummy_row, dummy_column in list(assignments.items()):
+        if dummy_column not in dummy_columns:
+            continue
+        for real_row, real_column in assignments.items():
+            if real_row <= dummy_row or real_column in dummy_columns:
+                continue
+            current = score_matrix_reduced.iloc[dummy_row, dummy_column]
+            current += score_matrix_reduced.iloc[real_row, real_column]
+            swapped = score_matrix_reduced.iloc[dummy_row, real_column]
+            swapped += score_matrix_reduced.iloc[real_row, dummy_column]
+            if np.isclose(current, swapped, rtol=0, atol=1e-8):
+                assignments[dummy_row], assignments[real_row] = real_column, dummy_column
+                break
+    row_ind = np.array(sorted(assignments))
+    col_ind = np.array([assignments[row] for row in row_ind])
+
     # Construct results dataframe
     matching_reduced = pd.DataFrame(
         {
@@ -974,4 +997,3 @@ def add_consistency_info(
         ]
     ]
     return assign_df.merge(consistency, how='left')
-
