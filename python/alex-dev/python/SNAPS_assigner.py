@@ -797,11 +797,11 @@ class SNAPS_assigner:
         # self.pars["atom_set"] is the set of atoms to be used in the analysis
         # Get all non-atom columns
         all_atoms = {"H","N","C","CA","CB","C_m1","CA_m1","CB_m1","HA", "N_m1", "N_p1"}
-        obs_metadata = list(set(obs.columns).difference(all_atoms))
-        preds_metadata = list(set(preds.columns).
+        obs_metadata = sorted(set(obs.columns).difference(all_atoms))
+        preds_metadata = sorted(set(preds.columns).
                               difference(all_atoms))
         # Get atoms that are in atom_set *and* present in both obs and preds
-        shared_atoms = list(self.pars["atom_set"].intersection(obs.columns).
+        shared_atoms = sorted(self.pars["atom_set"].intersection(obs.columns).
                             intersection(preds.columns))
         obs = obs.loc[:,obs_metadata+shared_atoms]
         preds = preds.loc[:,preds_metadata+shared_atoms]
@@ -879,7 +879,7 @@ class SNAPS_assigner:
         obs = self.obs.copy()
         if preds is None:
             preds = self.aligned_preds.copy()  
-        atoms = list(self.pars["atom_set"].intersection(obs.columns))
+        atoms = sorted(self.pars["atom_set"].intersection(obs.columns))
         prob_matrix = pd.DataFrame(1.0, index=obs.index, columns=preds.index)
         prob_matrix.index.name = "SS_name"
         prob_matrix.columns.name = "Res_name"
