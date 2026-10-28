@@ -100,7 +100,7 @@ def test_default():
     assert config.maximise_assignments is True
     assert config.dummy_predicted_prefix == 'DR_'
     assert config.dummy_observed_prefix == 'DSS_'
-    assert config.seq_link_threshold == 0.45
+    assert config.seq_link_threshold == 0.2
     assert config.iterate_until_consistent == True
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True
@@ -230,7 +230,7 @@ def test_cli_default():
         'CB': 0.5163,
         'C': 0.5256,
     }
-    assert config.seq_link_threshold == 0.45
+    assert config.seq_link_threshold == 0.2
     assert config.iterate_until_consistent == True
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True
@@ -352,7 +352,7 @@ def test_cli_none_overrides():
 
     config = build_config(cli_overrides=overrides)
 
-    assert config.seq_link_threshold == 0.45
+    assert config.seq_link_threshold == 0.2
     assert config.strategy == 'direct'
     assert config.pred_correction == False
     assert config.use_ss_class_info == True

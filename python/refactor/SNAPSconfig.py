@@ -128,7 +128,7 @@ class SNAPSConfig(BaseModel):
         description='Prefix used for dummy observed spin systems',
     )
     seq_link_threshold: float = Field(
-        default=0.45,
+        default=0.2,
         ge=0.0,
         le=1.0,
         description='Carbon shift threshold for sequential links',
