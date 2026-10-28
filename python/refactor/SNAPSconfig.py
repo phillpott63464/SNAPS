@@ -167,6 +167,26 @@ class SNAPSConfig(BaseModel):
         default='config/d_cov.csv',
         description='File containing prediction-error covariances',
     )
+    triplet_prob_iterations: int = Field(
+        default=5,
+        description='Number of times to iterate on the triplet algorithm.'
+    )
+    use_generic_predictions: bool = Field(
+        default=True,
+        description='If True, missing predictions are replaced with an average value for that residue type'
+    )
+    generic_shift_file: str = Field(
+        default='config/residue_shift_mean.csv',
+        description='File containing expected average chemical shift for each atom/residue pair'
+    )
+    generic_shift_stdev_file: str = Field(
+        default='config/residue_shift_stdev.csv',
+        description='File containing expected standard deviation in chemical shift for each atom/residue pair'
+    )
+    alt_assignments: int = Field(
+        default=0,
+        description='Number of alternative assignments to generate',
+    )
 
     # Strategy
     strategy: Literal['direct', 'iterative', 'bayesian'] = Field(
