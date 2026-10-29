@@ -1,6 +1,7 @@
+from refactor.strategies.direct import DirectStrategy
+from refactor.strategies.iterative import IterativeStrategy
+
 from refactor.SNAPSstrategy import (
-    DirectStrategy,
-    IterativeStrategy,
     create_strategy,
 )
 from refactor.SNAPSimporter import SNAPSImporter
