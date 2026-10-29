@@ -1,23 +1,22 @@
+from refactor.dataclasses import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
-from refactor.dataclasses import AssignmentResult, ShiftData, Analysis
 
 from python.refactor.dataclasses import AnalysisResult
 
 Result
-from typing import Optional, List
+
 import pandas as pd
 
 
 class AnalyzerType:
-    def analyze(self, config: SNAPSConfig) -> pd.DataFrame:
-        ...
+    def analyze(self, config: SNAPSConfig) -> pd.DataFrame: ...
 
 
 class AnalysisPipeline:
     def __init__(
         self,
-        config: Optional[SNAPSConfig] = None,
-        analyzers: List[AnalyzerType] = None,
+        config: SNAPSConfig | None = None,
+        analyzers: list[AnalyzerType] = None,
     ):
         if config is None:
             self.config = build_config()
@@ -26,16 +25,12 @@ class AnalysisPipeline:
 
         self.analyzers = analyzers
 
-    def run(
-        self, assignment: AssignmentResult, data: ShiftData
-    ) -> AnalysisResult:
+    def run(self, assignment: AssignmentResult, data: ShiftData) -> AnalysisResult:
         for analyzer in self.analyzers:
             analyzer.analyze(assignment, data)
 
 
-class ConsistencyAnalyzer(AnalyzerType):
-    ...
+class ConsistencyAnalyzer(AnalyzerType): ...
 
 
-class QualityAnalyzer(AnalyzerType):
-    ...
+class QualityAnalyzer(AnalyzerType): ...

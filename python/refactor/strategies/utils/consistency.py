@@ -1,15 +1,12 @@
 import numpy as np
 import pandas as pd
-
 from modules.assigner_functions import df_lookup
 
 
 def calc_mismatch_matrix(obs, threshold=0.2, logger=None):
     """Calculate pairwise sequential carbon mismatches for observed shifts."""
     carbons = pd.Series(["C", "CA", "CB"])
-    seq_atoms = carbons[
-        carbons.isin(obs.columns) & (carbons + "_m1").isin(obs.columns)
-    ]
+    seq_atoms = carbons[carbons.isin(obs.columns) & (carbons + "_m1").isin(obs.columns)]
 
     if seq_atoms.empty:
         if logger:

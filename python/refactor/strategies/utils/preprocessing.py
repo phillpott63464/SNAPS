@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-
 from refactor.SNAPSconfig import SNAPSConfig
 
 
@@ -30,11 +29,7 @@ def preprocess_obs_preds(config: SNAPSConfig, obs: pd.DataFrame, preds: pd.DataF
     preds_metadata = sorted(set(preds.columns).difference(all_atoms))
     # Get atoms that are in atom_set *and* present in both obs and preds
     shared_atoms = sorted(
-        list(
-            config.atom_set.intersection(obs.columns).intersection(
-                preds.columns
-            )
-        )
+        list(config.atom_set.intersection(obs.columns).intersection(preds.columns))
     )  # It has to be a set before this point but has to be a list past this point, oddly
     obs = obs.loc[:, obs_metadata + shared_atoms]
     preds = preds.loc[:, preds_metadata + shared_atoms]
@@ -54,8 +49,7 @@ def preprocess_obs_preds(config: SNAPSConfig, obs: pd.DataFrame, preds: pd.DataF
             np.nan,
             columns=preds.columns,
             index=[
-                config.dummy_predicted_prefix + str(i)
-                for i in 1 + np.arange(N - M)
+                config.dummy_predicted_prefix + str(i) for i in 1 + np.arange(N - M)
             ],
         )
         dummies["Res_name"] = dummies.index
@@ -67,10 +61,7 @@ def preprocess_obs_preds(config: SNAPSConfig, obs: pd.DataFrame, preds: pd.DataF
         dummies = pd.DataFrame(
             np.nan,
             columns=obs.columns,
-            index=[
-                config.dummy_observed_prefix + str(i)
-                for i in 1 + np.arange(M - N)
-            ],
+            index=[config.dummy_observed_prefix + str(i) for i in 1 + np.arange(M - N)],
         )
         dummies["SS_name"] = dummies.index
         dummies["Dummy_SS"] = True

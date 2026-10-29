@@ -1,20 +1,20 @@
-from typing import List, Optional
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from refactor.dataclasses import ShiftData
 from refactor.format_readers import (
-    ShiftX2Reader,
-    SpartaReader,
+    CCPNReader,
+    FormatReader,
+    MarsReader,
     NEFReader,
     NMRPipeReader,
-    CCPNReader,
-    SparkyReader,
+    ShiftX2Reader,
     SnapsReader,
+    SparkyReader,
+    SpartaReader,
     XeasyReader,
-    MarsReader,
-    FormatReader,
 )
-from refactor.dataclasses import ShiftData
-import pandas as pd
-import numpy as np
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 
 
@@ -23,12 +23,10 @@ class SNAPSImporter:
 
     def __init__(
         self,
-        readers: Optional[List[FormatReader]] = None,
-        config: Optional[SNAPSConfig] = None,
+        readers: list[FormatReader] | None = None,
+        config: SNAPSConfig | None = None,
     ):
-        self.readers = (
-            readers if readers is not None else self._default_readers()
-        )
+        self.readers = readers if readers is not None else self._default_readers()
         self._reader_by_format = {r.format_name: r for r in self.readers}
         self._reader_by_ext = {}
         for reader in self.readers:
@@ -40,7 +38,7 @@ class SNAPSImporter:
         else:
             self.config = config
 
-    def _default_readers(self) -> List[FormatReader]:
+    def _default_readers(self) -> list[FormatReader]:
         """Load all available format readers"""
         return [
             NEFReader(),
@@ -55,7 +53,7 @@ class SNAPSImporter:
         ]
 
     def _get_reader(
-        self, file_path: Path, format_hint: Optional[str] = None
+        self, file_path: Path, format_hint: str | None = None
     ) -> FormatReader:
         """Find appropriate reader for file"""
         # Try format hint first
@@ -73,21 +71,21 @@ class SNAPSImporter:
             if result:
                 return reader
 
-        raise ValueError(f'No reader found for {file_path}')
+        raise ValueError(f"No reader found for {file_path}")
 
     def clean_obs(self, obs_shift):
         obs_shift = obs_shift.loc[
-            obs_shift['Atom_type'].isin(
-                ['H', 'HA', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1']
+            obs_shift["Atom_type"].isin(
+                ["H", "HA", "N", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1"]
             ),
             :,
         ]
 
         # Convert from long to wide
         obs_shift = obs_shift.pivot(
-            index='SS_name', columns='Atom_type', values='Shift'
+            index="SS_name", columns="Atom_type", values="Shift"
         )
-        obs_shift.insert(0, 'SS_name', obs_shift.index.values)
+        obs_shift.insert(0, "SS_name", obs_shift.index.values)
 
         # the index name shouldn't match a column name!
         obs_shift.index.name = None
@@ -97,50 +95,48 @@ class SNAPSImporter:
     def clean_preds(self, preds_long: pd.DataFrame, offset: int = 0):
         #### Initial processing and conversion from long to wide
         # Add sequence number offset and create residue names
-        preds_long['Res_N'] = preds_long['Res_N'] + offset
+        preds_long["Res_N"] = preds_long["Res_N"] + offset
         preds_long.insert(
             1,
-            'Res_name',
-            (preds_long['Res_N'].astype(str) + preds_long['Res_type']),
+            "Res_name",
+            (preds_long["Res_N"].astype(str) + preds_long["Res_type"]),
         )
         # Left pad with spaces to a constant length (helps with sorting)
-        preds_long['Res_name'] = preds_long['Res_name'].str.rjust(5)
+        preds_long["Res_name"] = preds_long["Res_name"].str.rjust(5)
 
         # Convert from long to wide format
-        preds = preds_long.pivot(
-            index='Res_N', columns='Atom_type', values='Shift'
-        )
+        preds = preds_long.pivot(index="Res_N", columns="Atom_type", values="Shift")
         preds.index.name = None
 
         # Add the other residue name and type back in
-        tmp = preds_long[['Res_N', 'Res_type', 'Res_name']]
-        tmp = tmp.drop_duplicates(subset='Res_name')
-        tmp.index = tmp['Res_N']
+        tmp = preds_long[["Res_N", "Res_type", "Res_name"]]
+        tmp = tmp.drop_duplicates(subset="Res_name")
+        tmp.index = tmp["Res_N"]
         tmp.index.name = None
         preds = pd.concat([tmp, preds], axis=1)
 
         #### Make consistent with seq_df (and create if it doesn't already exist)
         # TODO: Maybe this should be split off into a separate function?
         # If seq_df is missing, create it based on preds
-        seq_df = preds.copy()[['Res_N', 'Res_type', 'Res_name']]
+        seq_df = preds.copy()[["Res_N", "Res_type", "Res_name"]]
 
         # If there are any missing residue numbers, create them
-        min_N = seq_df['Res_N'].min()
-        max_N = seq_df['Res_N'].max()
+        min_N = seq_df["Res_N"].min()
+        max_N = seq_df["Res_N"].max()
         missing_residue_numbers = set(range(min_N, max_N + 1)).difference(
-            seq_df['Res_N']
+            seq_df["Res_N"]
         )
         if len(missing_residue_numbers) > 0:
             tmp = pd.DataFrame(
                 {
-                    'Res_N': sorted(missing_residue_numbers),
-                    'Res_type': 'X',
-                    'Res_name': np.nan,
+                    "Res_N": sorted(missing_residue_numbers),
+                    "Res_type": "X",
+                    "Res_name": np.nan,
                 }
             )
-            tmp['Res_name'] = tmp['Res_N'].astype(str) + tmp['Res_type']
-            tmp['Res_name'] = tmp['Res_name'].str.rjust(5)
-            tmp.index = tmp['Res_N']
+            tmp["Res_name"] = tmp["Res_N"].astype(str) + tmp["Res_type"]
+            tmp["Res_name"] = tmp["Res_name"].str.rjust(5)
+            tmp.index = tmp["Res_N"]
             tmp.index.name = None
             # seq_df = seq_df.append(tmp).sort_index()
             seq_df = pd.concat([seq_df, tmp]).sort_index()
@@ -148,33 +144,30 @@ class SNAPSImporter:
         # Add/delete residues from preds so it matches seq_df
         # Only keep predictions that are in seq_df
         tmp = len(preds.index)
-        preds = preds[preds['Res_N'].isin(seq_df['Res_N'])]
+        preds = preds[preds["Res_N"].isin(seq_df["Res_N"])]
         tmp2 = tmp - len(preds.index)
 
         # Add predictions for any residue number that is in seq_df but not preds
         tmp = pd.DataFrame(
-            data=seq_df[~seq_df['Res_N'].isin(preds['Res_N'])],
+            data=seq_df[~seq_df["Res_N"].isin(preds["Res_N"])],
             columns=preds.columns,
         )
         # preds = preds.append(tmp)
         preds = pd.concat([preds, tmp])
 
         # If Res_name is inconsistent between seq_df and preds, make a compromise
-        preds.index = preds['Res_N']
+        preds.index = preds["Res_N"]
         preds = preds.sort_index()
-        seq_df.index = seq_df['Res_N']
+        seq_df.index = seq_df["Res_N"]
         seq_df = seq_df.sort_index()
-        mask = preds['Res_name'] != seq_df['Res_name']
+        mask = preds["Res_name"] != seq_df["Res_name"]
 
         if any(mask):
             ambiguous_res_names = (
-                seq_df.loc[mask, 'Res_name']
-                + '('
-                + preds.loc[mask, 'Res_type']
-                + '?)'
+                seq_df.loc[mask, "Res_name"] + "(" + preds.loc[mask, "Res_type"] + "?)"
             )
-            preds.loc[mask, 'Res_name'] = ambiguous_res_names
-            seq_df.loc[mask, 'Res_name'] = ambiguous_res_names
+            preds.loc[mask, "Res_name"] = ambiguous_res_names
+            seq_df.loc[mask, "Res_name"] = ambiguous_res_names
             # Note we don't update the Res_type in preds, because this is potentially
             # used for correcting the chemical shift
 
@@ -182,16 +175,16 @@ class SNAPSImporter:
             # TODO: test this
             self.config.logger.warning(
                 (
-                    'There were inconsistencies between the provided sequence '
-                    'file and the predicted shifts. The following residues had '
-                    'inconsistent amino acid types: %s'
+                    "There were inconsistencies between the provided sequence "
+                    "file and the predicted shifts. The following residues had "
+                    "inconsistent amino acid types: %s"
                 )
-                % ', '.join(ambiguous_res_names)
+                % ", ".join(ambiguous_res_names)
             )
 
         #        preds.index = preds["Res_name"]
         #        preds.index.name = None
-        seq_df.index = seq_df['Res_name']
+        seq_df.index = seq_df["Res_name"]
         seq_df.index.name = None
 
         #### Add the chemical shift info back in
@@ -199,39 +192,33 @@ class SNAPSImporter:
         # Make columns for the i-1 predicted shifts of C, CA and CB
         preds_m1 = preds[
             sorted(
-                {'C', 'CA', 'CB', 'Res_type', 'Res_name'}.intersection(
-                    preds.columns
-                )
+                {"C", "CA", "CB", "Res_type", "Res_name"}.intersection(preds.columns)
             )
         ].copy()
         preds_m1.index = preds_m1.index + 1
-        preds_m1.columns = preds_m1.columns + '_m1'
-        preds = pd.merge(
-            preds, preds_m1, how='left', left_index=True, right_index=True
-        )
+        preds_m1.columns = preds_m1.columns + "_m1"
+        preds = pd.merge(preds, preds_m1, how="left", left_index=True, right_index=True)
 
         # Make column for the i+1 Res_name
-        preds_p1 = preds[['Res_name']].copy()
+        preds_p1 = preds[["Res_name"]].copy()
         preds_p1.index = preds_p1.index - 1
-        preds_p1.columns = ['Res_name_p1']
-        preds = pd.merge(
-            preds, preds_p1, how='left', left_index=True, right_index=True
-        )
+        preds_p1.columns = ["Res_name_p1"]
+        preds = pd.merge(preds, preds_p1, how="left", left_index=True, right_index=True)
 
         # Set index to Res_name
-        preds.index = preds['Res_name']
+        preds.index = preds["Res_name"]
         preds.index.name = None
 
         # Restrict to only certain atom types
-        atom_set = {'H', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1', 'HA'}
+        atom_set = {"H", "N", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1", "HA"}
         preds = preds[
             [
-                'Res_name',
-                'Res_N',
-                'Res_type',
-                'Res_name_m1',
-                'Res_name_p1',
-                'Res_type_m1',
+                "Res_name",
+                "Res_N",
+                "Res_type",
+                "Res_name_m1",
+                "Res_name_p1",
+                "Res_type_m1",
             ]
             + sorted(atom_set.intersection(preds.columns))
         ]
@@ -242,14 +229,14 @@ class SNAPSImporter:
         self,
         obs_file: Path,
         pred_file: Path,
-        obs_format: Optional[str] = None,
-        pred_format: Optional[str] = None,
-        obs_frame: Optional[str] = None,
-        pred_frame: Optional[str] = None,
-        obs_chain: str = 'A',
-        pred_chain: str = 'A',
-        aa_restraints_file: Optional[Path] = None,
-        aa_restraints_frame: Optional[str] = None,
+        obs_format: str | None = None,
+        pred_format: str | None = None,
+        obs_frame: str | None = None,
+        pred_frame: str | None = None,
+        obs_chain: str = "A",
+        pred_chain: str = "A",
+        aa_restraints_file: Path | None = None,
+        aa_restraints_frame: str | None = None,
     ) -> ShiftData:
         """Import all data and return structured container"""
 
@@ -257,32 +244,22 @@ class SNAPSImporter:
         obs_reader = self._get_reader(obs_file, obs_format)
         pred_reader = self._get_reader(pred_file, pred_format)
 
-        self.config.logger.info(
-            f'Observed shifts reader={obs_reader.format_name}'
-        )
-        self.config.logger.info(
-            f'Predicted shifts reader={pred_reader.format_name}'
-        )
+        self.config.logger.info(f"Observed shifts reader={obs_reader.format_name}")
+        self.config.logger.info(f"Predicted shifts reader={pred_reader.format_name}")
 
         # Import observed shifts
         if isinstance(obs_reader, NEFReader):
-            obs_shifts = obs_reader.read_observed_shifts(
-                obs_file, chain=obs_chain
-            )
+            obs_shifts = obs_reader.read_observed_shifts(obs_file, chain=obs_chain)
         else:
             obs_shifts = obs_reader.read_observed_shifts(obs_file)
 
         # Import predicted shifts
         if isinstance(pred_reader, NEFReader):
-            pred_shifts = pred_reader.read_predicted_shifts(
-                pred_file, chain=pred_chain
-            )
+            pred_shifts = pred_reader.read_predicted_shifts(pred_file, chain=pred_chain)
         else:
             pred_shifts = pred_reader.read_predicted_shifts(pred_file)
 
-        pred_shifts = self.clean_preds(
-            pred_shifts, offset=self.config.pred_offset
-        )
+        pred_shifts = self.clean_preds(pred_shifts, offset=self.config.pred_offset)
         obs_shifts = self.clean_obs(obs_shifts)
 
         # Import sequence
@@ -303,11 +280,11 @@ class SNAPSImporter:
             # sequence=sequence,
             # aa_restraints=aa_restraints,
             metadata={
-                'obs_file': str(obs_file),
-                'pred_file': str(pred_file),
-                'obs_format': obs_reader.format_name,
-                'pred_format': pred_reader.format_name,
-                'obs_frame': obs_frame,
-                'pred_frame': pred_frame,
+                "obs_file": str(obs_file),
+                "pred_file": str(pred_file),
+                "obs_format": obs_reader.format_name,
+                "pred_format": pred_reader.format_name,
+                "obs_frame": obs_frame,
+                "pred_frame": pred_frame,
             },
         )

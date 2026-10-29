@@ -1,6 +1,7 @@
 from refactor.SNAPSconfig import SNAPSConfig
 from refactor.strategies.base import AssignmentStrategy
 
+
 class StrategyRegistry:
     """Registry for self-registering assignment strategies"""
 

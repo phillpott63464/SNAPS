@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union, get_args, get_origin
+from typing import Any, Optional, Union, get_args, get_origin
 
 import typer
 from pydantic.fields import FieldInfo
@@ -28,22 +26,18 @@ def _is_bool(annotation: Any) -> bool:
 
 
 def _option_names(name: str) -> tuple[str, str]:
-    hyphenated = name.replace('_', '-')
-    return (
-        (f'--{name}', f'--{hyphenated}')
-        if name != hyphenated
-        else (f'--{name}',)
-    )
+    hyphenated = name.replace("_", "-")
+    return (f"--{name}", f"--{hyphenated}") if name != hyphenated else (f"--{name}",)
 
 
 def _field_cli_type(annotation: Any) -> Any:
     """Return the Typer input type, using a list for repeatable collections."""
     origin = get_origin(annotation)
-    if origin in (set, Set, list, List):
+    if origin in (set, set, list, list):
         item_type = get_args(annotation)[0] if get_args(annotation) else str
-        return Optional[List[item_type]]
-    if origin in (dict, Dict):
-        return Optional[List[str]]
+        return Optional[list[item_type]]
+    if origin in (dict, dict):
+        return Optional[list[str]]
     return annotation if _is_optional(annotation) else Optional[annotation]
 
 
@@ -52,29 +46,29 @@ def option_for_field(
     field: FieldInfo,
     default: Any,
     *,
-    common_options: Set[str],
+    common_options: set[str],
 ) -> inspect.Parameter:
     """Create an inspect parameter whose default is a Typer option."""
     annotation = field.annotation
     option_names = _option_names(name)
     is_bool = _is_bool(annotation)
     if is_bool:
-        hyphenated = name.replace('_', '-')
+        hyphenated = name.replace("_", "-")
         option_names = (
             (
-                f'--{name}/--no-{name}',
-                f'--{hyphenated}/--no-{hyphenated}',
+                f"--{name}/--no-{name}",
+                f"--{hyphenated}/--no-{hyphenated}",
             )
             if name != hyphenated
-            else (f'--{name}/--no-{name}',)
+            else (f"--{name}/--no-{name}",)
         )
 
     option = typer.Option(
         None,
         *option_names,
-        help=field.description or name.replace('_', ' ').capitalize(),
+        help=field.description or name.replace("_", " ").capitalize(),
         show_default=str(default),
-        rich_help_panel='Common' if name in common_options else 'Advanced',
+        rich_help_panel="Common" if name in common_options else "Advanced",
         hidden=name not in common_options,
     )
     return inspect.Parameter(
@@ -88,10 +82,10 @@ def option_for_field(
 def signature_from_model(
     model: Any,
     *,
-    positional: Dict[str, Any],
-    excluded: Set[str],
-    common_options: Set[str],
-    extra_options: Dict[str, Any],
+    positional: dict[str, Any],
+    excluded: set[str],
+    common_options: set[str],
+    extra_options: dict[str, Any],
 ) -> inspect.Signature:
     """Construct a Typer-compatible signature from model fields and extras."""
     parameters = [
@@ -133,21 +127,21 @@ def convert_model_value(model: Any, name: str, value: Any) -> Any:
     origin = get_origin(annotation)
     if value is None:
         return None
-    if origin in (set, Set):
+    if origin in (set, set):
         return set(value)
-    if origin in (dict, Dict):
-        result: Dict[str, float] = {}
+    if origin in (dict, dict):
+        result: dict[str, float] = {}
         for item in value:
-            key, separator, raw_value = item.partition('=')
+            key, separator, raw_value = item.partition("=")
             if not separator or not key or not raw_value:
                 raise typer.BadParameter(
-                    f'{name} values must use KEY=VALUE (for example H=0.1726)'
+                    f"{name} values must use KEY=VALUE (for example H=0.1726)"
                 )
             try:
                 result[key] = float(raw_value)
             except ValueError as error:
                 raise typer.BadParameter(
-                    f'value for {key!r} in {name} must be a number'
+                    f"value for {key!r} in {name} must be a number"
                 ) from error
         return result
     return value

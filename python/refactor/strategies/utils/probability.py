@@ -2,9 +2,8 @@ from math import log10
 
 import numpy as np
 import pandas as pd
-from scipy.stats import norm, multivariate_normal
-
 from refactor.SNAPSconfig import SNAPSConfig
+from scipy.stats import multivariate_normal, norm
 
 
 def calc_log_prob_matrix(
@@ -40,8 +39,7 @@ def calc_log_prob_matrix(
         # Import parameters for correcting the shifts
         lm_pars = pd.read_csv(config.pred_correction_file, index_col=0)
         config.logger.info(
-            "Imported pred_correction info from %s"
-            % config.pred_correction_file
+            "Imported pred_correction info from %s" % config.pred_correction_file
         )
 
     if config.delta_correlation:
@@ -71,9 +69,9 @@ def calc_log_prob_matrix(
                 header=None,
                 index_col=0,
             ).loc[atoms, 1]
-            d_cov = pd.read_csv(
-                config.delta_correlation_cov_file, index_col=0
-            ).loc[atoms, atoms]
+            d_cov = pd.read_csv(config.delta_correlation_cov_file, index_col=0).loc[
+                atoms, atoms
+            ]
             config.logger.info(
                 "Imported delta_correlation info from %s and %s"
                 % (
@@ -118,9 +116,7 @@ def calc_log_prob_matrix(
             for res in preds["Res_type"].dropna().unique():
                 if (atom + "_" + res) in lm_pars.index:
                     # Find shifts of the current atom/residue combination
-                    mask = (lm_pars["Atom_type"] == atom) & (
-                        lm_pars["Res_type"] == res
-                    )
+                    mask = (lm_pars["Atom_type"] == atom) & (lm_pars["Res_type"] == res)
 
                     # Look up model parameters
                     grad = lm_pars.loc[mask, "Grad"].tolist()[0]
@@ -159,8 +155,7 @@ def calc_log_prob_matrix(
             prob_atom = pd.DataFrame(
                 norm.logpdf(
                     delta_atom,
-                    scale=config.atom_sd[atom]
-                    * config.shift_scale_factor,
+                    scale=config.atom_sd[atom] * config.shift_scale_factor,
                 ),
                 index=obs.index,
                 columns=preds.index,

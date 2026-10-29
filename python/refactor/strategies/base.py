@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
-import pandas as pd
 
+import pandas as pd
 from refactor.dataclasses import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
-from refactor.strategies.utils import matching, preprocessing, consistency, probability
+from refactor.strategies.utils import consistency, matching, preprocessing, probability
 
 
 class AssignmentStrategy(ABC):
@@ -35,7 +35,16 @@ class AssignmentStrategy(ABC):
         return_none_all_dummy=False,
     ):
         """Delegate to the shared assignment utility."""
-        return matching.find_best_assignment(self.config, score_matrix=score_matrix, maximise=maximise, inc=inc, exc=exc, dummy_rows=dummy_rows, dummy_cols=dummy_cols, return_none_all_dummy=return_none_all_dummy)
+        return matching.find_best_assignment(
+            self.config,
+            score_matrix=score_matrix,
+            maximise=maximise,
+            inc=inc,
+            exc=exc,
+            dummy_rows=dummy_rows,
+            dummy_cols=dummy_cols,
+            return_none_all_dummy=return_none_all_dummy,
+        )
 
     def preprocess_obs_preds(self, obs: pd.DataFrame, preds: pd.DataFrame):
         """Delegate to the shared assignment utility."""
@@ -52,4 +61,3 @@ class AssignmentStrategy(ABC):
     calc_mismatch_matrix = staticmethod(consistency.calc_mismatch_matrix)
 
     add_consistency_info = staticmethod(consistency.add_consistency_info)
-

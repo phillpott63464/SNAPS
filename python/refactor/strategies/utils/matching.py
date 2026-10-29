@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
-from scipy.optimize import linear_sum_assignment
-
 from refactor.SNAPSconfig import SNAPSConfig
+from scipy.optimize import linear_sum_assignment
 
 
 def find_best_assignment(
@@ -79,9 +78,7 @@ def find_best_assignment(
         if set(score_matrix_reduced.index).issubset(dummy_rows) or set(
             score_matrix_reduced.columns
         ).issubset(dummy_cols):
-            config.logger.debug(
-                "Score matrix includes only dummy rows/columns"
-            )
+            config.logger.debug("Score matrix includes only dummy rows/columns")
             return None
 
     if exc is not None:
@@ -104,9 +101,7 @@ def find_best_assignment(
             else:
                 score_matrix_reduced.loc[r["SS_name"], r["Res_name"]] = penalty
 
-        config.logger.info(
-            "Penalised %d excluded row,column pairs" % len(exc.index)
-        )
+        config.logger.info("Penalised %d excluded row,column pairs" % len(exc.index))
 
     if maximise:
         row_ind, col_ind = linear_sum_assignment(-1 * score_matrix_reduced)
