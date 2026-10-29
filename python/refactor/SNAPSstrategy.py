@@ -13,16 +13,6 @@ from scipy.optimize import linear_sum_assignment
 from refactor.strategies.registry import StrategyRegistry
 from refactor.strategies.base import AssignmentStrategy
 
-from refactor.strategies.direct import DirectStrategy
-
-
-
-
-# Strategy registry for self-registration
-# Backwards-compatible name retained for callers of the initial refactor.
-DirectStragety = DirectStrategy
-
-
 # Factory function (simplified - just delegates to registry)
 def create_strategy(
     strategy_name: str,
