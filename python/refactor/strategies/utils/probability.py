@@ -232,3 +232,29 @@ def calc_log_prob_matrix(
     )
 
     return log_prob_matrix
+
+def calc_triplet_prob_matrix(prob_matrix=None, allowed_links_matrix=None, normalise_by=None):
+    """ Calculate the probability that each spin system is assigned to a given residue,
+    summed over all possible triplets, accounting for allowed sequential links.
+
+    """
+
+    # Calculate matrixes for probability contribution of i-1 and i+1 residues
+    left_matrix = allowed_links_matrix.transpose().dot(prob_matrix)
+    right_matrix = allowed_links_matrix.dot(prob_matrix)
+
+    # Shift values left or right
+    left_matrix = left_matrix.shift(1, axis=1).fillna(1)
+    right_matrix = right_matrix.shift(-1, axis=1).fillna(1)
+
+    # Calculate the triplet probability matrix
+    triplet_prob_matrix = left_matrix * prob_matrix * right_matrix
+    triplet_prob_matrix.index.name = "SS_name"
+
+    # Do the normalisation, if needed
+    if normalise_by=="Res":
+        triplet_prob_matrix = triplet_prob_matrix.div(triplet_prob_matrix.sum(axis=0), axis="columns")
+    elif normalise_by=="SS":
+        triplet_prob_matrix = triplet_prob_matrix.div(triplet_prob_matrix.sum(axis=1), axis="rows")
+
+    return(triplet_prob_matrix)
