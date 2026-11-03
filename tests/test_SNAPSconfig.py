@@ -44,7 +44,7 @@ dummy_predicted_prefix: PRED_
 dummy_observed_prefix: OBS_
 
 # Strategy
-strategy: bayesian
+strategy: triplet
     """
 
     with open(file_path, 'w') as f:
@@ -142,7 +142,7 @@ def test_complete(complete_config):
     assert config.delta_correlation_cov_corrected_file == 'custom/dd_cov.csv'
     assert config.delta_correlation_mean_file == 'custom/d_mean.csv'
     assert config.delta_correlation_cov_file == 'custom/d_cov.csv'
-    assert config.strategy == 'bayesian'
+    assert config.strategy == 'triplet'
 
 
 def test_partial(partial_config):
@@ -202,7 +202,7 @@ def complete_cli_overrides():
         'delta_correlation_cov_corrected_file': 'cli/dd_cov.csv',
         'delta_correlation_mean_file': 'cli/d_mean.csv',
         'delta_correlation_cov_file': 'cli/d_cov.csv',
-        'strategy': 'bayesian',
+        'strategy': 'triplet',
     }
 
 
@@ -267,7 +267,7 @@ def test_cli_complete(complete_cli_overrides):
     assert config.delta_correlation_cov_corrected_file == 'cli/dd_cov.csv'
     assert config.delta_correlation_mean_file == 'cli/d_mean.csv'
     assert config.delta_correlation_cov_file == 'cli/d_cov.csv'
-    assert config.strategy == 'bayesian'
+    assert config.strategy == 'triplet'
 
 
 def test_cli_partial(partial_cli_overrides):

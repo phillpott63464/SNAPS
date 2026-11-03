@@ -120,7 +120,7 @@ def test_cli_file_options_and_cli_values_override_config_file(
 ):
     config_file = tmp_path / 'config.yaml'
     config_file.write_text(
-        'strategy: bayesian\n'
+        'strategy: triplet\n'
         'seq_link_threshold: 0.2\n'
         'pred_offset: 3\n'
         'iterate_until_consistent: false\n'
