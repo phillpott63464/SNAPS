@@ -1,5 +1,5 @@
 from pathlib import Path
-
+from Bio import SeqIO, Align
 import numpy as np
 import pandas as pd
 from refactor.dataclasses import ShiftData
@@ -263,7 +263,10 @@ class SNAPSImporter:
         obs_shifts = self.clean_obs(obs_shifts)
 
         # Import sequence
-        # sequence = pred_reader.read_sequence(pred_file)
+        if self.config.sequence_file is not None:
+            sequence = self.import_sequence(self.config.sequence_file)
+        else:
+            sequence = None
 
         # # Import AA restraints if provided
         # aa_restraints = None
@@ -277,7 +280,7 @@ class SNAPSImporter:
         return ShiftData(
             obs_shifts=obs_shifts,
             pred_shifts=pred_shifts,
-            # sequence=sequence,
+            sequence=sequence,
             # aa_restraints=aa_restraints,
             metadata={
                 "obs_file": str(obs_file),
@@ -288,3 +291,80 @@ class SNAPSImporter:
                 "pred_frame": pred_frame,
             },
         )
+
+    def import_sequence(self, filename, seq_numbering=1, filetype="text"):
+        """ Imports the protein sequence
+
+        The sequence information is used to fill in any gaps if prediction
+        information is missing. It can also be used if the residue numbering is
+        discontinuous. The sequence file should be in FASTA format, and the
+        sequence numbering should be either:
+            1) the residue number of the first amino acid, or
+            2) a comma separated list of residue ranges eg -5:10,15:100 (this is
+            for proteins with discontinuous sequence numbering)
+        If the file contains multiple sequences, only the first will be used.
+
+        Parameters
+        filename: path to file containing sequence information
+        """
+
+        # Parse the sequence
+        if filetype=="fasta":
+            fasta_records = SeqIO.parse(open(filename),"fasta")
+            record1 = next(fasta_records)
+            seq_list = list(str(record1.seq))
+        elif filetype=="text":
+            with open(filename, 'r') as file:
+                seq_list = list("".join(file.read().split()))
+
+        # Parse the sequence numbering information and make a list of residue numbers
+        if type(seq_numbering)==int:
+            res_N_start = seq_numbering
+            res_N_list = list(range(res_N_start, res_N_start+len(seq_list)))
+        else:
+            tmp = seq_numbering.split(",")
+            if len(tmp)==1:     # If id was "123" or "123-456"
+                tmp2 = tmp[0].split(":")
+                if len(tmp2)==1:        # If id was "123"
+                    res_N_start = int(tmp2[0])
+                    res_N_list = list(range(res_N_start, res_N_start+len(seq_list)))
+                else:                   # If id was "123-456"
+                    start, end = tmp2
+                    res_N_list = list(range(int(start), int(end)+1))
+            else:               # If id was "123-200,300-456"
+                res_N_list = []
+                for x in tmp:
+                    start, end = x.split(":")
+                    res_N_list += list(range(int(start), int(end)+1))
+
+        # Check res_N_list and seq_list are the same length, and correct if not
+        if len(res_N_list) > len(seq_list):
+            res_N_list = res_N_list[0:len(seq_list)]
+            self.config.logger.warning("The residue range provided is longer than the"+
+                                " length of the sequence, so has been truncated")
+        elif len(res_N_list) < len(seq_list):
+            extra_needed = len(seq_list) - len(res_N_list)
+            last_N = res_N_list[-1]
+            res_N_list += list(range(last_N, last_N + extra_needed))
+            self.config.logger.warning("The residue range provided is shorter than the"+
+                                " length of the sequence, so has been extended")
+
+        # Make a dataframe
+        seq_df = pd.DataFrame({"Seq_N":list(range(1,1+len(res_N_list))), "Res_N":res_N_list,"Res_type":seq_list})
+            # Seq_N numbers the residues starting from 1.
+        seq_df["Res_name"] = seq_df["Res_N"].astype(str) + seq_df["Res_type"]
+        seq_df["Res_name"] = seq_df["Res_name"].str.rjust(5)
+                # Pad Res_name to constant length
+
+        # Add columns for i-1 and i+1 residue names
+        seq_df["Res_name_m1"] = seq_df["Res_name"].shift(1)
+        seq_df["Res_name_p1"] = seq_df["Res_name"].shift(-1)
+
+        seq_df.index = seq_df["Res_name"]
+        seq_df.index.name = None
+
+        self.config.logger.info("Finished importing a sequence of length %d" %
+                         len(seq_df.index))
+
+        return(seq_df)
+
