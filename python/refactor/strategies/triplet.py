@@ -4,8 +4,8 @@ import pandas as pd
 
 from refactor.dataclasses import AssignmentResult, ShiftData
 from refactor.strategies.base import AssignmentStrategy
-from refactor.strategies.direct import DirectStrategy
 from refactor.strategies.registry import StrategyRegistry
+from refactor.strategies.utils.output import make_assign_df
 
 
 @StrategyRegistry.register("triplet")
@@ -13,10 +13,16 @@ class TripletStrategy(AssignmentStrategy):
     """Iterative triplet-informed assignment using sequential links."""
 
     def assign(self, data: ShiftData) -> AssignmentResult:
-        direct = DirectStrategy(config=self.config)
+        # Prepare observations and predictions directly.
+        obs, preds = self.preprocess_obs_preds(
+            data.obs_shifts,
+            data.pred_shifts,
+        )
 
-        # Prepare observations, predictions and individual log scores.
-        obs, preds, original_log_prob = direct.prepare(data)
+        original_log_prob = self.calc_log_prob_matrix(
+            obs=obs,
+            preds=preds,
+        )
 
         # Derive initial probabilities from log10 scores.
         # Row scaling avoids overflow from large positive scores.
@@ -35,12 +41,13 @@ class TripletStrategy(AssignmentStrategy):
         )
 
         if mismatch_result is None:
-            result = direct.assign_from_matrix(
-                obs, preds, original_log_prob
+            return self._assign_from_matrix(
+                obs=obs,
+                preds=preds,
+                log_prob=original_log_prob,
+                mismatch_result=None,
+                iterations=0,
             )
-            result.metadata["strategy"] = "triplet"
-            result.metadata["iterations"] = 0
-            return result
 
         mismatch_matrix, _ = mismatch_result
 
@@ -50,12 +57,8 @@ class TripletStrategy(AssignmentStrategy):
 
         np.fill_diagonal(allowed_links.values, 0)
 
-        # Initial assignment, equivalent to iteration zero.
-        result = direct.assign_from_matrix(
-            obs, preds, original_log_prob
-        )
-
         iterations = self.config.triplet_prob_iterations
+        log_prob = original_log_prob
 
         for iteration in range(iterations):
             # Calculate neighbouring contributions.
@@ -78,17 +81,78 @@ class TripletStrategy(AssignmentStrategy):
                 prob_matrix.clip(lower=1e-200)
             )
 
-            result = direct.assign_from_matrix(
-                obs, preds, log_prob
-            )
-
             self.config.logger.info(
                 "Completed triplet iteration %d",
                 iteration + 1,
             )
 
-        result.metadata["strategy"] = "triplet"
-        result.metadata["iterations"] = iterations
+        return self._assign_from_matrix(
+            obs=obs,
+            preds=preds,
+            log_prob=log_prob,
+            mismatch_result=mismatch_result,
+            iterations=iterations,
+        )
+
+    def _assign_from_matrix(
+        self,
+        obs: pd.DataFrame,
+        preds: pd.DataFrame,
+        log_prob: pd.DataFrame,
+        mismatch_result: tuple | None,
+        iterations: int,
+    ) -> AssignmentResult:
+        """Construct an assignment without using DirectStrategy."""
+
+        # Hungarian assignment.
+        matching = self.find_best_assignment(
+            score_matrix=log_prob,
+            maximise=self.config.maximise_assignments,
+        )
+
+        # Construct the assignment dataframe.
+        assign_df = make_assign_df(
+            config=self.config,
+            obs=obs,
+            preds=preds,
+            log_prob_matrix=log_prob,
+            matching=matching,
+        )
+
+        # Add sequential consistency information.
+        if mismatch_result is not None:
+            mismatch_matrix, consistent_links_matrix = mismatch_result
+        else:
+            mismatch_matrix = None
+            consistent_links_matrix = None
+
+        assign_df = self.add_consistency_info(
+            assign_df=assign_df,
+            preds=preds,
+            mismatch_matrix=mismatch_matrix,
+            consistent_links_matrix=consistent_links_matrix,
+            threshold=self.config.seq_link_threshold,
+            logger=self.config.logger,
+        )
+
+        confidence = (
+            assign_df[["SS_name", "Res_name", "Confidence"]]
+            if "Confidence" in assign_df.columns
+            else None
+        )
+
+        return AssignmentResult(
+            assignments=matching,
+            assign_df=assign_df,
+            log_prob_matrix=log_prob,
+            mismatch_matrix=mismatch_matrix,
+            confidence=confidence,
+            metadata={
+                "strategy": "triplet",
+                "iterations": iterations,
+                "config": self.config,
+            },
+        )
 
         return result
 
