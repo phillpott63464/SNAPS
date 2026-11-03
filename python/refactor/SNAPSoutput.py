@@ -20,8 +20,6 @@ from tabulate import tabulate
 
 
 class FormatOutput:
-    headings = ["Res_name", "Res_N", "Res_type", "SS_name", "Dummy_res", "Dummy_SS", "CA", "CA_pred", "HA", "HA_pred", "H", "H_pred", "CB", "CB_pred", "C", "C_pred", "N", "N_pred", "Log_prob", "Max_mismatch_m1", "Max_mismatch_p1", "Num_good_links_m1"]
-
     def __init__(self, config: SNAPSConfig | None = None):
         if config is None:
             self.config = build_config()
@@ -463,16 +461,12 @@ class NEFOutput(FormatOutput):
 @OutputRegistry.register("snaps")
 class SNAPSOutput(FormatOutput):
     def _output(self, result: AssignmentResult, config: SNAPSConfig = None):
-        table = []
-        headings = [
-            heading for heading in self.headings if heading in result.assign_df.columns
-        ]
-        for df_index, df_row in result.assign_df.iterrows():
-            table_row = []
-            table.append(table_row)
-            for heading in headings:
-                table_row.append(df_row[heading])
-        return tabulate(table, tablefmt="plain", headers=headings)
+        return tabulate(
+            result.assign_df,
+            headers="keys",
+            tablefmt="plain",
+            showindex=False,
+        )
 
 
 # Factory function (simplified - just delegates to registry)

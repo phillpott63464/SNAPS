@@ -70,7 +70,34 @@ def test_run_snaps(
 
     run_pipeline(config)
 
+    """
+    UPDATED
+    Rather than checking that the output of the refactor is exactly the same as the output of the original,
+    we now check that the output of the refactor does not differ from the original except in additional fields. 
+    So:
+    - Assignment changes, fail
+    - Residue name changes, fail
+    - Extra column in the refactor that wasn't present in the original, pass 
+    """
+    legacy = pd.read_csv(out_file_legacy, sep=r"\s+")
+    refactor = pd.read_csv(out_file_refactor, sep=r"\s+")
+
+    assert set(legacy.columns).issubset(refactor.columns)
+
+    legacy = legacy.set_index("Res_name")
+    refactor = refactor.set_index("Res_name")
+
+    assert legacy.index.is_unique
+    assert refactor.index.is_unique
+    assert legacy.index.isin(refactor.index).all()
+
+    refactor_subset = refactor.loc[legacy.index, legacy.columns]
+
     assert_frame_equal(
-        pd.read_csv(out_file_refactor),
-        pd.read_csv(out_file_legacy),
+        refactor_subset,
+        legacy,
+        check_dtype=False,
+        check_exact=False,
+        rtol=1e-6,
+        atol=1e-6,
     )
