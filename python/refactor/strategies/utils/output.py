@@ -28,7 +28,7 @@ def make_assign_df(
 
     assign_df = pd.merge(
         matching,
-        preds.loc[:, ["Res_N", "Res_type", "Res_name", "Dummy_res"]],
+        preds.loc[:, ["Res_N", "Res_type", "Res_name", "Dummy_res"]].reset_index(drop=True),
         on="Res_name",
         how="left",
     )
@@ -43,7 +43,7 @@ def make_assign_df(
     )
     assign_df = pd.merge(
         assign_df,
-        preds.loc[:, preds.columns.isin(valid_atoms + ["Res_name"])],
+        preds.loc[:, preds.columns.isin(valid_atoms + ["Res_name"])].reset_index(drop=True),
         on="Res_name",
         suffixes=("", "_pred"),
         how="left",
