@@ -54,7 +54,7 @@ def make_assign_df(
     #                                     assign_df["Res_name"])
     assign_df["Log_prob"] = df_lookup(
         log_prob_matrix, assign_df["SS_name"], assign_df["Res_name"]
-    )
+    ).to_numpy()
     # Careful above not to get rows/columns confused
 
     assign_df = assign_df.sort_values(by="Res_N")

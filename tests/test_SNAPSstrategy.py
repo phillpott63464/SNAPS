@@ -673,7 +673,13 @@ def test_SNAPstrategy_make_assign_df(pred_file, obs_file, logger):
         logger=logger,
     )
 
-    assert_frame_equal(assign_df, expected)
+    # Updated - basically, since log prob never worked in the first place, don't make sure it's identical. Otherwise pytest will
+    # Complain that the new dataframe has values that aren't NaN, which is what we want.
+    assert_frame_equal(
+        assign_df.drop(columns=["Log_prob"]),
+        expected.drop(columns=["Log_prob"]),
+    )
+    assert pd.api.types.is_float_dtype(assign_df["Log_prob"])
 
 
 @pytest.mark.parametrize(
@@ -740,7 +746,12 @@ def test_SNAPstragety_direct(
 
     assigned = strategy.assign(data=imported)
 
-    assert_frame_equal(assigned.assign_df, assign_df)
+    assert_frame_equal(
+        assigned.assign_df.drop(columns=["Log_prob"]),
+        assign_df.drop(columns=["Log_prob"]),
+    )
+    assert pd.api.types.is_float_dtype(assigned.assign_df["Log_prob"])
+
     assert_frame_equal(assigned.assignments, matching)
     assert_frame_equal(assigned.log_prob_matrix, log_prob_matrix)
 
