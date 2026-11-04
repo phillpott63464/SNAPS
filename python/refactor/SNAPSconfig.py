@@ -12,6 +12,7 @@ class SNAPSConfig(BaseModel):
     # Input and output
     obs_file: Path | None = Field(default=None, description="Observed shifts file")
     pred_file: Path | None = Field(default=None, description="Predicted shifts file")
+    sequence_file: Path | None = Field(default=None, description='Sequence file in fasta format (sequences can also be stored in observed nef files)')
     obs_format: str | None = Field(
         default=None, description="Observed shifts format"
     )
