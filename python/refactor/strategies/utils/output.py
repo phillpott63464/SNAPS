@@ -26,15 +26,36 @@ def make_assign_df(
             + " dataframe does not have the correct columns"
         )
 
+    pred_info = ["Res_N", "Res_type", "Res_name", "Dummy_res"]
+    pred_name_columns = ["Pred_N", "Pred_type", "Pred_name"]
+    if set(pred_name_columns).issubset(preds.columns):
+        pred_info += pred_name_columns
+
     assign_df = pd.merge(
         matching,
-        preds.loc[:, ["Res_N", "Res_type", "Res_name", "Dummy_res"]].reset_index(drop=True),
+        preds.loc[:, pred_info].reset_index(drop=True),
         on="Res_name",
         how="left",
     )
-    assign_df = assign_df[
-        ["Res_name", "Res_N", "Res_type", "SS_name", "Dummy_res"] + sorted(extra_cols)
-    ]
+    if set(pred_name_columns).issubset(assign_df.columns):
+        assignment_columns = [
+            "Res_name",
+            "Res_N",
+            "Res_type",
+            "SS_name",
+            "Pred_N",
+            "Pred_name",
+            "Dummy_res",
+        ]
+    else:
+        assignment_columns = [
+            "Res_name",
+            "Res_N",
+            "Res_type",
+            "SS_name",
+            "Dummy_res",
+        ]
+    assign_df = assign_df[assignment_columns + sorted(extra_cols)]
     assign_df = pd.merge(
         assign_df,
         obs.loc[:, obs.columns.isin(["SS_name", "Dummy_SS"] + valid_atoms)],
@@ -52,11 +73,14 @@ def make_assign_df(
     # assign_df["Log_prob"] = log_prob_matrix.lookup(
     #                                     assign_df["SS_name"],
     #                                     assign_df["Res_name"])
+    original_index = assign_df.index
+    assign_df.index = assign_df["SS_name"]
     assign_df["Log_prob"] = df_lookup(
         log_prob_matrix, assign_df["SS_name"], assign_df["Res_name"]
-    ).to_numpy()
+    )
+    assign_df.index = original_index
     # Careful above not to get rows/columns confused
 
-    assign_df = assign_df.sort_values(by="Res_N")
+    assign_df = assign_df.sort_values(by="Res_N", na_position="last")
 
     return assign_df
