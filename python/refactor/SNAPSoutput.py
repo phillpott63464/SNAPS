@@ -461,8 +461,12 @@ class NEFOutput(FormatOutput):
 @OutputRegistry.register("snaps")
 class SNAPSOutput(FormatOutput):
     def _output(self, result: AssignmentResult, config: SNAPSConfig = None):
+        assign_df = result.assign_df.copy()
+        for column in ("Res_name", "SS_name", "Pred_name"):
+            if column in assign_df:
+                assign_df[column] = assign_df[column].astype("string").str.rjust(5)
         return tabulate(
-            result.assign_df,
+            assign_df,
             headers="keys",
             tablefmt="plain",
             showindex=False,
