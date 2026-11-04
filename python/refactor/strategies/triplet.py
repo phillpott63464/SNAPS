@@ -7,6 +7,7 @@ from refactor.strategies.base import AssignmentStrategy
 from refactor.strategies.registry import StrategyRegistry
 from refactor.strategies.utils.output import make_assign_df
 from scipy.stats import multivariate_normal, norm
+from typing import Optional
 
 
 @StrategyRegistry.register("triplet")
@@ -23,9 +24,30 @@ class TripletStrategy(AssignmentStrategy):
         original_matrix = self.calc_prob_matrix(
             obs=obs,
             preds=preds,
+            normalise_by="SS",
+        )
+        original_matrix = original_matrix.div(
+            original_matrix.sum(axis=1), axis="rows"
         )
 
-        prob_matrix = self._normalise(original_matrix)
+        prob_matrix = original_matrix
+        if self.config.use_generic_predictions:
+            generic_preds = self._generic_predictions(preds)
+            generic_matrix = self.calc_prob_matrix(
+                obs=obs,
+                preds=generic_preds,
+                delta_correlation=False,
+                atom_res_sd_file=self.config.generic_shift_stdev_file,
+                glycine_cb_penalty=1.0,
+            )
+            prob_matrix = original_matrix * generic_matrix
+            prob_matrix = prob_matrix.div(
+                prob_matrix.sum(axis=1), axis="rows"
+            )
+            prob_matrix = self._normalise(prob_matrix)
+        else:
+            prob_matrix = self._normalise(prob_matrix)
+        original_log_prob = self._calc_log_prob_matrix(prob_matrix)
 
         # Identify compatible sequential spin-system pairs.
         mismatch_result = self.calc_mismatch_matrix(
@@ -39,6 +61,7 @@ class TripletStrategy(AssignmentStrategy):
                 obs=obs,
                 preds=preds,
                 log_prob=original_matrix,
+                output_log_prob=original_log_prob,
                 mismatch_result=None,
                 iterations=0,
             )
@@ -55,25 +78,14 @@ class TripletStrategy(AssignmentStrategy):
         log_prob_matrix = original_matrix
 
         for iteration in range(iterations):
-            # Calculate neighbouring contributions.
-            left = allowed_links.T.dot(prob_matrix)
-            right = allowed_links.dot(prob_matrix)
-
-            left = left.shift(1, axis=1).fillna(1.0)
-            right = right.shift(-1, axis=1).fillna(1.0)
-
-            # Triplet probability matrix.
-            prob_matrix = left * prob_matrix * right
-            prob_matrix.index.name = "SS_name"
-            prob_matrix.columns.name = "Res_name"
-
-            # Normalise as in alex-dev.
-            prob_matrix = self._normalise(prob_matrix)
-
-            # Convert to log10 scores for Hungarian matching.
-            log_prob_matrix = np.log10(
-                prob_matrix.clip(lower=1e-200)
+            prob_matrix = self.calc_triplet_prob_matrix(
+                prob_matrix=prob_matrix,
+                allowed_links_matrix=allowed_links,
+                normalise_by="SS",
             )
+
+            prob_matrix = self._normalise(prob_matrix)
+            log_prob_matrix = self._calc_log_prob_matrix(prob_matrix)
 
             self.config.logger.info(
                 "Completed triplet iteration %d",
@@ -84,6 +96,7 @@ class TripletStrategy(AssignmentStrategy):
             obs=obs,
             preds=preds,
             log_prob=log_prob_matrix,
+            output_log_prob=original_log_prob,
             mismatch_result=mismatch_result,
             iterations=iterations,
         )
@@ -93,6 +106,7 @@ class TripletStrategy(AssignmentStrategy):
         obs: pd.DataFrame,
         preds: pd.DataFrame,
         log_prob: pd.DataFrame,
+        output_log_prob: pd.DataFrame,
         mismatch_result: tuple | None,
         iterations: int,
     ) -> AssignmentResult:
@@ -103,13 +117,14 @@ class TripletStrategy(AssignmentStrategy):
             score_matrix=log_prob,
             maximise=self.config.maximise_assignments,
         )
+        matching = matching.sort_values("Res_name")
 
         # Construct the assignment dataframe.
         assign_df = make_assign_df(
             config=self.config,
             obs=obs,
             preds=preds,
-            log_prob_matrix=log_prob,
+            log_prob_matrix=output_log_prob,
             matching=matching,
         )
 
@@ -148,7 +163,15 @@ class TripletStrategy(AssignmentStrategy):
             },
         )
 
-    def calc_prob_matrix(self, preds, obs):
+    def calc_prob_matrix(
+        self,
+        preds,
+        obs,
+        normalise_by: Optional[str] = None,
+        delta_correlation: Optional[bool] = None,
+        atom_res_sd_file=None,
+        glycine_cb_penalty: float = 0.01,
+    ):
         """
         Updated version from alex-dev
 
@@ -179,14 +202,15 @@ class TripletStrategy(AssignmentStrategy):
         prob_matrix.index.name = "SS_name"
         prob_matrix.columns.name = "Res_name"
 
-        glycine_CB_penalty = 1 # This was hardcoded, maybe make it a config value in the end
-
-        if self.config.generic_shift_stdev_file != None:
-            atom_res_sd = pd.read_csv(self.config.generic_shift_stdev_file, index_col=0)
+        if atom_res_sd_file is not None:
+            atom_res_sd = pd.read_csv(atom_res_sd_file, index_col=0)
         else:
             atom_res_sd = None
 
-        if self.config.delta_correlation:
+        if delta_correlation is None:
+            delta_correlation = self.config.delta_correlation
+
+        if delta_correlation:
             # Import parameters describing the delta correlations
             # Note: this also sorts the atom types in d_mean and c_cov into the
             # same order as the 'atoms' list defined above.
@@ -222,7 +246,7 @@ class TripletStrategy(AssignmentStrategy):
             # Make sure delta_atom is entirely numeric, with any NAs replaced with 0
             delta_atom = delta_atom.fillna(0.0).astype(float)
 
-            if self.config.delta_correlation:
+            if delta_correlation:
                 # Store delta matrix for this atom type for later analysis
                 delta_list = delta_list + [delta_atom.values]
             else:
@@ -247,7 +271,7 @@ class TripletStrategy(AssignmentStrategy):
 
                 prob_matrix = prob_matrix * prob_atom
 
-        if self.config.delta_correlation:
+        if delta_correlation:
             self.config.logger.info("Accounting for correlated prediction errors")
 
             # Combine the delta matrixes from each atom type into a single 3D matrix
@@ -266,12 +290,12 @@ class TripletStrategy(AssignmentStrategy):
             glycines = preds[preds.Res_type == "G"].Res_name
             obs_CB = obs[~obs.CB.isna()].SS_name
             for g in glycines:
-                prob_matrix.loc[obs_CB, g] = prob_matrix.loc[obs_CB, g] * glycine_CB_penalty
+                prob_matrix.loc[obs_CB, g] = prob_matrix.loc[obs_CB, g] * glycine_cb_penalty
 
             glycines_m1 = preds[preds.Res_type == "G"].Res_name
             obs_CB_m1 = obs[~obs.CB_m1.isna()].SS_name
             for g in glycines_m1:
-                prob_matrix.loc[obs_CB_m1, g] = prob_matrix.loc[obs_CB_m1, g] * glycine_CB_penalty
+                prob_matrix.loc[obs_CB_m1, g] = prob_matrix.loc[obs_CB_m1, g] * glycine_cb_penalty
 
         # Pair up the proline dummy spin systems with the appropriate residue
         prolines = preds[preds.Res_type == "P"].Res_name
@@ -285,7 +309,6 @@ class TripletStrategy(AssignmentStrategy):
         prob_matrix[prob_matrix == 0] = 1e-100
 
         # Do the normalisation, if needed
-        normalise_by = None #Hardcoded none in original implementation, but kept just in case it's needed
         if normalise_by == "Res":
             prob_matrix = prob_matrix.div(prob_matrix.sum(axis=0), axis="columns")
         elif normalise_by == "SS":
@@ -295,6 +318,32 @@ class TripletStrategy(AssignmentStrategy):
                          prob_matrix.shape[0], prob_matrix.shape[1])
 
         return (prob_matrix)
+
+    def _generic_predictions(self, preds: pd.DataFrame) -> pd.DataFrame:
+        """Create residue-type predictions for missing structural shifts."""
+        generic = preds.copy()
+        means = pd.read_csv(self.config.generic_shift_file, index_col=0)
+
+        for atom in ("H", "N", "C", "CA", "CB", "HA"):
+            if atom in means:
+                generic[atom] = generic["Res_type"].map(means[atom])
+
+        by_name = generic.set_index("Res_name")
+        for atom in self.config.atom_set:
+            if atom not in generic:
+                continue
+            base_atom = atom.removesuffix("_m1").removesuffix("_p1")
+            if base_atom not in by_name:
+                continue
+            if atom.endswith("_m1"):
+                generic[atom] = generic["Res_name_m1"].map(by_name[base_atom])
+            elif atom.endswith("_p1"):
+                generic[atom] = generic["Res_name_p1"].map(by_name[base_atom])
+
+        for atom in self.config.atom_set.intersection(preds.columns):
+            generic[atom] = generic[atom].where(preds[atom].isna())
+
+        return generic
 
     def preprocess_obs_preds(self, obs, preds):
         """Perform preprocessing on the observed and predicted shifts to prepare
@@ -363,6 +412,32 @@ class TripletStrategy(AssignmentStrategy):
 
         return obs, preds
 
+    def calc_triplet_prob_matrix(self, prob_matrix, allowed_links_matrix, normalise_by=None):
+        """ Calculate the probability that each spin system is assigned to a given residue,
+        summed over all possible triplets, accounting for allowed sequential links.
+
+        """
+        # Calculate matrixes for probability contribution of i-1 and i+1 residues
+        left_matrix = allowed_links_matrix.transpose().dot(prob_matrix)
+        right_matrix = allowed_links_matrix.dot(prob_matrix)
+
+        # Shift values left or right
+        left_matrix = left_matrix.shift(1, axis=1).fillna(1)
+        right_matrix = right_matrix.shift(-1, axis=1).fillna(1)
+
+        # Calculate the triplet probability matrix
+        triplet_prob_matrix = left_matrix * prob_matrix * right_matrix
+        triplet_prob_matrix.index.name = "SS_name"
+
+        # Do the normalisation, if needed
+        if normalise_by=="Res":
+            triplet_prob_matrix = triplet_prob_matrix.div(triplet_prob_matrix.sum(axis=0), axis="columns")
+        elif normalise_by=="SS":
+            triplet_prob_matrix = triplet_prob_matrix.div(triplet_prob_matrix.sum(axis=1), axis="rows")
+
+        return(triplet_prob_matrix)
+
+
     @staticmethod
     def _normalise(prob_matrix: pd.DataFrame) -> pd.DataFrame:
         """Alternating column/row normalisation."""
@@ -376,3 +451,11 @@ class TripletStrategy(AssignmentStrategy):
             matrix = matrix.div(row_sums, axis=0)
 
         return matrix.fillna(0.0)
+
+    @staticmethod
+    def _calc_log_prob_matrix(prob_matrix: pd.DataFrame) -> pd.DataFrame:
+        """Convert probabilities using Alex's zero-probability replacement."""
+        positive = prob_matrix[prob_matrix > 0]
+        replacement = min(positive.min().min(), 1e-200)
+        matrix = prob_matrix.mask(prob_matrix == 0, replacement)
+        return np.log10(matrix)
