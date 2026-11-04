@@ -110,30 +110,33 @@ def find_best_assignment(
     else:
         row_ind, col_ind = linear_sum_assignment(score_matrix_reduced)
 
-    dummy_columns = {
-        index
-        for index, column in enumerate(score_matrix_reduced.columns)
-        if str(column).strip().startswith("DR_")
-    }
-    assignments = dict(zip(row_ind, col_ind))
-    for dummy_row, dummy_column in list(assignments.items()):
-        if dummy_column not in dummy_columns:
-            continue
-        for real_row, real_column in assignments.items():
-            if real_row <= dummy_row or real_column in dummy_columns:
+    # Preserve the historical deterministic tie-break for non-triplet
+    # strategies. Triplet parity uses Alex's raw Hungarian result.
+    if config.strategy != "triplet":
+        dummy_columns = {
+            index
+            for index, column in enumerate(score_matrix_reduced.columns)
+            if str(column).strip().startswith("DR_")
+        }
+        assignments = dict(zip(row_ind, col_ind))
+        for dummy_row, dummy_column in list(assignments.items()):
+            if dummy_column not in dummy_columns:
                 continue
-            current = score_matrix_reduced.iloc[dummy_row, dummy_column]
-            current += score_matrix_reduced.iloc[real_row, real_column]
-            swapped = score_matrix_reduced.iloc[dummy_row, real_column]
-            swapped += score_matrix_reduced.iloc[real_row, dummy_column]
-            if np.isclose(current, swapped, rtol=0, atol=1e-8):
-                assignments[dummy_row], assignments[real_row] = (
-                    real_column,
-                    dummy_column,
-                )
-                break
-    row_ind = np.array(sorted(assignments))
-    col_ind = np.array([assignments[row] for row in row_ind])
+            for real_row, real_column in assignments.items():
+                if real_row <= dummy_row or real_column in dummy_columns:
+                    continue
+                current = score_matrix_reduced.iloc[dummy_row, dummy_column]
+                current += score_matrix_reduced.iloc[real_row, real_column]
+                swapped = score_matrix_reduced.iloc[dummy_row, real_column]
+                swapped += score_matrix_reduced.iloc[real_row, dummy_column]
+                if np.isclose(current, swapped, rtol=0, atol=1e-8):
+                    assignments[dummy_row], assignments[real_row] = (
+                        real_column,
+                        dummy_column,
+                    )
+                    break
+        row_ind = np.array(sorted(assignments))
+        col_ind = np.array([assignments[row] for row in row_ind])
 
     # Construct results dataframe
     matching_reduced = pd.DataFrame(
