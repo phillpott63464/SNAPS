@@ -1,4 +1,3 @@
-
 from refactor.SNAPSconfig import SNAPSConfig
 from refactor.strategies.base import AssignmentStrategy
 from refactor.strategies.registry import StrategyRegistry

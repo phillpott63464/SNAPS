@@ -48,21 +48,18 @@ def find_best_assignment(
         score_matrix = score_matrix.mask(exc_mask, other=penalty)
 
     if inc is not None:
-        conflicts = (
-            inc[row_name].duplicated(keep=False)
-            | inc[col_name].duplicated(keep=False)
+        conflicts = inc[row_name].duplicated(keep=False) | inc[col_name].duplicated(
+            keep=False
         )
         if conflicts.any():
             config.logger.warning(
-                "Warning: entries in inc conflict with one another - "
-                "dropping conflicts"
+                "Warning: entries in inc conflict with one another - dropping conflicts"
             )
             inc = inc.loc[~conflicts]
 
         if exc is not None:
-            exc_in_inc = (
-                exc[row_name].isin(inc[row_name])
-                | exc[col_name].isin(inc[col_name])
+            exc_in_inc = exc[row_name].isin(inc[row_name]) | exc[col_name].isin(
+                inc[col_name]
             )
             if exc_in_inc.any():
                 config.logger.warning(
@@ -70,9 +67,8 @@ def find_best_assignment(
                 )
                 exc = exc.loc[~exc_in_inc, :]
 
-        score_matrix_reduced = (
-            score_matrix.drop(index=inc[row_name])
-            .drop(columns=inc[col_name])
+        score_matrix_reduced = score_matrix.drop(index=inc[row_name]).drop(
+            columns=inc[col_name]
         )
         config.logger.info(
             "%d assignments were fixed, %d remain to be assigned"
@@ -105,9 +101,7 @@ def find_best_assignment(
             else:
                 score_matrix_reduced.loc[row, col] = penalty
 
-        config.logger.info(
-            "Penalised %d excluded row,column pairs" % len(exc.index)
-        )
+        config.logger.info("Penalised %d excluded row,column pairs" % len(exc.index))
 
     if maximise:
         row_ind, col_ind = linear_sum_assignment(-1 * score_matrix_reduced)

@@ -12,17 +12,14 @@ class SNAPSConfig(BaseModel):
     # Input and output
     obs_file: Path | None = Field(default=None, description="Observed shifts file")
     pred_file: Path | None = Field(default=None, description="Predicted shifts file")
-    sequence_file: Path | None = Field(default=None, description='Sequence file in fasta format (sequences can also be stored in observed nef files)')
-    obs_format: str | None = Field(
-        default=None, description="Observed shifts format"
+    sequence_file: Path | None = Field(
+        default=None,
+        description="Sequence file in fasta format (sequences can also be stored in observed nef files)",
     )
-    pred_format: str | None = Field(
-        default=None, description="Predicted shifts format"
-    )
+    obs_format: str | None = Field(default=None, description="Observed shifts format")
+    pred_format: str | None = Field(default=None, description="Predicted shifts format")
     obs_frame: str | None = Field(default=None, description="Observed shifts frame")
-    pred_frame: str | None = Field(
-        default=None, description="Predicted shifts frame"
-    )
+    pred_frame: str | None = Field(default=None, description="Predicted shifts frame")
     obs_chain: str = Field(default="A", description="Observed chain identifier")
     pred_chain: str = Field(default="A", description="Predicted chain identifier")
     aa_restraints_file: Path | None = Field(
@@ -31,9 +28,7 @@ class SNAPSConfig(BaseModel):
     aa_restraints_frame: str | None = Field(
         default=None, description="Amino acid restraints frame"
     )
-    output_file: Path | None = Field(
-        default=None, description="Assignment output file"
-    )
+    output_file: Path | None = Field(default=None, description="Assignment output file")
     output_type: str = Field(default="snaps", description="Assignment output format")
     shift_output_file: Path | None = Field(
         default=None, description="Chemical shift output file"
@@ -174,7 +169,7 @@ class SNAPSConfig(BaseModel):
     )
     glycine_CB_penalty: float = Field(
         default=0.01,
-        description="How much to penalise the probability that an observation corresponds to a glycine if it has a CB chemical shift"
+        description="How much to penalise the probability that an observation corresponds to a glycine if it has a CB chemical shift",
     )
 
     # Strategy

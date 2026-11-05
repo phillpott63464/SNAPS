@@ -331,7 +331,15 @@ class NEFOutput(FormatOutput):
         save_frame.add_loop(loop)
 
         # fragment_id
-        tags = ["index", "chain_code", "sequence_code", "residue_name", "unassigned_sequence_code", "assigned", "merit"]
+        tags = [
+            "index",
+            "chain_code",
+            "sequence_code",
+            "residue_name",
+            "unassigned_sequence_code",
+            "assigned",
+            "merit",
+        ]
         loop.add_tag(
             tags
         )  # snaps_log_prob snaps_max_mismatch_m1 snaps_max_mismatch_p1 snaps_num_good_links_m1

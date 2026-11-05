@@ -30,7 +30,7 @@ class AssignmentResult:
 
     assignments: pd.DataFrame  # Main assignment table
     assign_df: pd.DataFrame  # Assignment dataframe as originally implemented in SNAPS
-    assign_dfs: list[pd.DataFrames] | None = None # Dataframes for iterative strategies
+    assign_dfs: list[pd.DataFrames] | None = None  # Dataframes for iterative strategies
     log_prob_matrix: pd.DataFrame | None = None
     mismatch_matrix: pd.DataFrame | None = None
     confidence: pd.DataFrame | None = None

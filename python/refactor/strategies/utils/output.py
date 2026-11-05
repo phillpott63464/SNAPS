@@ -28,8 +28,8 @@ def make_assign_df(
 
     pred_info = ["Res_N", "Res_type", "Res_name", "Dummy_res"]
     pred_name_columns = ["Pred_N", "Pred_type", "Pred_name"]
-    include_pred_name_columns = (
-        is_triplet and set(pred_name_columns).issubset(preds.columns)
+    include_pred_name_columns = is_triplet and set(pred_name_columns).issubset(
+        preds.columns
     )
     if include_pred_name_columns:
         pred_info += pred_name_columns

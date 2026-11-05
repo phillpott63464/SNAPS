@@ -6,6 +6,7 @@ from refactor.SNAPSconfig import SNAPSConfig, build_config
 from refactor.strategies.utils import consistency, matching, preprocessing, probability
 from refactor.strategies.utils.output import make_assign_df
 
+
 class AssignmentStrategy(ABC):
     """Base class for assignment strategies."""
 

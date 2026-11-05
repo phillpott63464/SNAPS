@@ -12,7 +12,7 @@ def preprocess_obs_preds(config: SNAPSConfig, obs: pd.DataFrame, preds: pd.DataF
     3) Add dummy rows to obs or preds to bring them to the same length
     """
 
-    if config.strategy != 'triplet':
+    if config.strategy != "triplet":
         #### Delete any prolines in preds
         print("Removing %d prolines from predictions" % sum(preds["Res_type"] == "P"))
         preds = preds.drop(preds.index[preds["Res_type"] == "P"])
@@ -42,7 +42,7 @@ def preprocess_obs_preds(config: SNAPSConfig, obs: pd.DataFrame, preds: pd.DataF
     preds["Dummy_res"] = False
     obs["Dummy_SS"] = False
 
-    if config.strategy == 'triplet':
+    if config.strategy == "triplet":
         # Proline observations only match their corresponding proline prediction.
         prolines = preds.loc[preds["Res_type"] == "P", "Res_name"]
         proline_obs = pd.DataFrame(index=prolines, columns=obs.columns)
