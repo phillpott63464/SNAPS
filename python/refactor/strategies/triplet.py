@@ -702,3 +702,9 @@ class TripletStrategy(AssignmentStrategy):
         else:
             matching_reduced = matching_reduced.sort_values("Res_name")
             return (matching_reduced)
+
+    def preprocess_obs_preds(self, obs, preds):
+        obs, preds = super().preprocess_obs_preds(obs, preds)
+        # Remove N_m1 and N_p1, not sure why they're there in the old one and not this one but they're not good
+        preds = preds.drop(['N_m1', 'N_p1'], axis=1)
+        return obs, preds
