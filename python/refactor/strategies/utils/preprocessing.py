@@ -7,14 +7,15 @@ def preprocess_obs_preds(config: SNAPSConfig, obs: pd.DataFrame, preds: pd.DataF
     """Perform preprocessing on the observed and predicted shifts to prepare
     them for calculation of the log probability matrix.
 
-    1) Remove proline residues from predictions
-    2) Discard atom types that are not used or aren't present in both
+    1) Discard atom types that are not used or aren't present in both
+    2) Create dummy spin systems for prolines
     3) Add dummy rows to obs or preds to bring them to the same length
     """
 
-    #### Delete any prolines in preds
-    print("Removing %d prolines from predictions" % sum(preds["Res_type"] == "P"))
-    preds = preds.drop(preds.index[preds["Res_type"] == "P"])
+    if config.strategy != 'triplet':
+        #### Delete any prolines in preds
+        print("Removing %d prolines from predictions" % sum(preds["Res_type"] == "P"))
+        preds = preds.drop(preds.index[preds["Res_type"] == "P"])
 
     # Remove references to deleted residues from Res_name_m1/p1
     preds.loc[~preds["Res_name_m1"].isin(preds["Res_name"]), "Res_name_m1"] = np.nan
@@ -40,6 +41,14 @@ def preprocess_obs_preds(config: SNAPSConfig, obs: pd.DataFrame, preds: pd.DataF
     # Create columns to keep track of dummy status
     preds["Dummy_res"] = False
     obs["Dummy_SS"] = False
+
+    if config.strategy == 'triplet':
+        # Proline observations only match their corresponding proline prediction.
+        prolines = preds.loc[preds["Res_type"] == "P", "Res_name"]
+        proline_obs = pd.DataFrame(index=prolines, columns=obs.columns)
+        proline_obs["SS_name"] = prolines
+        proline_obs["Dummy_SS"] = True
+        obs = pd.concat([obs, proline_obs])
 
     N = len(obs.index)
     M = len(preds.index)
@@ -68,5 +77,9 @@ def preprocess_obs_preds(config: SNAPSConfig, obs: pd.DataFrame, preds: pd.DataF
         # obs = obs.append(dummies)
         obs = pd.concat([obs, dummies])
         print("Added %d dummy observed residues" % len(dummies.index))
+
+    obs = obs.sort_values("SS_name")
+    obs.index = obs["SS_name"]
+    obs.index.name = None
 
     return (obs, preds)
