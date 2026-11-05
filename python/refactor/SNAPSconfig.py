@@ -172,6 +172,10 @@ class SNAPSConfig(BaseModel):
         default=0,
         description="Number of alternative assignments to generate",
     )
+    glycine_CB_penalty: float = Field(
+        default=0.01,
+        description="How much to penalise the probability that an observation corresponds to a glycine if it has a CB chemical shift"
+    )
 
     # Strategy
     strategy: Literal["direct", "iterative", "triplet"] = Field(

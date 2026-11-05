@@ -2,7 +2,6 @@ import pandas as pd
 from refactor.dataclasses import AssignmentResult, ShiftData
 from refactor.strategies.base import AssignmentStrategy
 from refactor.strategies.registry import StrategyRegistry
-from refactor.strategies.utils.output import make_assign_df
 
 
 @StrategyRegistry.register("direct")
@@ -66,20 +65,4 @@ class DirectStrategy(AssignmentStrategy):
                 "strategy": "direct",
                 "config": self.config,
             },
-        )
-
-    def make_assign_df(
-        self,
-        obs: pd.DataFrame,
-        preds: pd.DataFrame,
-        log_prob_matrix: pd.DataFrame,
-        matching: pd.DataFrame,
-    ):
-
-        return make_assign_df(
-            config=self.config,
-            obs=obs,
-            preds=preds,
-            log_prob_matrix=log_prob_matrix,
-            matching=matching,
         )

@@ -4,7 +4,7 @@ import pandas as pd
 from refactor.dataclasses import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 from refactor.strategies.utils import consistency, matching, preprocessing, probability
-
+from refactor.strategies.utils.output import make_assign_df
 
 class AssignmentStrategy(ABC):
     """Base class for assignment strategies."""
@@ -61,3 +61,19 @@ class AssignmentStrategy(ABC):
     calc_mismatch_matrix = staticmethod(consistency.calc_mismatch_matrix)
 
     add_consistency_info = staticmethod(consistency.add_consistency_info)
+
+    def make_assign_df(
+        self,
+        obs: pd.DataFrame,
+        preds: pd.DataFrame,
+        log_prob_matrix: pd.DataFrame,
+        matching: pd.DataFrame,
+    ):
+
+        return make_assign_df(
+            config=self.config,
+            obs=obs,
+            preds=preds,
+            log_prob_matrix=log_prob_matrix,
+            matching=matching,
+        )
