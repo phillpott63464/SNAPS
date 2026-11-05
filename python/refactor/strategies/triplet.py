@@ -16,13 +16,13 @@ class TripletStrategy(AssignmentStrategy):
     def assign(self, data: ShiftData) -> AssignmentResult:
         # Algorith from snaps.py
         obs, preds = self.preprocess_obs_preds(data.obs_shifts, data.pred_shifts)
-        prob_matrix, _, _ = self.calc_prob_matrix(obs=obs, preds=preds, sequence=data.sequence)
+        prob_matrix = self.calc_prob_matrix(obs=obs, preds=preds, sequence=data.sequence)
         log_prob_matrix  = self.calc_log_prob_matrix(prob_matrix)
         assign_df, _ = self.assign_from_preds(obs=obs, preds=preds, log_prob_matrix=log_prob_matrix)
         assign_df, _ = self.add_consistency_info(assign_df=assign_df, obs=obs, preds=preds, threshold=self.config.seq_link_threshold)
 
-        triplet_prob_matrix, _, _ = self.calc_prob_matrix(obs=obs, preds=preds, sequence=data.sequence)
-        triplet_log_prob_matrix = self.calc_log_prob_matrix(triplet_prob_matrix)
+        triplet_prob_matrix = prob_matrix.copy()
+        triplet_log_prob_matrix = log_prob_matrix.copy()
         triplet_assign_df, triplet_matching = self.assign_from_preds(obs, preds, triplet_log_prob_matrix)
         triplet_assign_df, triplet_allowed_links_matrix = self.add_consistency_info(assign_df=triplet_assign_df, obs=obs, preds=preds, threshold=self.config.seq_link_threshold)
 
@@ -34,13 +34,13 @@ class TripletStrategy(AssignmentStrategy):
         for i in range(self.config.triplet_prob_iterations):
             triplet_prob_matrix = self.calc_triplet_prob_matrix(prob_matrix=triplet_prob_list[i], allowed_links_matrix=triplet_allowed_links_list[i], normalise_by="SS")
             # Test of probability normalisation
-            for i in range(20):
+            for _ in range(20):
                 triplet_prob_matrix = triplet_prob_matrix.div(triplet_prob_matrix.sum(axis=0), axis="columns")
                 triplet_prob_matrix = triplet_prob_matrix.div(triplet_prob_matrix.sum(axis=1), axis="rows")
 
             triplet_log_prob_matrix = self.calc_log_prob_matrix(triplet_prob_matrix)
             triplet_assign_df, triplet_matching = self.assign_from_preds(obs=obs, preds=preds, log_prob_matrix=triplet_log_prob_matrix)
-            triplet_assign_df, triplet_allowed_links_matrix = self.add_consistency_info(input_assign_df=triplet_assign_df, obs=obs, preds=preds, threshold=self.config.seq_link_threshold)
+            triplet_assign_df, triplet_allowed_links_matrix = self.add_consistency_info(assign_df=triplet_assign_df, obs=obs, preds=preds, threshold=self.config.seq_link_threshold)
 
             triplet_prob_list += [triplet_prob_matrix]
             triplet_log_prob_list += [triplet_log_prob_matrix]
@@ -51,7 +51,7 @@ class TripletStrategy(AssignmentStrategy):
         return AssignmentResult(
             assignments=triplet_matching_list[-1],
             log_prob_matrix=triplet_log_prob_list[-1],
-            assign_df=triplet_assign_df[-1],
+            assign_df=triplet_assign_df_list[-1],
             assign_dfs=triplet_assign_df_list,
             # mismatch_matrix=mismatch_matrix,
             confidence=assign_df[["SS_name", "Res_name", "Confidence"]]
@@ -106,6 +106,7 @@ class TripletStrategy(AssignmentStrategy):
 
             self.config.logger.warning("Couldn't calculate assignment confidence: "+
                                 "need sequential atom information")
+            allowed_links_matrix = None
 
         return(assign_df, allowed_links_matrix)
 
@@ -136,6 +137,7 @@ class TripletStrategy(AssignmentStrategy):
         mismatch_matrix, consistent_links_matrix, allowed_links_matrix = self.calc_mismatch_matrix(obs)
 
         # Add Res_name_m1 and Res_name_p1 columns to matching DataFrame
+        matching = matching.copy()
         matching.index = matching["Res_name"]
         matching.index.name = None
 
@@ -213,8 +215,7 @@ class TripletStrategy(AssignmentStrategy):
             prob_matrix = prob_matrix.div(prob_matrix.sum(axis=0), axis="columns")
             prob_matrix = prob_matrix.div(prob_matrix.sum(axis=1), axis="rows")
 
-        log_prob_matrix = self.calc_log_prob_matrix(prob_matrix=prob_matrix)
-        return self.calc_mismatch_matrix(obs)
+        return prob_matrix
 
     def _calc_prob_matrix(self, obs, preds,
                          atom_res_sd =None,
@@ -435,9 +436,9 @@ class TripletStrategy(AssignmentStrategy):
 
         # Do the normalisation, if needed
         if normalise_by == "Res":
-            generic_prob_matrix = (generic_prob_matrix / generic_prob_matrix.sum(axis=0))
+            generic_prob_matrix = generic_prob_matrix.div(generic_prob_matrix.sum(axis=0), axis="columns")
         elif normalise_by == "SS":
-            generic_prob_matrix = (generic_prob_matrix / generic_prob_matrix.sum(axis=1))
+            generic_prob_matrix = generic_prob_matrix.div(generic_prob_matrix.sum(axis=1), axis="rows")
 
 
         return (generic_prob_matrix)
@@ -452,6 +453,7 @@ class TripletStrategy(AssignmentStrategy):
         A DataFrame containing the log probabilities
         """
         # Remove any zeroes, by setting them to the minimum value in the matrix
+        prob_matrix = prob_matrix.copy()
         replacement_value = min(prob_matrix[prob_matrix > 0].min().min(), 1e-200)
         prob_matrix[prob_matrix == 0] = replacement_value
 
@@ -479,7 +481,7 @@ class TripletStrategy(AssignmentStrategy):
         if seq_atoms.size==0:
             # You can't make a mismatch matrix
             self.config.logger.warning("No sequential links in data - mismatch matrix not calculated.")
-            return(None)
+            return (None, None, None)
         else:
             # Start with empty mismatch and consistent_links matrixes
             mismatch_matrix = pd.DataFrame(0,
@@ -681,7 +683,7 @@ class TripletStrategy(AssignmentStrategy):
                 else:
                     score_matrix_reduced.loc[r[row_name], r[col_name]] = penalty
 
-            self.logger.debug("Penalised %d excluded row,column pairs" % len(exc.index))
+            self.config.logger.debug("Penalised %d excluded row,column pairs" % len(exc.index))
 
         if maximise:
             row_ind, col_ind = linear_sum_assignment(-1 * score_matrix_reduced)
