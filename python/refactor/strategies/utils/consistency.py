@@ -32,8 +32,10 @@ def calc_mismatch_matrix(obs, threshold=0.2, logger=None):
         consistent_links_atom = abs(mismatch_atom) < threshold
         na_mask = mismatch_atom.isna()
         mismatch_atom = mismatch_atom.mask(na_mask, 0)
-        consistent_links_atom = consistent_links_atom.mask(na_mask, 0)
-
+        with pd.option_context("future.no_silent_downcasting", True):
+            consistent_links_atom = (
+                consistent_links_atom.mask(na_mask, 0).infer_objects(copy=False)
+            )
         mismatch_matrix = mismatch_matrix.combine(abs(mismatch_atom), np.maximum)
         consistent_links_matrix = consistent_links_matrix + consistent_links_atom
 
