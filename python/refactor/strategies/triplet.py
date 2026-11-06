@@ -13,6 +13,7 @@ class TripletStrategy(AssignmentStrategy):
     """Iterative triplet-informed assignment using sequential links."""
 
     def assign(self, data: ShiftData) -> AssignmentResult:
+        self.validate_data(data.obs_shifts, data.pred_shifts, data.sequence)
         # Algorith from snaps.py
         obs, preds = self.preprocess_obs_preds(data.obs_shifts, data.pred_shifts)
         prob_matrix = self.calc_prob_matrix(
@@ -959,3 +960,8 @@ class TripletStrategy(AssignmentStrategy):
         # Remove N_m1 and N_p1, not sure why they're there in the old one and not this one but they're not good
         preds = preds.drop(["N_m1", "N_p1"], axis=1)
         return obs, preds
+
+    def validate_data(self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: pd.DataFrame | None) -> None:
+        if sequence is None:
+            raise ValueError("Triplet strategy requires sequence, please add a sequence using --sequence_file, use a nef file that contains a sequence, or use a different strategy")
+

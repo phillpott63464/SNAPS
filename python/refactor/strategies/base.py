@@ -59,6 +59,10 @@ class AssignmentStrategy(ABC):
         """Delegate to the shared assignment utility."""
         return probability.calc_log_prob_matrix(self.config, obs=obs, preds=preds)
 
+    def validate_data(self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: pd.DataFrame | None) -> None:
+        # Overwrite in every strategy: return none, fail if not good.
+        pass
+
     calc_mismatch_matrix = staticmethod(consistency.calc_mismatch_matrix)
 
     add_consistency_info = staticmethod(consistency.add_consistency_info)
