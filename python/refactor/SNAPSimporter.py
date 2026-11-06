@@ -431,10 +431,14 @@ class SNAPSImporter:
         aligned_preds = pd.concat((seq_df, preds), axis=1)
 
         # If glycine HA is missing, replace it with average of HA2 and HA3
-        mask = aligned_preds.HA.isna()
-        aligned_preds.loc[mask, "HA"] = 0.5 * (
-            aligned_preds.loc[mask, "HA2"] + aligned_preds.loc[mask, "HA3"]
-        )
+        if {"HA2", "HA3"}.issubset(aligned_preds.columns):
+            if "HA" not in aligned_preds.columns:
+                aligned_preds["HA"] = float("nan")
+
+            mask = aligned_preds["HA"].isna()
+            aligned_preds.loc[mask, "HA"] = (
+                aligned_preds.loc[mask, "HA2"] + aligned_preds.loc[mask, "HA3"]
+            ) / 2
 
         # Remove atoms that are not used?
         cols_to_keep = [
