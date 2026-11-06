@@ -194,7 +194,7 @@ def _read_named_shift_frame_or_error(entry, frame_name_selector, file_name):
     chemical shifts from the file
     """
     chem_shift_saveframes = entry.get_saveframes_by_category(_CHEMICAL_SHIFT_LIST_FRAME)
-    if len(chem_shift_saveframes) < 0:
+    if len(chem_shift_saveframes) == 0:
         raise Exception(f'ERROR: there are no chemical shift list frames in {file_name}')
 
     result_shifts = None
