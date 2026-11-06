@@ -217,8 +217,6 @@ class SNAPS_assigner:
             logger=self.logger,
         )
 
-        self.log_prob_matrix.to_pickle('output/log_prog.pickle')
-
         return self.log_prob_matrix
 
     def calc_mismatch_matrix(self, threshold=0.2):
