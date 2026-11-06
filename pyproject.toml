@@ -38,6 +38,7 @@ dependencies = [
     "typer>=0.20.1",
     "typing-extensions>=4.13.2",
     "biopython>=1.88",
+    "marimo>=0.25.2",
 ]
 
 [project.scripts]
