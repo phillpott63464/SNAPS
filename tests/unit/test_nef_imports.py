@@ -9,7 +9,7 @@ from SNAPS_assigner import SNAPS_assigner
 from SNAPS_importer import SNAPS_importer, SnapsImportException
 
 
-TEST_DATA = Path(__file__).parent.parent / 'test_data'
+TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 
 
 def test_import_aa_type_info_file():
@@ -238,10 +238,6 @@ EXPECTED_IN = pd.DataFrame(
     columns=EXPECTED_COLUMNS,
 )
 EXPECTED_IN.columns.names = ['Atom_type']
-
-"""
-I did not want to comment this out but I genuinely have no idea what this test is for and the problem seems to be in pynmrstar so who knows 
-"""
 
 def test_import_aa_type_info_nef():
     importer = SNAPS_importer()

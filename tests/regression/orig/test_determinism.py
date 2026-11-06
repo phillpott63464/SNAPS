@@ -20,7 +20,7 @@ from modules.assigner_functions import (
 from modules.importer_functions import import_observed_shifts
 
 
-TEST_DATA = Path(__file__).parent / 'test_data'
+TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 
 CASES = [
     ('shiftx2.cs', 'P3a_L273R.nef', 'shiftx2', 'nef'),

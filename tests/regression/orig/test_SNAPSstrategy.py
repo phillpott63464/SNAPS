@@ -26,7 +26,7 @@ from pandas.testing import assert_frame_equal
 import logging
 from scipy.stats import norm
 
-TEST_DATA = Path(__file__).parent / 'test_data'
+TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 
 
 @pytest.fixture

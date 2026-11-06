@@ -4,8 +4,7 @@ from refactor.SNAPSimporter import SNAPSImporter
 from pathlib import Path
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-REAL_DATA = PROJECT_ROOT / "data" / "P3a_L273R"
+TEST_DATA = Path(__file__).resolve().parents[1] / 'test_data'
 
 @pytest.fixture
 def sequence_file(tmp_path):
@@ -19,8 +18,8 @@ GPAM TDYIQLLSEI AKEQGFNITY LDIDELSANG QYQCRAELST SPITVCHGSG ISCGNAQSDA AHNALQYLK
 
 def test_sequence_import(sequence_file):
     cli_overrides = {
-        'obs_file': REAL_DATA / 'naps_shifts.txt',
-        'pred_file': REAL_DATA / 'P3a_L273R_sparta.tab',
+        'obs_file': TEST_DATA / 'naps_shifts.txt',
+        'pred_file': TEST_DATA / 'P3a_L273R_sparta.tab',
         'sequence_file': sequence_file,
     }
     config = build_config(cli_overrides=cli_overrides)

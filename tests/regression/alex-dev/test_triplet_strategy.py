@@ -12,7 +12,7 @@ from refactor.SNAPSimporter import SNAPSImporter
 from refactor.SNAPSstrategy import create_strategy
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 DATA = ROOT / "data" / "P3a_L273R"
 LEGACY = ROOT / "python" / "alex-dev" / "python"
 

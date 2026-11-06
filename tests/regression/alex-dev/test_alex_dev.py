@@ -10,7 +10,7 @@ import pytest
 from refactor.SNAPS import run_pipeline
 from refactor.SNAPSconfig import build_config
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 REAL_DATA = PROJECT_ROOT / "data" / "P3a_L273R"
 
 import shutil

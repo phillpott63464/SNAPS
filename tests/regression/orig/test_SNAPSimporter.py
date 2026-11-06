@@ -15,7 +15,7 @@ from pathlib import Path
 from pandas.testing import assert_frame_equal
 import logging
 
-TEST_DATA = Path(__file__).parent / 'test_data'
+TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 
 
 @pytest.fixture
@@ -34,9 +34,9 @@ def logger():
 )
 def test_SNAPSimporterObserved(file, format, saved_result):
     importer = SNAPSImporter()
-    file_path = TEST_DATA / file
+    file_path = str(TEST_DATA / file)
     result = importer.import_data(
-        pred_file=TEST_DATA / 'shiftx2.cs',  # Irrelevant to these tests
+        pred_file=str(TEST_DATA / 'shiftx2.cs'),  # Irrelevant to these tests
         obs_file=file_path,
         pred_format='shiftx2',  # Irrelevant to these tests
         obs_format=format,
@@ -58,10 +58,10 @@ def test_SNAPSimporterObserved(file, format, saved_result):
 )
 def test_SNAPSimporterPredicted(file, format, logger, saved_result):
     importer = SNAPSImporter()
-    file_path = TEST_DATA / file
+    file_path = str(TEST_DATA / file)
     result = importer.import_data(
         pred_file=file_path,
-        obs_file=TEST_DATA / 'P3a_L273R.nef',
+        obs_file=str(TEST_DATA / 'P3a_L273R.nef'),
         pred_format=format,
         obs_format='nef',
     )
@@ -83,10 +83,10 @@ def test_SNAPSimporterExtensionMapping(logger):
     )
 
     expected_preds, _ = import_predicted_shifts(
-        filename=TEST_DATA / 'shiftx2.cs', filetype='shiftx2', logger=logger
+        filename=str(TEST_DATA / 'shiftx2.cs'), filetype='shiftx2', logger=logger
     )
     expected_obs = import_observed_shifts(
-        filename=TEST_DATA / 'P3a_L273R.nef', filetype='nef'
+        filename=str(TEST_DATA / 'P3a_L273R.nef'), filetype='nef'
     )
 
     assert_frame_equal(expected_obs, result.obs_shifts)

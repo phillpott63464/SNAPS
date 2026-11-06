@@ -12,12 +12,10 @@ from modules.importer_functions import import_observed_shifts
 from refactor.SNAPSimporter import SNAPSImporter
 
 
-TEST_DATA = Path(__file__).parent / 'test_data'
-NAPS_SHIFTS = Path(__file__).parents[1] / 'data/P3a_L273R/naps_shifts.txt'
-
+TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 
 def test_naps_shift_list_contains_sequential_backbone_shifts():
-    observed = import_observed_shifts(NAPS_SHIFTS, 'snaps')
+    observed = import_observed_shifts(TEST_DATA / 'naps_shifts.txt', 'snaps')
 
     assert observed.shape == (103, 8)
     assert set(['C_m1', 'CA_m1', 'CB_m1']).issubset(observed.columns)
@@ -31,9 +29,9 @@ def test_naps_shift_list_contains_sequential_backbone_shifts():
 
 
 def test_refactored_importer_preserves_naps_sequential_shifts():
-    expected = import_observed_shifts(NAPS_SHIFTS, 'snaps')
+    expected = import_observed_shifts(TEST_DATA / 'naps_shifts.txt', 'snaps')
     imported = SNAPSImporter().import_data(
-        obs_file=NAPS_SHIFTS,
+        obs_file=TEST_DATA / 'naps_shifts.txt',
         pred_file=TEST_DATA / 'shiftx2.cs',
     )
 

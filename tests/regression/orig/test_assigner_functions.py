@@ -23,8 +23,7 @@ from refactor.SNAPSimporter import SNAPSImporter
 from pathlib import Path
 from pandas.testing import assert_frame_equal
 
-TEST_DATA = Path(__file__).parent / 'test_data'
-NAPS_SHIFTS = Path(__file__).parents[1] / 'data/P3a_L273R/naps_shifts.txt'
+TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 
 
 @pytest.fixture
@@ -219,7 +218,7 @@ def test_make_assign_df(logger):
 
 
 def test_calc_mismatch_matrix(logger):
-    observed = import_observed_shifts(NAPS_SHIFTS, 'snaps')
+    observed = import_observed_shifts(TEST_DATA / 'naps_shifts.txt', 'snaps')
 
     mismatch, consistent_links = calc_mismatch_matrix(
         observed,
@@ -235,7 +234,7 @@ def test_calc_mismatch_matrix(logger):
 
 
 def test_add_consistency_info(logger):
-    observed = import_observed_shifts(NAPS_SHIFTS, 'snaps')
+    observed = import_observed_shifts(TEST_DATA / 'naps_shifts.txt', 'snaps')
     preds, _ = import_predicted_shifts(
         TEST_DATA / 'shiftx2.cs',
         'shiftx2',
