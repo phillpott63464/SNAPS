@@ -19,22 +19,47 @@ LEGACY = ROOT / "python" / "alex-dev" / "python"
 
 def _config_file(tmp_path):
     config = f"""
-atom_set: [H, N, HA, CA, CB, C, CA_m1, CB_m1, C_m1]
-atom_sd: {{H: 0.454, N: 2.429, HA: 0.227, C: 1.030, CA: 0.932, CB: 1.025,
-  C_m1: 1.030, CA_m1: 0.932, CB_m1: 1.025}}
-iterate_until_consistent: false
-seq_link_threshold: 0.2
-delta_correlation: true
-delta_correlation_mean_file: {ROOT / "config" / "d_mean.csv"}
-delta_correlation_cov_file: {ROOT / "config" / "d_cov.csv"}
-pred_correction: false
-use_generic_predictions: true
-generic_shift_file: {ROOT / "config" / "residue_shift_mean.csv"}
-generic_shift_stdev_file: {ROOT / "config" / "residue_shift_stdev.csv"}
-triplet_prob_iterations: 5
-alt_assignments: 0
-use_SS_class_info: false
-"""
+# SNAPS configuration file
+# Follows the YAML format
+# Use spaces for indentation, not tabs!
+atom_set: # Which atom types to include. Don't change indentation.
+    - H
+    - N
+    - HA
+    - CA
+    - CB
+    - C
+    - CA_m1
+    - CB_m1
+    - C_m1
+atom_sd: # Atom standard deviations. Don't change indentation.
+    H: 0.454
+    N: 2.429
+    HA: 0.227
+    C: 1.030
+    CA: 0.932
+    CB: 1.025
+    C_m1: 1.030
+    CA_m1: 0.932
+    CB_m1: 1.025
+iterate_until_consistent:       False   # If True, iteratively enforce consistent links for High and Medium confidence assignments
+seq_link_threshold:             0.2     # Maximum allowed carbon shift difference (in ppm) between adjacent residues to count as a good sequential link.
+delta_correlation:              True    # Account for correlations in prediction errors
+delta_correlation_mean_file:     {ROOT / "config" / "d_mean.csv"}       # File containing mean prediction errors
+delta_correlation_cov_file:      {ROOT / "config" / "d_cov.csv"}        # File containing covariances between the prediction errors
+pred_correction:                False   # Apply a linear correction to the predicted shifts
+pred_correction_file:           lin_model_shiftx2.csv    # File containing parameters for linear correction to predicted shift
+delta_correlation_mean_corrected_file:     dd_mean.csv      # File containing mean prediction errors, assuming the predictions have been corrected
+delta_correlation_cov_corrected_file:      dd_cov.csv       # File containing covariances between the prediction errors, assuming the predictions have been corrected
+use_generic_predictions:        True                        # If True, missing predictions are replaced with an average value for that residue type
+generic_shift_file:             {ROOT / "config" / "residue_shift_mean.csv"}      # File containing expected average chemical shift for each atom/residue pair
+generic_shift_stdev_file:       {ROOT / "config" / "residue_shift_stdev.csv"}     # File containing expected standard deviation in chemical shift for each atom/residue pair
+triplet_prob_iterations:        5
+#May want to add more parameters to control generation of alternative assignments
+alt_assignments:                0       # Number of alternative assignments to generate
+use_SS_class_info:              False   # Whether to use information on amino acid type, if available
+
+    """
     path = tmp_path / "config.yaml"
     path.write_text(config)
     return path
@@ -45,6 +70,7 @@ def _assert_frame(left, right, stage):
     right = right.copy()
     left.index.name = right.index.name = None
     left.columns.name = right.columns.name = None
+    print(stage)
     assert_frame_equal(
         left,
         right,
@@ -258,4 +284,8 @@ def test_legacy_and_refactored_triplet_internal_states(tmp_path):
         written = pd.read_csv(
             legacy_output / f"triplet_assign_df_iteration_{index}.tsv", sep="\t"
         )
-        _assert_frame(written, expected["assign_df"], f"legacy output {index}")
+        _assert_frame(
+            written,
+            expected["assign_df"].round(3), # Parity rounding
+            f"legacy output {index}",
+        )

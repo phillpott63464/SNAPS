@@ -7,6 +7,9 @@ from pandas.testing import assert_frame_equal
 
 import pytest
 
+from refactor.SNAPS import run_pipeline
+from refactor.SNAPSconfig import build_config
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REAL_DATA = PROJECT_ROOT / "data" / "P3a_L273R"
 
@@ -102,3 +105,55 @@ def test_alex_determinism(tmp_path, config_file):
             atol=1e-12,
             obj=f"Triplet iteration {iteration}",
         )
+
+def test_refactor_triplet(tmp_path, config_file):
+    overrides = {
+        'strategy': 'triplet',
+        'output_file': str(tmp_path / "output.txt"),
+        'obs_file': REAL_DATA / "naps_shifts.txt",
+        'pred_file': REAL_DATA / 'P3a_L273R_sparta.tab',
+        'sequence_file': REAL_DATA / 'P3a_L273R_clean.fasta',
+    }
+    config = build_config(config_file, cli_overrides=overrides)
+    run_pipeline(config)
+
+    result = pd.read_fwf(tmp_path / "output.txt")
+
+    output_dir = tmp_path / "alex_run"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "python" / "alex-dev" / "python" / "SNAPS.py"),
+            str(REAL_DATA / "naps_shifts.txt"),  # Only data with i - 1
+            str(REAL_DATA / "P3a_L273R_sparta.tab"),  # SHIFTX2 DOES NOT HAVE NECESSARY SHIFTS
+            str(output_dir),
+            "--shift_type", "snaps",
+            "--pred_type", "sparta+",
+            "--seq_file", str(REAL_DATA / "P3a_L273R_clean.fasta"),
+            "-c", str(config_file),
+        ],
+        cwd=PROJECT_ROOT,
+        check=True,
+        timeout=120,
+    )
+
+    expected = pd.read_csv(output_dir / 'triplet_assign_df_iteration_5.tsv', sep="\t")
+
+    # The refactor writes fixed-width identifiers and the legacy writer writes
+    # tabular identifiers, so padding is not meaningful. Numeric output is
+    # compared with a tight tolerance to ignore writer rounding only.
+    identifier_columns = ["Res_name", "SS_name", "Pred_name"]
+    for frame in (result, expected):
+        for column in identifier_columns:
+            if column in frame:
+                frame[column] = frame[column].astype("string").str.strip()
+
+    assert_frame_equal(
+        result.round(3), # Parity rounding
+        expected,
+        check_dtype=False,
+        check_exact=False,
+        rtol=1e-5,
+        atol=1e-13,
+    )

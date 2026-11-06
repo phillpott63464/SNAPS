@@ -111,8 +111,13 @@ class TripletStrategy(AssignmentStrategy):
         matching = self.find_best_assignment(
             log_prob_matrix, maximise=True, inc=inc, exc=exc
         )
+        if not hasattr(self, "_assignment_log_prob_matrix"):
+            self._assignment_log_prob_matrix = log_prob_matrix.copy()
         assign_df = self.make_assign_df(
-            obs=obs, preds=preds, log_prob_matrix=log_prob_matrix, matching=matching
+            obs=obs,
+            preds=preds,
+            log_prob_matrix=self._assignment_log_prob_matrix,
+            matching=matching,
         )
 
         self.config.logger.info(
@@ -634,7 +639,6 @@ class TripletStrategy(AssignmentStrategy):
         A DataFrame containing the log probabilities
         """
         # Remove any zeroes, by setting them to the minimum value in the matrix
-        prob_matrix = prob_matrix.copy()
         replacement_value = min(prob_matrix[prob_matrix > 0].min().min(), 1e-200)
         prob_matrix[prob_matrix == 0] = replacement_value
 
@@ -950,10 +954,10 @@ class TripletStrategy(AssignmentStrategy):
 
         if inc is not None:
             matching = pd.concat([inc, matching_reduced]).sort_values("Res_name")
-            return matching
+            return matching.reset_index(drop=True)
         else:
             matching_reduced = matching_reduced.sort_values("Res_name")
-            return matching_reduced
+            return matching_reduced.reset_index(drop=True)
 
     def preprocess_obs_preds(self, obs, preds):
         obs, preds = super().preprocess_obs_preds(obs, preds)
@@ -964,4 +968,3 @@ class TripletStrategy(AssignmentStrategy):
     def validate_data(self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: pd.DataFrame | None) -> None:
         if sequence is None:
             raise ValueError("Triplet strategy requires sequence, please add a sequence using --sequence_file, use a nef file that contains a sequence, or use a different strategy")
-
