@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 from NEF_reader import (
+    _split_path_and_frame,
     read_nef_obs_shifts_from_file_to_pandas,
     read_nef_pred_shifts_from_file_to_pandas,
 )
@@ -457,6 +458,7 @@ class NEFReader(FormatReader):
         return [".nef"]
 
     def can_read(self, file_path: Path) -> bool:
+        file_path, _ = _split_path_and_frame(str(file_path))
         try:
             with open(file_path) as f:
                 content = f.read()
@@ -472,14 +474,22 @@ class NEFReader(FormatReader):
             return False
 
     def read_observed_shifts(
-        self, file_path: Path, chain: str = "A"
+        self, file_path: Path, chain: str = "A", frame: str | None = None
     ) -> pd.DataFrame | None:
+        file_path, embedded_frame = _split_path_and_frame(str(file_path))
+        frame = frame or (embedded_frame if embedded_frame != "default" else None)
+        if frame is not None:
+            file_path = f"{file_path}:{frame}"
         obs = read_nef_obs_shifts_from_file_to_pandas(file_path, chain=chain)
         return obs
 
     def read_predicted_shifts(
-        self, file_path: Path, chain: str = "A"
+        self, file_path: Path, chain: str = "A", frame: str | None = None
     ) -> pd.DataFrame | None:
+        file_path, embedded_frame = _split_path_and_frame(str(file_path))
+        frame = frame or (embedded_frame if embedded_frame != "default" else None)
+        if frame is not None:
+            file_path = f"{file_path}:{frame}"
         preds = read_nef_pred_shifts_from_file_to_pandas(file_path, chain=chain)
         preds = preds[["Res_N", "Res_type", "Atom_type", "Shift"]]
         preds["Res_N"] = preds["Res_N"].astype(int)

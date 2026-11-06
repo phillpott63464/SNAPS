@@ -250,13 +250,17 @@ class SNAPSImporter:
 
         # Import observed shifts
         if isinstance(obs_reader, NEFReader):
-            obs_shifts = obs_reader.read_observed_shifts(obs_file, chain=obs_chain)
+            obs_shifts = obs_reader.read_observed_shifts(
+                obs_file, chain=obs_chain, frame=obs_frame
+            )
         else:
             obs_shifts = obs_reader.read_observed_shifts(obs_file)
 
         # Import predicted shifts
         if isinstance(pred_reader, NEFReader):
-            pred_shifts = pred_reader.read_predicted_shifts(pred_file, chain=pred_chain)
+            pred_shifts = pred_reader.read_predicted_shifts(
+                pred_file, chain=pred_chain, frame=pred_frame
+            )
         else:
             pred_shifts = pred_reader.read_predicted_shifts(pred_file)
 

@@ -640,6 +640,44 @@ def test_read_predicted_shifts_positive(request, reader, file):
     assert_frame_equal(result, expected_result)
 
 
+def test_read_predicted_shifts_named_frame(nefreader, nef_file_pred):
+    file_path, _ = nef_file_pred
+
+    result = nefreader.read_predicted_shifts(file_path, frame="shiftx2")
+
+    assert result["Res_type"].tolist() == ["I", "I", "I", "I"]
+    assert result["Shift"].tolist() == [173.7894, 59.4824, 37.1218, 8.0038]
+
+
+def test_read_predicted_shifts_named_frame_in_path(nefreader, nef_file_pred):
+    file_path, _ = nef_file_pred
+
+    result = nefreader.read_predicted_shifts(f"{file_path}:shiftx2")
+
+    assert_frame_equal(result, pd.DataFrame(
+        {
+            "Res_N": [236, 236, 236, 236],
+            "Res_type": ["I", "I", "I", "I"],
+            "Atom_type": ["C", "CA", "CB", "H"],
+            "Shift": [173.7894, 59.4824, 37.1218, 8.0038],
+        }
+    ))
+
+
+def test_read_observed_shifts_named_frame(nefreader, nef_file_obs):
+    file_path, expected_result = nef_file_obs
+
+    result = nefreader.read_observed_shifts(file_path, frame="shiftx2")
+
+    assert_frame_equal(result, pd.DataFrame(
+        {
+            "SS_name": ["236Ile", "236Ile", "236Ile", "236Ile"],
+            "Atom_type": ["C", "CA", "CB", "H"],
+            "Shift": [173.7894, 59.4824, 37.1218, 8.0038],
+        }
+    ))
+
+
 @pytest.mark.parametrize(
     'reader, file',
     [
