@@ -232,6 +232,7 @@ def _(
                 'obs_file': DATA_DIR / f'{bmrb_id}.nef',
                 'pred_file': DATA_DIR / f'{bmrb_id}-shiftx2.nef:shiftx2',
                 'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result.nef',
+                'strategy': 'triplet',
                 'output_type': 'nef',
             }    
         )
