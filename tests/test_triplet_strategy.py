@@ -87,7 +87,14 @@ def _legacy_trace(config_file):
     """Run the legacy stages while retaining every intermediate dataframe."""
     sys.path.insert(0, str(LEGACY))
     try:
-        legacy_assigner = importlib.import_module("SNAPS_assigner").SNAPS_assigner
+        spec = importlib.util.spec_from_file_location(
+            "_alex_legacy_SNAPS_assigner", LEGACY / "SNAPS_assigner.py"
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError("Could not load the Alex legacy SNAPS_assigner module")
+        legacy_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(legacy_module)
+        legacy_assigner = legacy_module.SNAPS_assigner
         from modules.importer_functions import import_observed_shifts
 
         assigner = legacy_assigner()
