@@ -81,7 +81,7 @@ def test_alex_determinism(tmp_path, config_file):
                 str(output_dir),
                 "--shift_type", "snaps",
                 "--pred_type", "sparta+",
-                "--seq_file", str(REAL_DATA / "P3a_L273R_clean.fasta"),
+                "--seq_file", str(REAL_DATA / "P3a_L273R.fasta"),
                 "-c", str(config_file),
             ],
             cwd=PROJECT_ROOT,
@@ -112,7 +112,7 @@ def test_refactor_triplet(tmp_path, config_file):
         'output_file': str(tmp_path / "output.txt"),
         'obs_file': REAL_DATA / "naps_shifts.txt",
         'pred_file': REAL_DATA / 'P3a_L273R_sparta.tab',
-        'sequence_file': REAL_DATA / 'P3a_L273R_clean.fasta',
+        'sequence_file': REAL_DATA / 'P3a_L273R.fasta',
     }
     config = build_config(config_file, cli_overrides=overrides)
     run_pipeline(config)
@@ -130,7 +130,7 @@ def test_refactor_triplet(tmp_path, config_file):
             str(output_dir),
             "--shift_type", "snaps",
             "--pred_type", "sparta+",
-            "--seq_file", str(REAL_DATA / "P3a_L273R_clean.fasta"),
+            "--seq_file", str(REAL_DATA / "P3a_L273R.fasta"),
             "-c", str(config_file),
         ],
         cwd=PROJECT_ROOT,
