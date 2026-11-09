@@ -5,13 +5,14 @@ from pathlib import Path
 import pandas as pd
 
 TEST_DATA = Path(__file__).resolve().parents[1] / 'test_data'
+from textwrap import dedent
 
 @pytest.fixture
 def sequence_file(tmp_path):
-   data = """
+   data = dedent("""
 > starts 235 
 GPAM TDYIQLLSEI AKEQGFNITY LDIDELSANG QYQCRAELST SPITVCHGSG ISCGNAQSDA AHNALQYLKI IAERK
-   """
+   """).strip()
    with open(tmp_path / 'fasta.fasta', 'w') as f:
        f.write(data)
 
