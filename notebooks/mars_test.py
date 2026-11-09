@@ -562,6 +562,24 @@ def _(pd, shift_results):
 @app.cell
 def _():
     # Compare the tables
+
+    # Conditions I, II, and III in the shift_results is just strategies
+    return
+
+
+@app.cell(hide_code=True)
+def _(mars_results, mo, shift_results):
+    mo.md(rf"""
+    Very simple comparison for now
+
+    # SNAPS
+
+    {mo.md(shift_results.to_markdown(index=False))}
+
+    # MARS
+
+    {mo.md(mars_results.to_markdown(index=False))}
+    """)
     return
 
 
