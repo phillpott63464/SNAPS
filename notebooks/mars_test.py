@@ -21,16 +21,39 @@ def _():
     from pathlib import Path
     from refactor.SNAPSpipeline import run_pipeline
     from refactor.SNAPSconfig import build_config
+    import shutil
 
-    return Path, build_config, re, run_pipeline, subprocess, sys, urllib
+    return (
+        Path,
+        build_config,
+        re,
+        run_pipeline,
+        shutil,
+        subprocess,
+        sys,
+        urllib,
+    )
 
 
 @app.cell
 def _(Path):
     BMRB_IDS = [5471, 4354, 4384, 4022, 4106, 4457, 4402, 4341, 547, 4082, 4136]
+    BMRB_NAMES = {
+        5471: "Malate synthase G",
+        4354: "Maltose-binding protein",
+        4384: "Rous sarcoma virus capsid protein",
+        4022: "Carbonic anhydrase I",
+        4106: "Enzyme I N-terminal domain",
+        4457: "E-cadherin",
+        4402: "Human prion protein",
+        4341: "Iron superoxide dismutase",
+        547: "Calmodulin",
+        4082: "Profilin",
+        4136: "EmrE multidrug resistance protein",
+    }
     DATA_DIR = Path(__file__).resolve().parent / "mars_test_set"
     OUTPUT_DIR = Path(__file__).resolve().parent / "mars_test_result"
-    return BMRB_IDS, DATA_DIR, OUTPUT_DIR
+    return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
 
 
 @app.cell(hide_code=True)
@@ -163,9 +186,11 @@ def _(DATA_DIR, Path, re, subprocess, sys, urllib):
 @app.cell
 def _(
     DATA_DIR,
+    Path,
     download,
     download_first_pdb_for_bmrb,
     run_download_pipeline,
+    shutil,
     subprocess,
     sys,
     urllib,
@@ -206,6 +231,16 @@ def _(
                 DATA_DIR / f"{bmrb_id}-shiftx2.nef",
             )
 
+            with Path(DATA_DIR / f"{bmrb_id}.nef").open("rb") as nef_input:
+                subprocess.run(
+                    ["nef", "fasta", "export", "sequence", "--force"],
+                    stdin=nef_input,
+                    cwd=DATA_DIR,
+                    check=True,
+                )
+
+            shutil.copyfile(DATA_DIR / "nef.fasta", DATA_DIR / f"{bmrb_id}.fasta")
+
         except (urllib.error.URLError, OSError, subprocess.CalledProcessError) as exc:
             print(f"Failed to process BMRB {bmrb_id}: {exc}", file=sys.stderr)
 
@@ -225,6 +260,8 @@ def _(
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     for bmrb_id in BMRB_IDS:
+        if (OUTPUT_DIR / f'{bmrb_id}-test-result.nef').exists():
+            continue
         process_bmrb(bmrb_id)
 
         config = build_config(
@@ -233,16 +270,20 @@ def _(
                 'pred_file': DATA_DIR / f'{bmrb_id}-shiftx2.nef:shiftx2',
                 'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result.nef',
                 'strategy': 'triplet',
+                'sequence_file': DATA_DIR / f'{bmrb_id}.fasta',
                 'output_type': 'nef',
+                'SS_num': True,
             }    
         )
         run_pipeline(config)
+
+    # Outputs to OUTPUT_DIR
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+def _(mo, shift_results):
+    mo.md(rf"""
     # Comparing SNAPS
 
     Files are id.nef and id-shiftx2.nef
@@ -255,13 +296,236 @@ def _(mo):
     - Figure out a way to import the real assignment
     - compare each result to the real assignment
     - And should the data be kept as in memory files only and just the outputs written? That's brittle. But it's also much cleaner.
+
+    {mo.md(shift_results.to_markdown(index=False))}
     """)
     return
 
 
 @app.cell
-def _():
-    return
+def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
+    import shlex
+
+    import pandas as pd
+    import pynmrstar
+
+    LOOP_PREFIX = "_nefpls_assignments."
+
+
+    # --------------------------------------------------------------------------- #
+    # readers
+    # --------------------------------------------------------------------------- #
+    def read_test_result(path: Path) -> pd.DataFrame:
+        """Parse the _nefpls_assignments loop with a plain text parser.
+
+        (The result file has no data_ header / sf_category, so pynmrstar can't be
+        relied on. shlex handles quoted values such as ' 149'.)
+        """
+        headings, rows = [], []
+        in_loop = in_data = False
+        for line in Path(path).read_text().splitlines():
+            s = line.strip()
+            if s == "loop_":
+                in_loop, in_data = True, False
+                headings, rows = [], []
+                continue
+            if not in_loop:
+                continue
+            if s.startswith(LOOP_PREFIX):
+                headings.append(s[len(LOOP_PREFIX):].split()[0])
+            elif s == "stop_":
+                if headings:
+                    break
+                in_loop = False
+            elif s and headings:
+                in_data = True
+                rows.append(shlex.split(s))
+        if not rows:
+            raise ValueError(f"No {LOOP_PREFIX} loop found in {path}")
+
+        df = pd.DataFrame(rows, columns=headings)
+        df["assigned"] = df["assigned"].str.lower() == "true"
+        df["merit"] = df["merit"].astype(float)
+        df["spin_system"] = pd.to_numeric(df["unassigned_sequence_code"].str.strip(), errors="coerce")
+        df["residue_number"] = pd.to_numeric(df["sequence_code"], errors="coerce")  # '.' -> NaN
+        return df
+
+
+    def _loop_to_df(loop: pynmrstar.Loop) -> pd.DataFrame:
+        cols = [t.split(".")[-1] for t in loop.get_tag_names()]
+        return pd.DataFrame(loop.data, columns=cols)
+
+
+    def read_initial_nef(path: Path, shift_list: str = None):
+        """Return (sequence_df, shifts_df) from the initial NEF file."""
+        entry = pynmrstar.Entry.from_string(Path(path).read_text())
+
+        seq = _loop_to_df(entry.get_saveframes_by_category("nef_molecular_system")[0]
+                          .get_loop("nef_sequence"))
+        seq["sequence_code"] = seq["sequence_code"].astype(int)
+
+        frames = entry.get_saveframes_by_category("nef_chemical_shift_list")
+        if shift_list:
+            frames = [f for f in frames if f.name.endswith(shift_list)] or frames
+        shifts = _loop_to_df(frames[0].get_loop("nef_chemical_shift"))
+        shifts["sequence_code"] = shifts["sequence_code"].astype(int)
+        return seq, shifts
+
+
+    # --------------------------------------------------------------------------- #
+    # comparison
+    # --------------------------------------------------------------------------- #
+    def compare(result: pd.DataFrame, seq: pd.DataFrame, shifts: pd.DataFrame, chain="A"):
+        seq = seq[seq["chain_code"] == chain]
+        shifts = shifts[shifts["chain_code"] == chain]
+        true_name = dict(zip(seq["sequence_code"], seq["residue_name"]))
+        residues_with_shifts = set(shifts["sequence_code"])
+
+        assigned = result[result["assigned"] & (result["chain_code"] == chain)].copy()
+        assigned["residue_number"] = assigned["residue_number"].astype(int)
+        bad = assigned[
+            assigned["spin_system"].isna()
+            | assigned["residue_number"].isna()
+        ]
+    
+        if not bad.empty:
+            raise ValueError(
+                "Assigned rows contain labels that cannot be compared as residue numbers:\n"
+                + bad[
+                    ["unassigned_sequence_code", "sequence_code",
+                     "chain_code", "residue_name"]
+                ].to_string(index=False)
+            )
+        assigned["spin_system"] = assigned["spin_system"].astype(int)
+
+        assigned["correct"] = assigned["spin_system"] == assigned["residue_number"]
+        # residue type of the spin system according to the initial assignment
+        assigned["true_residue_name"] = assigned["spin_system"].map(true_name)
+        assigned["type_match"] = assigned["true_residue_name"] == assigned["residue_name"]
+        assigned["offset"] = assigned["spin_system"] - assigned["residue_number"]
+        # does the initial NEF actually have any shifts for this residue?
+        assigned["has_reference_shifts"] = assigned["residue_number"].isin(residues_with_shifts)
+
+        unassigned = result[~result["assigned"]].copy()
+        return assigned, unassigned, residues_with_shifts
+
+
+    # Set this to the reliability cutoff used by your method.
+    RELIABLE_MERIT = 0.01
+
+    # Add protein names and shift descriptions, keyed by your BMRB IDs.
+    # Use the same ID type as BMRB_IDS (e.g. integers or strings).
+    PROTEIN_INFO = {
+        # 12345: ("Malate synthase G", "C′, Cα, Cβ"),
+    }
+
+    # Configure the result-file locations for each condition.
+    # Add II and III when those results are available.
+    CONDITIONS = {
+        "I": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result.nef",
+        # "II": lambda bmrb_id: CONDITION_II_DIR / f"{bmrb_id}-test-result.nef",
+        # "III": lambda bmrb_id: CONDITION_III_DIR / f"{bmrb_id}-test-result.nef",
+    }
+
+
+    def assignment_counts(result, chain="A", label_to_residue=None):
+        assigned = result.loc[
+            result["assigned"] & result["chain_code"].eq(chain)
+        ].copy()
+
+        reliable = assigned.loc[
+            assigned["merit"].le(RELIABLE_MERIT)
+        ].copy()
+
+        # Numeric labels are assumed to be original residue numbers,
+        # matching the assumption in your existing comparison.
+        reference = reliable["spin_system"].copy()
+
+        # Optional explicit mappings for labels such as DSS_40.
+        if label_to_residue is not None:
+            labels = (
+                reliable["unassigned_sequence_code"]
+                .astype(str)
+                .str.strip()
+            )
+            mapped = pd.to_numeric(
+                labels.map(label_to_residue), errors="coerce"
+            )
+            reference = mapped.combine_first(reference)
+
+        predicted = reliable["residue_number"]
+
+        # Do not report an error count unless every reliable assignment
+        # can be evaluated against a reference residue.
+        evaluable = (
+            reference.notna()
+            & predicted.notna()
+            & reference.mod(1).eq(0)
+            & predicted.mod(1).eq(0)
+        )
+
+        errors = (
+            str(int(reference.ne(predicted).sum()))
+            if evaluable.all()
+            else "—"
+        )
+
+        return f"{len(assigned)} / {len(reliable)} / {errors}"
+
+
+    def markdown_cell(value):
+        return str(value).replace("|", r"\|").replace("\n", " ")
+
+
+    def assignment_table(
+        bmrb_ids,
+        conditions,
+        protein_info,
+        chain="A",
+        label_maps=None,
+    ):
+        label_maps = label_maps or {}
+
+        rows = []
+        for bmrb_id in bmrb_ids:
+            protein, shifts_used = protein_info.get(
+                bmrb_id, (f"{BMRB_NAMES[bmrb_id]}", "—")
+            )
+            row = {
+                "Protein": protein,
+                "Chemical shifts used": shifts_used,
+            }
+
+            for condition in ("I", "II", "III"):
+                column = f"Condition {condition}: assignments / reliable / errors"
+                path_factory = conditions.get(condition)
+
+                if path_factory is None:
+                    row[column] = "—"
+                    continue
+
+                path = Path(path_factory(bmrb_id))
+                if not path.is_file():
+                    row[column] = "—"
+                    continue
+
+                result = read_test_result(path)
+                row[column] = assignment_counts(
+                    result,
+                    chain=chain,
+                    label_to_residue=label_maps.get(bmrb_id),
+                )
+
+            rows.append(row)
+
+        return pd.DataFrame(rows)
+
+    shift_results = assignment_table(
+        BMRB_IDS,
+        CONDITIONS,
+        PROTEIN_INFO,
+    )
+    return (shift_results,)
 
 
 @app.cell
