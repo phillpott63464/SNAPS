@@ -99,7 +99,7 @@ def _legacy_trace(config_file):
 
         assigner = legacy_assigner()
         assigner.read_config_file(str(config_file))
-        assigner.import_sequence(str(DATA / "P3a_L273R.fasta"), 1)
+        assigner.import_sequence(str(DATA / "P3a_L273R_clean.fasta"), 1)
         predictions = assigner.import_pred_shifts_2(
             str(DATA / "P3a_L273R_sparta.tab"), "sparta+"
         )
@@ -241,7 +241,7 @@ def test_legacy_and_refactored_triplet_internal_states(tmp_path):
             "--pred_type",
             "sparta+",
             "--seq_file",
-            str(DATA / "P3a_L273R.fasta"),
+            str(DATA / "P3a_L273R_clean.fasta"),
             "-c",
             str(config_file),
         ],
