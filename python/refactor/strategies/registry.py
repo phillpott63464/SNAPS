@@ -44,4 +44,3 @@ class StrategyRegistry:
         """Factory method to create a strategy instance"""
         strategy_class = cls.get(name)
         return strategy_class(config)
-from typing import Optional, Union

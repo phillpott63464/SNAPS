@@ -1,7 +1,6 @@
+from python.refactor.dataclasses import AnalysisResult
 from refactor.dataclasses import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
-
-from python.refactor.dataclasses import AnalysisResult
 
 Result
 
@@ -34,6 +33,6 @@ class ConsistencyAnalyzer(AnalyzerType): ...
 
 
 class QualityAnalyzer(AnalyzerType): ...
-from __future__ import annotations
 
-from typing import Optional
+
+from __future__ import annotations

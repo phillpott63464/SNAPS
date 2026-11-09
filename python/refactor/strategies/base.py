@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Union
 
 import pandas as pd
+
 from refactor.dataclasses import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 from refactor.strategies.utils import consistency, matching, preprocessing, probability
@@ -60,7 +61,9 @@ class AssignmentStrategy(ABC):
         """Delegate to the shared assignment utility."""
         return probability.calc_log_prob_matrix(self.config, obs=obs, preds=preds)
 
-    def validate_data(self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: Optional[pd.DataFrame]) -> None:
+    def validate_data(
+        self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: Optional[pd.DataFrame]
+    ) -> None:
         # Overwrite in every strategy: return none, fail if not good.
         pass
 

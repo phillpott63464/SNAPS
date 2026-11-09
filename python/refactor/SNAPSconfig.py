@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import Dict, Literal, Optional, Set
 
 import yaml
 from pydantic import BaseModel, Field
+
 
 class SNAPSConfig(BaseModel):
     """Configuration model with validation"""
@@ -16,10 +18,16 @@ class SNAPSConfig(BaseModel):
         default=None,
         description="Sequence file in fasta format (sequences can also be stored in observed nef files)",
     )
-    obs_format: Optional[str] = Field(default=None, description="Observed shifts format")
-    pred_format: Optional[str] = Field(default=None, description="Predicted shifts format")
+    obs_format: Optional[str] = Field(
+        default=None, description="Observed shifts format"
+    )
+    pred_format: Optional[str] = Field(
+        default=None, description="Predicted shifts format"
+    )
     obs_frame: Optional[str] = Field(default=None, description="Observed shifts frame")
-    pred_frame: Optional[str] = Field(default=None, description="Predicted shifts frame")
+    pred_frame: Optional[str] = Field(
+        default=None, description="Predicted shifts frame"
+    )
     obs_chain: str = Field(default="A", description="Observed chain identifier")
     pred_chain: str = Field(default="A", description="Predicted chain identifier")
     aa_restraints_file: Optional[Path] = Field(
@@ -28,7 +36,9 @@ class SNAPSConfig(BaseModel):
     aa_restraints_frame: Optional[str] = Field(
         default=None, description="Amino acid restraints frame"
     )
-    output_file: Optional[Path] = Field(default=None, description="Assignment output file")
+    output_file: Optional[Path] = Field(
+        default=None, description="Assignment output file"
+    )
     output_type: str = Field(default="snaps", description="Assignment output format")
     shift_output_file: Optional[Path] = Field(
         default=None, description="Chemical shift output file"
@@ -172,8 +182,7 @@ class SNAPSConfig(BaseModel):
         description="How much to penalise the probability that an observation corresponds to a glycine if it has a CB chemical shift",
     )
     SS_num: bool = Field(
-        default=False,
-        description="Should create _m1 fields? Required True for triplet"
+        default=False, description="Should create _m1 fields? Required True for triplet"
     )
 
     # Strategy

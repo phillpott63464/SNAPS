@@ -1,4 +1,5 @@
 import pandas as pd
+
 from refactor.dataclasses import AssignmentResult, ShiftData
 from refactor.strategies.base import AssignmentStrategy
 from refactor.strategies.direct import DirectStrategy

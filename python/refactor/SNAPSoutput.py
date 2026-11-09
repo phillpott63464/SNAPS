@@ -17,9 +17,10 @@ from bokeh.plotting import figure, output_file, save
 from NEF_reader import TRANSLATIONS_1_3_PROTEIN
 from numpy import arange
 from pynmrstar import Loop, Saveframe
+from tabulate import tabulate
+
 from refactor.dataclasses import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
-from tabulate import tabulate
 
 
 class FormatOutput:

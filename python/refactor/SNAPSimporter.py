@@ -6,6 +6,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from Bio import Align, SeqIO
+
 from refactor.dataclasses import ShiftData
 from refactor.format_readers import (
     CCPNReader,
@@ -270,26 +271,31 @@ class SNAPSImporter:
         obs_shifts = self.clean_obs(obs_shifts)
 
         if (
-                self.config.strategy == 'triplet'
-                and not self.config.SS_num
-                and not any(str(col).endswith('_m1') for col in obs_shifts.columns)
+            self.config.strategy == "triplet"
+            and not self.config.SS_num
+            and not any(str(col).endswith("_m1") for col in obs_shifts.columns)
         ):
             self.config.logger.warning(
-                'Triplet strategy requires SS_num to be True to generate sequential links, '
-                'or for sequential links to be provided. Overriding provided value. '
-                'If this is not the behaviour you expected, please panic.'
+                "Triplet strategy requires SS_num to be True to generate sequential links, "
+                "or for sequential links to be provided. Overriding provided value. "
+                "If this is not the behaviour you expected, please panic."
             )
             self.config.SS_num = True
 
         if self.config.SS_num == True:
-            obs_shifts["Res_N"] = obs_shifts["SS_name"].str.extract(r"(\d+)").astype(int)
+            obs_shifts["Res_N"] = (
+                obs_shifts["SS_name"].str.extract(r"(\d+)").astype(int)
+            )
 
             obs_shifts.index = obs_shifts["Res_N"]
-            obs_m1 = obs_shifts[list({"C", "CA", "CB"}.intersection(obs_shifts.columns))]
+            obs_m1 = obs_shifts[
+                list({"C", "CA", "CB"}.intersection(obs_shifts.columns))
+            ]
             obs_m1.index = obs_m1.index + 1
             obs_m1.columns = obs_m1.columns + "_m1"
-            obs_shifts = pd.merge(obs_shifts, obs_m1, how="left",
-                           left_index=True, right_index=True)
+            obs_shifts = pd.merge(
+                obs_shifts, obs_m1, how="left", left_index=True, right_index=True
+            )
             obs_shifts = obs_shifts.drop(columns="Res_N")
 
             # Set index back to SS_name
@@ -350,7 +356,11 @@ class SNAPSImporter:
         """
 
         # Parse the sequence
-        if filetype == "fasta" or Path(filename).suffix.lower() in {".fasta", ".fa", ".faa"}:
+        if filetype == "fasta" or Path(filename).suffix.lower() in {
+            ".fasta",
+            ".fa",
+            ".faa",
+        }:
             fasta_records = SeqIO.parse(open(filename), "fasta")
             record1 = next(fasta_records)
             seq_list = list(str(record1.seq))

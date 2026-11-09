@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 import click
 import typer
+
 from refactor.cli_adapter import convert_model_value, signature_from_model
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 
