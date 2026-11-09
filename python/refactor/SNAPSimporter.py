@@ -266,8 +266,16 @@ class SNAPSImporter:
 
         obs_shifts = self.clean_obs(obs_shifts)
 
-        if self.config.strategy == 'triplet' and self.config.SS_num == False:
-            self.config.logger.warning('Triplet strategy requires SS_num to be True. Overriding provided value. If this is not the behaviour you expected, please panic.')
+        if (
+                self.config.strategy == 'triplet'
+                and not self.config.SS_num
+                and not any(str(col).endswith('_m1') for col in obs_shifts.columns)
+        ):
+            self.config.logger.warning(
+                'Triplet strategy requires SS_num to be True to generate sequential links, '
+                'or for sequential links to be provided. Overriding provided value. '
+                'If this is not the behaviour you expected, please panic.'
+            )
             self.config.SS_num = True
 
         if self.config.SS_num == True:
