@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import string
 import sys
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -20,7 +23,7 @@ from tabulate import tabulate
 
 
 class FormatOutput:
-    def __init__(self, config: SNAPSConfig | None = None):
+    def __init__(self, config: Optional[SNAPSConfig] = None):
         if config is None:
             self.config = build_config()
         else:
@@ -52,7 +55,7 @@ class FormatOutput:
         #                               confidence_list=spec.shift_output_confidence)
 
     def plot_graphs(
-        self, assignment_result: AssignmentResult, data: ShiftData | None = None
+        self, assignment_result: AssignmentResult, data: Optional[ShiftData] = None
     ):
         if self.config.hsqc_plot_file is not None:
             self.plot_hsqc(

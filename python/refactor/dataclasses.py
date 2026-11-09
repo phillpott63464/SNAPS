@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -11,11 +13,11 @@ class ShiftData:
 
     obs_shifts: pd.DataFrame  # Observed shifts (i, i-1)
     pred_shifts: pd.DataFrame  # Predicted shifts (i, i-1)
-    sequence: pd.DataFrame | None = None  # Protein sequence
-    aa_restraints: pd.DataFrame | None = (
+    sequence: Optional[pd.DataFrame] = None  # Protein sequence
+    aa_restraints: Optional[pd.DataFrame] = (
         None  # Amino acid type restraints # This is currently unimplemented as it was unimplemented in the original SNAPS
     )
-    unlabel_restraints: pd.DataFrame | None = None  # Unlabelling info
+    unlabel_restraints: Optional[pd.DataFrame] = None  # Unlabelling info
     metadata: dict[str, Any] = field(default_factory=dict)  # Sources, timestamps
 
     def __post_init__(self):
@@ -30,10 +32,10 @@ class AssignmentResult:
 
     assignments: pd.DataFrame  # Main assignment table
     assign_df: pd.DataFrame  # Assignment dataframe as originally implemented in SNAPS
-    assign_dfs: list[pd.DataFrames] | None = None  # Dataframes for iterative strategies
-    log_prob_matrix: pd.DataFrame | None = None
-    mismatch_matrix: pd.DataFrame | None = None
-    confidence: pd.DataFrame | None = None
+    assign_dfs: Optional[list[pd.DataFrame]] = None  # Dataframes for iterative strategies
+    log_prob_matrix: Optional[pd.DataFrame] = None
+    mismatch_matrix: Optional[pd.DataFrame] = None
+    confidence: Optional[pd.DataFrame] = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -48,9 +50,9 @@ class AssignmentResult:
 class AnalysisResult:
     """Results from analysis"""
 
-    consistency_metrics: dict[str, Any] | None
-    quality_metrics: dict[str, Any] | None
-    enriched_assignments: pd.DataFrame | None
+    consistency_metrics: Optional[dict[str, Any]]
+    quality_metrics: Optional[dict[str, Any]]
+    enriched_assignments: Optional[pd.DataFrame]
 
     def summary(self) -> dict[str, Any]:
         """Generate summary statistics"""

@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 from NEF_reader import (
@@ -38,13 +41,13 @@ class ShiftX2Reader(FormatReader):
 
             return required.issubset(columns)
 
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return False
 
-    def read_observed_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         return None  # There are no observed shifts in ShiftX2
 
-    def read_predicted_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_predicted_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         preds_long = pd.read_csv(file_path)
         if any(preds_long.columns == "CHAIN"):
             if len(preds_long["CHAIN"].unique()) > 1:
@@ -100,13 +103,13 @@ class SpartaReader(FormatReader):
                 line.strip().startswith("FORMAT ") for line in lines
             )
 
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return False
 
-    def read_observed_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         return None  # There are no observed shifts in sparta
 
-    def read_predicted_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_predicted_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         # Work out where the column names and data are
         with open(file_path, "r") as f:
             for num, line in enumerate(f, 1):
@@ -161,10 +164,10 @@ class NMRPipeReader(FormatReader):
                 "SHIFT",
             } and any(line.strip().startswith("FORMAT ") for line in lines)
 
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return False
 
-    def read_observed_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         # Work out where the column names and data are
         with open(file_path, "r") as f:
             for num, line in enumerate(f, 1):
@@ -183,7 +186,7 @@ class NMRPipeReader(FormatReader):
 
         return obs
 
-    def read_predicted_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_predicted_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         return None
 
 
@@ -211,10 +214,10 @@ class CCPNReader(FormatReader):
                 "Shift",
             }.issubset(columns)
 
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return False
 
-    def read_observed_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs = pd.read_table(file_path)
         obs = obs.loc[:, ["Residue", "Assign Name", "Shift"]]
         obs.columns = ["SS_name", "Atom_type", "Shift"]
@@ -222,7 +225,7 @@ class CCPNReader(FormatReader):
 
         return obs
 
-    def read_predicted_shifts(self, file_path) -> pd.DataFrame | None:
+    def read_predicted_shifts(self, file_path) -> Optional[pd.DataFrame]:
         return None
 
 
@@ -253,10 +256,10 @@ class SparkyReader(FormatReader):
                 "Assignments",
             }.issubset(columns)
 
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return False
 
-    def read_observed_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs = pd.read_table(file_path, sep=r"\s+")
         obs = obs.loc[:, ["Group", "Atom", "Shift"]]
         obs.columns = ["SS_name", "Atom_type", "Shift"]
@@ -264,7 +267,7 @@ class SparkyReader(FormatReader):
 
         return obs
 
-    def read_predicted_shifts(self, file_path) -> pd.DataFrame | None:
+    def read_predicted_shifts(self, file_path) -> Optional[pd.DataFrame]:
         return None
 
 
@@ -290,14 +293,14 @@ class SnapsReader(FormatReader):
                 "Shift",
             ]
 
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return False
 
-    def read_observed_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs = pd.read_table(file_path)
         return obs
 
-    def read_predicted_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_predicted_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         return None
 
 
@@ -351,10 +354,10 @@ class XeasyReader(FormatReader):
 
             return found_data
 
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return False
 
-    def read_observed_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs = pd.read_table(
             file_path,
             sep=r"\s+",
@@ -369,7 +372,7 @@ class XeasyReader(FormatReader):
 
         return obs
 
-    def read_predicted_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_predicted_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         return None
 
 
@@ -404,10 +407,10 @@ class MarsReader(FormatReader):
 
             return required.issubset(columns)
 
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return False
 
-    def read_observed_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_observed_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         obs_wide = pd.read_table(file_path, sep=r"\s+", na_values="-")
         obs_wide = obs_wide.rename(
             columns={
@@ -442,7 +445,7 @@ class MarsReader(FormatReader):
 
         return obs
 
-    def read_predicted_shifts(self, file_path: Path) -> pd.DataFrame | None:
+    def read_predicted_shifts(self, file_path: Path) -> Optional[pd.DataFrame]:
         return None
 
 
@@ -470,12 +473,12 @@ class NEFReader(FormatReader):
                 and "loop_" in content
             )
 
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return False
 
     def read_observed_shifts(
-        self, file_path: Path, chain: str = "A", frame: str | None = None
-    ) -> pd.DataFrame | None:
+        self, file_path: Path, chain: str = "A", frame: Optional[str] = None
+    ) -> Optional[pd.DataFrame]:
         file_path, embedded_frame = _split_path_and_frame(str(file_path))
         frame = frame or (embedded_frame if embedded_frame != "default" else None)
         if frame is not None:
@@ -484,8 +487,8 @@ class NEFReader(FormatReader):
         return obs
 
     def read_predicted_shifts(
-        self, file_path: Path, chain: str = "A", frame: str | None = None
-    ) -> pd.DataFrame | None:
+        self, file_path: Path, chain: str = "A", frame: Optional[str] = None
+    ) -> Optional[pd.DataFrame]:
         file_path, embedded_frame = _split_path_and_frame(str(file_path))
         frame = frame or (embedded_frame if embedded_frame != "default" else None)
         if frame is not None:

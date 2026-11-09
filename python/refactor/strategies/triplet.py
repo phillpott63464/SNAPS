@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 from modules.assigner_functions import df_lookup
@@ -965,6 +967,6 @@ class TripletStrategy(AssignmentStrategy):
         preds = preds.drop(["N_m1", "N_p1"], axis=1)
         return obs, preds
 
-    def validate_data(self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: pd.DataFrame | None) -> None:
+    def validate_data(self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: Optional[pd.DataFrame]) -> None:
         if sequence is None:
             raise ValueError("Triplet strategy requires sequence, please add a sequence using --sequence_file, use a nef file that contains a sequence, or use a different strategy")

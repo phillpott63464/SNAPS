@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Optional, Union
 
 import pandas as pd
 from refactor.dataclasses import AssignmentResult, ShiftData
@@ -11,9 +12,9 @@ class AssignmentStrategy(ABC):
     """Base class for assignment strategies."""
 
     name: str = ""
-    config: SNAPSConfig | None = None
+    config: Optional[SNAPSConfig] = None
 
-    def __init__(self, config: SNAPSConfig | dict | None = None):
+    def __init__(self, config: Optional[Union[SNAPSConfig, dict]] = None):
         if config is None:
             self.config = build_config()
         elif isinstance(config, dict):
@@ -59,7 +60,7 @@ class AssignmentStrategy(ABC):
         """Delegate to the shared assignment utility."""
         return probability.calc_log_prob_matrix(self.config, obs=obs, preds=preds)
 
-    def validate_data(self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: pd.DataFrame | None) -> None:
+    def validate_data(self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: Optional[pd.DataFrame]) -> None:
         # Overwrite in every strategy: return none, fail if not good.
         pass
 

@@ -1,49 +1,49 @@
+from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import Dict, Literal, Optional, Set
 
 import yaml
 from pydantic import BaseModel, Field
-
 
 class SNAPSConfig(BaseModel):
     """Configuration model with validation"""
 
     # Input and output
-    obs_file: Path | None = Field(default=None, description="Observed shifts file")
-    pred_file: Path | None = Field(default=None, description="Predicted shifts file")
-    sequence_file: Path | None = Field(
+    obs_file: Optional[Path] = Field(default=None, description="Observed shifts file")
+    pred_file: Optional[Path] = Field(default=None, description="Predicted shifts file")
+    sequence_file: Optional[Path] = Field(
         default=None,
         description="Sequence file in fasta format (sequences can also be stored in observed nef files)",
     )
-    obs_format: str | None = Field(default=None, description="Observed shifts format")
-    pred_format: str | None = Field(default=None, description="Predicted shifts format")
-    obs_frame: str | None = Field(default=None, description="Observed shifts frame")
-    pred_frame: str | None = Field(default=None, description="Predicted shifts frame")
+    obs_format: Optional[str] = Field(default=None, description="Observed shifts format")
+    pred_format: Optional[str] = Field(default=None, description="Predicted shifts format")
+    obs_frame: Optional[str] = Field(default=None, description="Observed shifts frame")
+    pred_frame: Optional[str] = Field(default=None, description="Predicted shifts frame")
     obs_chain: str = Field(default="A", description="Observed chain identifier")
     pred_chain: str = Field(default="A", description="Predicted chain identifier")
-    aa_restraints_file: Path | None = Field(
+    aa_restraints_file: Optional[Path] = Field(
         default=None, description="Amino acid restraints file"
     )
-    aa_restraints_frame: str | None = Field(
+    aa_restraints_frame: Optional[str] = Field(
         default=None, description="Amino acid restraints frame"
     )
-    output_file: Path | None = Field(default=None, description="Assignment output file")
+    output_file: Optional[Path] = Field(default=None, description="Assignment output file")
     output_type: str = Field(default="snaps", description="Assignment output format")
-    shift_output_file: Path | None = Field(
+    shift_output_file: Optional[Path] = Field(
         default=None, description="Chemical shift output file"
     )
-    shift_output_type: str | None = Field(
+    shift_output_type: Optional[str] = Field(
         default=None, description="Chemical shift output format"
     )
-    shift_output_confidence: str | None = Field(
+    shift_output_confidence: Optional[str] = Field(
         default=None, description="Chemical shift output confidence"
     )
-    log_file: Path | None = Field(default=None, description="Log file")
-    hsqc_plot_file: Path | None = Field(
+    log_file: Optional[Path] = Field(default=None, description="Log file")
+    hsqc_plot_file: Optional[Path] = Field(
         default=None, description="File for a labelled HSQC plot (.html)"
     )
-    strip_plot_file: Path | None = Field(
+    strip_plot_file: Optional[Path] = Field(
         default=None, description="File for a labelled strip plot (.html)"
     )
 
@@ -59,11 +59,11 @@ class SNAPSConfig(BaseModel):
     }
 
     # Atom settings
-    atom_set: set[str] = Field(
+    atom_set: Set[str] = Field(
         default={"H", "N", "HA", "CA", "CB", "C", "C_m1", "CA_m1", "CB_m1"},
         description="Atom types to use in assignment",
     )
-    atom_sd: dict[str, float] = Field(
+    atom_sd: Dict[str, float] = Field(
         default={
             "H": 0.1726,
             "N": 1.1169,
@@ -74,7 +74,7 @@ class SNAPSConfig(BaseModel):
         },
         description="Standard deviations for each atom type",
     )
-    supported_atom_types: set[str] = Field(
+    supported_atom_types: Set[str] = Field(
         default={"H", "N", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1", "HA"},
         description="Atom columns accepted during preprocessing",
     )
@@ -217,7 +217,7 @@ class SNAPSConfig(BaseModel):
 
 
 def build_config(
-    config_file: Path | None = None, cli_overrides: dict | None = None
+    config_file: Optional[Path] = None, cli_overrides: Optional[dict] = None
 ) -> SNAPSConfig:
     """
     Build configuration with proper priority.

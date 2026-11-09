@@ -15,7 +15,7 @@ class AnalyzerType:
 class AnalysisPipeline:
     def __init__(
         self,
-        config: SNAPSConfig | None = None,
+        config: Optional[SNAPSConfig] = None,
         analyzers: list[AnalyzerType] = None,
     ):
         if config is None:
@@ -34,3 +34,6 @@ class ConsistencyAnalyzer(AnalyzerType): ...
 
 
 class QualityAnalyzer(AnalyzerType): ...
+from __future__ import annotations
+
+from typing import Optional

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Optional, Union, get_args, get_origin
+from typing import Any, List, Optional, Union, get_args, get_origin
 
 import typer
 from pydantic.fields import FieldInfo
@@ -35,9 +35,9 @@ def _field_cli_type(annotation: Any) -> Any:
     origin = get_origin(annotation)
     if origin in (set, set, list, list):
         item_type = get_args(annotation)[0] if get_args(annotation) else str
-        return Optional[list[item_type]]
+        return Optional[List[item_type]]
     if origin in (dict, dict):
-        return Optional[list[str]]
+        return Optional[List[str]]
     return annotation if _is_optional(annotation) else Optional[annotation]
 
 

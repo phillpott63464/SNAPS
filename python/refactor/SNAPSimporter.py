@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -24,8 +27,8 @@ class SNAPSImporter:
 
     def __init__(
         self,
-        readers: list[FormatReader] | None = None,
-        config: SNAPSConfig | None = None,
+        readers: Optional[list[FormatReader]] = None,
+        config: Optional[SNAPSConfig] = None,
     ):
         self.readers = readers if readers is not None else self._default_readers()
         self._reader_by_format = {r.format_name: r for r in self.readers}
@@ -54,7 +57,7 @@ class SNAPSImporter:
         ]
 
     def _get_reader(
-        self, file_path: Path, format_hint: str | None = None
+        self, file_path: Path, format_hint: Optional[str] = None
     ) -> FormatReader:
         """Find appropriate reader for file"""
         # Try format hint first
@@ -230,14 +233,14 @@ class SNAPSImporter:
         self,
         obs_file: Path,
         pred_file: Path,
-        obs_format: str | None = None,
-        pred_format: str | None = None,
-        obs_frame: str | None = None,
-        pred_frame: str | None = None,
+        obs_format: Optional[str] = None,
+        pred_format: Optional[str] = None,
+        obs_frame: Optional[str] = None,
+        pred_frame: Optional[str] = None,
         obs_chain: str = "A",
         pred_chain: str = "A",
-        aa_restraints_file: Path | None = None,
-        aa_restraints_frame: str | None = None,
+        aa_restraints_file: Optional[Path] = None,
+        aa_restraints_frame: Optional[str] = None,
     ) -> ShiftData:
         """Import all data and return structured container"""
 

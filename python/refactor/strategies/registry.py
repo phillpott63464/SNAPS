@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Optional, Union
+
 from refactor.SNAPSconfig import SNAPSConfig
 from refactor.strategies.base import AssignmentStrategy
 
@@ -35,8 +39,9 @@ class StrategyRegistry:
     def create(
         cls,
         name: str,
-        config: SNAPSConfig | dict | None = None,
+        config: Optional[Union[SNAPSConfig, dict]] = None,
     ) -> AssignmentStrategy:
         """Factory method to create a strategy instance"""
         strategy_class = cls.get(name)
         return strategy_class(config)
+from typing import Optional, Union

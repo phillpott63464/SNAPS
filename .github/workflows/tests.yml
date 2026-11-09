@@ -16,11 +16,20 @@ jobs:
   test:
     strategy:
       matrix:
-        python-version: ["3.15"]
-        os: [ubuntu-latest, macos-latest] # , windows-latest] # broken
+        python-version: ["3.15", "3.14", "3.13", "3.12", "3.11", "3.10", "3.9", "3.8"]
+        os: [ubuntu-latest, macos-latest]
+        exclude:
+          - python-version: "3.8"
+            os: ubuntu-latest
+          - python-version: "3.9"
+            os: ubuntu-latest
+        include:
+          - python-version: "3.8"
+            os: ubuntu-22.04
+          - python-version: "3.9"
+            os: ubuntu-22.04
 
     runs-on: ${{ matrix.os }}
-
     steps:
       - uses: actions/checkout@v6
 
