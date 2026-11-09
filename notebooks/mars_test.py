@@ -57,32 +57,13 @@ def _(Path):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+def _(mars_results, mo):
+    mo.md(rf"""
     # Download Test Data from BMRB for Mars Test Dataset
 
     ## Their Results:
 
-    | Protein                             | Chemical shifts used | Condition I: assignments / reliable / errors | Condition II: assignments / reliable / errors | Condition III: assignments / reliable / errors |
-    | ----------------------------------- | -------------------- | -------------------------------------------: | --------------------------------------------: | ---------------------------------------------: |
-    | Malate synthase G                   | C′, Cα, Cβ           |                                652 / 639 / 0 |                                 652 / 639 / 0 |                                  651 / 623 / 0 |
-    | Malate synthase G                   | Cα, Cβ*              |                                500 / 207 / 0 |                                 639 / 584 / 2 |                                  622 / 511 / 0 |
-    | Maltose binding protein             | Cα, Cβ               |                                323 / 303 / 0 |                                 333 / 324 / 0 |                                  330 / 313 / 1 |
-    | Rous Sarcoma Virus capsid           | C′, Cα, Cβ           |                                214 / 205 / 0 |                                 218 / 207 / 0 |                                  218 / 199 / 0 |
-    | Human carbonic anhydrase I          | C′, Cα, Cβ           |                                242 / 235 / 0 |                                 242 / 237 / 0 |                                  242 / 225 / 0 |
-    | N-terminal domain of enzyme I (EIN) | Cα, Cβ               |                                246 / 232 / 0 |                                 246 / 246 / 0 |                                  248 / 245 / 0 |
-    | E-cadherin domains II and III       | Cα, Cβ               |                                 116 / 77 / 1 |                                 134 / 102 / 0 |                                   136 / 70 / 1 |
-    | Human prion protein                 | Cα, Cβ               |                                138 / 103 / 0 |                                 155 / 127 / 0 |                                  154 / 118 / 0 |
-    | Superoxide dismutase                | C′, Cα, Cβ           |                                112 / 101 / 0 |                                 112 / 104 / 0 |                                  111 / 100 / 0 |
-    | Superoxide dismutase                | Cα, Cβ               |                                111 / 101 / 0 |                                 112 / 104 / 0 |                                  112 / 103 / 0 |
-    | Calmodulin/M13                      | Cα, C′               |                                  97 / 37 / 0 |                                 144 / 142 / 0 |                                  136 / 119 / 0 |
-    | Profilin                            | Cα, Cβ               |                                130 / 132 / 2 |                                 132 / 132 / 0 |                                  132 / 123 / 0 |
-    | E. coli EmrE                        | C′, Cα, Cβ           |                                  61 / 35 / 0 |                                   70 / 58 / 0 |                                    64 / 50 / 0 |
-    | Human ubiquitin                     | Cα, Cβ               |                                  72 / 72 / 0 |                                   72 / 72 / 0 |                                    72 / 70 / 0 |
-    | Human ubiquitin                     | Cα only              |                                   32 / 9 / 0 |                                   58 / 18 / 0 |                                     58 / 9 / 0 |
-    | Z domain                            | Cα, Cβ, Hα†          |                                  65 / 65 / 0 |                                             — |                                              — |
-    | Z domain                            | Cα, Cβ‡              |                                  57 / 34 / 0 |                                             — |                                              — |
-    | Tir110                              | C′, Cα, Cβ§          |                                  91 / 80 / 0 |                                             — |                                              — |
+    {mo.md(mars_results.to_markdown(index=False))}
 
     Our goal: match their results, but in a more modern, FOSS method.
     """)
@@ -101,6 +82,8 @@ def _(DATA_DIR, Path, re, subprocess, sys, urllib):
 
     def download_first_pdb_for_bmrb(bmrb_id: int) -> bool:
         output_file = DATA_DIR / f"{bmrb_id}.pdb"
+        if output_file.exists():
+            return True
         tmp_file = DATA_DIR / f"{bmrb_id}.pdb.tmp"
         summary_url = (
             "https://bmrb.io/data_library/summary/index.php"
@@ -150,6 +133,9 @@ def _(DATA_DIR, Path, re, subprocess, sys, urllib):
     def run_download_pipeline(commands: list[list[str]], output_file: Path) -> None:
         processes = []
         previous_stdout = None
+
+        if output_file.exists():
+            return True
 
         try:
             for command in commands:
@@ -259,25 +245,38 @@ def _(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+    strategies = ['triplet', 'direct', 'iterative']
+
     for bmrb_id in BMRB_IDS:
-        if (OUTPUT_DIR / f'{bmrb_id}-test-result.nef').exists():
+        if all(
+            (OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.nef').exists()
+            for strategy in strategies
+        ):
             continue
+
         process_bmrb(bmrb_id)
 
-        config = build_config(
-            cli_overrides = {
-                'obs_file': DATA_DIR / f'{bmrb_id}.nef',
-                'pred_file': DATA_DIR / f'{bmrb_id}-shiftx2.nef:shiftx2',
-                'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result.nef',
-                'strategy': 'triplet',
-                'sequence_file': DATA_DIR / f'{bmrb_id}.fasta',
-                'output_type': 'nef',
-                'SS_num': True,
-            }    
-        )
-        run_pipeline(config)
+        base_overrides = {
+            'obs_file': DATA_DIR / f'{bmrb_id}.nef',
+            'pred_file': DATA_DIR / f'{bmrb_id}-shiftx2.nef:shiftx2',
+            'output_type': 'nef',
+            'sequence_file': DATA_DIR / f'{bmrb_id}.fasta',
+        }
 
-    # Outputs to OUTPUT_DIR
+        for strategy in strategies:
+            if (OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.nef').exists():
+                continue
+
+            config = build_config(
+                cli_overrides = {
+                    'strategy': strategy,
+                    **({'SS_num': True} if strategy == 'triplet' else {}),
+                    'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.nef',
+                    **base_overrides
+                }
+            )
+
+            run_pipeline(config)
     return
 
 
@@ -304,6 +303,8 @@ def _(mo, shift_results):
 
 @app.cell
 def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
+    # Create our results
+
     import shlex
 
     import pandas as pd
@@ -387,7 +388,7 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
             assigned["spin_system"].isna()
             | assigned["residue_number"].isna()
         ]
-    
+
         if not bad.empty:
             raise ValueError(
                 "Assigned rows contain labels that cannot be compared as residue numbers:\n"
@@ -412,6 +413,7 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
 
     # Set this to the reliability cutoff used by your method.
     RELIABLE_MERIT = 0.01
+    # This is not what MARS used but oh well, can TODO that later
 
     # Add protein names and shift descriptions, keyed by your BMRB IDs.
     # Use the same ID type as BMRB_IDS (e.g. integers or strings).
@@ -422,9 +424,9 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
     # Configure the result-file locations for each condition.
     # Add II and III when those results are available.
     CONDITIONS = {
-        "I": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result.nef",
-        # "II": lambda bmrb_id: CONDITION_II_DIR / f"{bmrb_id}-test-result.nef",
-        # "III": lambda bmrb_id: CONDITION_III_DIR / f"{bmrb_id}-test-result.nef",
+        "I": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-direct.nef",
+        "II": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-iterative.nef",
+        "III": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-triplet.nef",
     }
 
 
@@ -525,11 +527,41 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
         CONDITIONS,
         PROTEIN_INFO,
     )
-    return (shift_results,)
+    return pd, shift_results
+
+
+@app.cell
+def _(pd, shift_results):
+    # Published comparison table, using the same columns and row format as shift_results.
+    mars_results = pd.DataFrame(
+        [
+            ("Malate synthase G", "C′, Cα, Cβ", "652 / 639 / 0", "652 / 639 / 0", "651 / 623 / 0"),
+            ("Malate synthase G", "Cα, Cβ*", "500 / 207 / 0", "639 / 584 / 2", "622 / 511 / 0"),
+            ("Maltose binding protein", "Cα, Cβ", "323 / 303 / 0", "333 / 324 / 0", "330 / 313 / 1"),
+            ("Rous Sarcoma Virus capsid", "C′, Cα, Cβ", "214 / 205 / 0", "218 / 207 / 0", "218 / 199 / 0"),
+            ("Human carbonic anhydrase I", "C′, Cα, Cβ", "242 / 235 / 0", "242 / 237 / 0", "242 / 225 / 0"),
+            ("N-terminal domain of enzyme I (EIN)", "Cα, Cβ", "246 / 232 / 0", "246 / 246 / 0", "248 / 245 / 0"),
+            ("E-cadherin domains II and III", "Cα, Cβ", "116 / 77 / 1", "134 / 102 / 0", "136 / 70 / 1"),
+            ("Human prion protein", "Cα, Cβ", "138 / 103 / 0", "155 / 127 / 0", "154 / 118 / 0"),
+            ("Superoxide dismutase", "C′, Cα, Cβ", "112 / 101 / 0", "112 / 104 / 0", "111 / 100 / 0"),
+            ("Superoxide dismutase", "Cα, Cβ", "111 / 101 / 0", "112 / 104 / 0", "112 / 103 / 0"),
+            ("Calmodulin/M13", "Cα, C′", "97 / 37 / 0", "144 / 142 / 0", "136 / 119 / 0"),
+            ("Profilin", "Cα, Cβ", "130 / 132 / 2", "132 / 132 / 0", "132 / 123 / 0"),
+            ("E. coli EmrE", "C′, Cα, Cβ", "61 / 35 / 0", "70 / 58 / 0", "64 / 50 / 0"),
+            ("Human ubiquitin", "Cα, Cβ", "72 / 72 / 0", "72 / 72 / 0", "72 / 70 / 0"),
+            ("Human ubiquitin", "Cα only", "32 / 9 / 0", "58 / 18 / 0", "58 / 9 / 0"),
+            ("Z domain", "Cα, Cβ, Hα†", "65 / 65 / 0", "—", "—"),
+            ("Z domain", "Cα, Cβ‡", "57 / 34 / 0", "—", "—"),
+            ("Tir110", "C′, Cα, Cβ§", "91 / 80 / 0", "—", "—"),
+        ],
+        columns=shift_results.columns,
+    )
+    return (mars_results,)
 
 
 @app.cell
 def _():
+    # Compare the tables
     return
 
 
