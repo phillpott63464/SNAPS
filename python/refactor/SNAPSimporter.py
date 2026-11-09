@@ -266,6 +266,25 @@ class SNAPSImporter:
 
         obs_shifts = self.clean_obs(obs_shifts)
 
+        if self.config.strategy == 'triplet' and self.config.SS_num == False:
+            self.config.logger.warning('Triplet strategy requires SS_num to be True. Overriding provided value. If this is not the behaviour you expected, please panic.')
+            self.config.SS_num = True
+
+        if self.config.SS_num == True:
+            obs_shifts["Res_N"] = obs_shifts["SS_name"].str.extract(r"(\d+)").astype(int)
+
+            obs_shifts.index = obs_shifts["Res_N"]
+            obs_m1 = obs_shifts[list({"C", "CA", "CB"}.intersection(obs_shifts.columns))]
+            obs_m1.index = obs_m1.index + 1
+            obs_m1.columns = obs_m1.columns + "_m1"
+            obs_shifts = pd.merge(obs_shifts, obs_m1, how="left",
+                           left_index=True, right_index=True)
+            obs_shifts = obs_shifts.drop(columns="Res_N")
+
+            # Set index back to SS_name
+            obs_shifts.index = obs_shifts["SS_name"]
+            obs_shifts.index.name = None
+
         # Import sequence
         if self.config.sequence_file is not None:
             sequence = self.import_sequence(self.config.sequence_file)
@@ -320,7 +339,7 @@ class SNAPSImporter:
         """
 
         # Parse the sequence
-        if filetype == "fasta":
+        if filetype == "fasta" or Path(filename).suffix.lower() in {".fasta", ".fa", ".faa"}:
             fasta_records = SeqIO.parse(open(filename), "fasta")
             record1 = next(fasta_records)
             seq_list = list(str(record1.seq))

@@ -171,6 +171,10 @@ class SNAPSConfig(BaseModel):
         default=0.01,
         description="How much to penalise the probability that an observation corresponds to a glycine if it has a CB chemical shift",
     )
+    SS_num: bool = Field(
+        default=False,
+        description="Should create _m1 fields? Required True for triplet"
+    )
 
     # Strategy
     strategy: Literal["direct", "iterative", "triplet"] = Field(
