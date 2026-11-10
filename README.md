@@ -1,5 +1,22 @@
 # SNAPS (Simple NMR Assignments from Predicted Shifts)
 
+## Modified version 
+
+Refactored version of SNAPS (see forked from). Install with `uv tool install 'git+https://github.com/phillpott63464/SNAPS'`, upgrade with `uv tool upgrade snaps`, and run with `snaps`
+
+Usage:
+
+`snaps` - typer cli arguments
+
+`snaps [filename].nef [filename].cs2` - uses all default values. Outputs to terminal.
+
+`snaps [filename].nef [filename].cs2 output.nef` - uses default values. Outputs to output.nef
+
+`snaps [filename].nef [filename].cs2 output.nef --sequence_file [filename].fasta --strategy iterative` - overrides specific values.
+
+
+# Original Description:
+
 ## What is it?
 SNAPS is a tool for using chemical shift predictions to help assign protein NMR spectra. SNAPS is currently under development, and has not been fully tested, so I can't currently make any promises about its accuracy (or functionality!).
 
