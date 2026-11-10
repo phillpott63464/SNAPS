@@ -278,6 +278,8 @@ def _(
             'obs_file': DATA_DIR / f'{bmrb_id}.nef',
             'pred_file': DATA_DIR / f'{bmrb_id}-shiftx2.nef:shiftx2',
             'sequence_file': DATA_DIR / f'{bmrb_id}.fasta',
+            'SS_num': True,
+            'output_type': 'snaps',
         }
 
         for strategy in strategies:
@@ -287,9 +289,9 @@ def _(
             config = build_config(
                 cli_overrides = {
                     'strategy': strategy,
-                    'SS_num': True,
-                    'output_type': 'snaps',
                     'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.txt',
+                    'hsqc_plot_file': OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}-hsqc.html',
+                    'strip_plot_file': OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}-strip.html',
                     **base_overrides
                 }
             )
