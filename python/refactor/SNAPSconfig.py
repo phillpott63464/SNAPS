@@ -1,11 +1,22 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import Dict, Literal, Optional, Set
 
 import yaml
 from pydantic import BaseModel, Field
+
+from refactor.default_csv import (
+    _delta_correlation_cov_file,
+    _delta_correlation_cov_corrected_file,
+    _delta_correlation_mean_corrected_file,
+    _delta_correlation_mean_file,
+    _pred_correction_file,
+    _generic_shift_file,
+    _generic_shift_stdev_file,
+)
 
 
 class SNAPSConfig(BaseModel):
@@ -139,23 +150,23 @@ class SNAPSConfig(BaseModel):
         default=False, description="Use prediction correction"
     )
     pred_correction_file: str = Field(
-        default="config/lin_model_shiftx2.csv",
+        default_factory=lambda: _pred_correction_file(Path(tempfile.mkdtemp())),
         description="File containing parameters for linear correction to predicted shifts",
     )
     delta_correlation_mean_corrected_file: str = Field(
-        default="config/dd_mean.csv",
+        default_factory=lambda: _delta_correlation_mean_corrected_file(Path(tempfile.mkdtemp())),
         description="File containing mean prediction errors for corrected predictions",
     )
     delta_correlation_cov_corrected_file: str = Field(
-        default="config/dd_cov.csv",
+        default_factory=lambda: _delta_correlation_cov_corrected_file(Path(tempfile.mkdtemp())),
         description="File containing prediction-error covariances for corrected predictions",
     )
     delta_correlation_mean_file: str = Field(
-        default="config/d_mean.csv",
+        default_factory=lambda: _delta_correlation_mean_file(Path(tempfile.mkdtemp())),
         description="File containing mean prediction errors",
     )
     delta_correlation_cov_file: str = Field(
-        default="config/d_cov.csv",
+        default_factory=lambda: _delta_correlation_cov_file(Path(tempfile.mkdtemp())),
         description="File containing prediction-error covariances",
     )
     triplet_prob_iterations: int = Field(
@@ -166,11 +177,11 @@ class SNAPSConfig(BaseModel):
         description="If True, missing predictions are replaced with an average value for that residue type",
     )
     generic_shift_file: str = Field(
-        default="config/residue_shift_mean.csv",
+        default_factory=lambda: _generic_shift_file(Path(tempfile.mkdtemp())),
         description="File containing expected average chemical shift for each atom/residue pair",
     )
     generic_shift_stdev_file: str = Field(
-        default="config/residue_shift_stdev.csv",
+        default_factory=lambda: _generic_shift_stdev_file(Path(tempfile.mkdtemp())),
         description="File containing expected standard deviation in chemical shift for each atom/residue pair",
     )
     alt_assignments: int = Field(
@@ -192,10 +203,20 @@ class SNAPSConfig(BaseModel):
     )
 
     @classmethod
-    def load_default(cls) -> SNAPSConfig:
+    def load_default(cls, tmp_path: Optional[Path] = None) -> SNAPSConfig:
         """Load default configuration"""
-        # Built-in defaults
-        return cls.model_validate({})
+        tmp_path = tmp_path or Path(tempfile.mkdtemp())
+        return cls.model_validate(
+            {
+                "pred_correction_file": _pred_correction_file(tmp_path),
+                "delta_correlation_mean_corrected_file": _delta_correlation_mean_corrected_file(tmp_path),
+                "delta_correlation_cov_corrected_file": _delta_correlation_cov_corrected_file(tmp_path),
+                "delta_correlation_mean_file": _delta_correlation_mean_file(tmp_path),
+                "delta_correlation_cov_file": _delta_correlation_cov_file(tmp_path),
+                "generic_shift_file": _generic_shift_file(tmp_path),
+                "generic_shift_stdev_file": _generic_shift_stdev_file(tmp_path),
+            }
+        )
 
     @classmethod
     def load_from_file(cls, config_path: Path) -> SNAPSConfig:
@@ -226,7 +247,9 @@ class SNAPSConfig(BaseModel):
 
 
 def build_config(
-    config_file: Optional[Path] = None, cli_overrides: Optional[dict] = None
+    config_file: Optional[Path] = None,
+    cli_overrides: Optional[dict] = None,
+    tmp_path: Optional[Path] = None,
 ) -> SNAPSConfig:
     """
     Build configuration with proper priority.
@@ -234,7 +257,7 @@ def build_config(
     Priority: CLI overrides > config file > defaults
     """
     # Start with defaults
-    config = SNAPSConfig.load_default()
+    config = SNAPSConfig.load_default(tmp_path)
 
     # Merge config file if provided
     if config_file and config_file.exists():
