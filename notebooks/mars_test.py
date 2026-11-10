@@ -57,13 +57,33 @@ def _(Path):
 
 
 @app.cell(hide_code=True)
-def _(mars_results, mo):
+def _(mo):
     mo.md(rf"""
     # Download Test Data from BMRB for Mars Test Dataset
 
     ## Their Results:
 
-    {mo.md(mars_results.to_markdown(index=False))}
+    | Protein                             | Chemical shifts used   | Condition I: assignments / reliable / errors   | Condition II: assignments / reliable / errors   | Condition III: assignments / reliable / errors   |
+    |:------------------------------------|:-----------------------|:-----------------------------------------------|:------------------------------------------------|:-------------------------------------------------|
+    | Malate synthase G                   | C′, Cα, Cβ             | 652 / 639 / 0                                  | 652 / 639 / 0                                   | 651 / 623 / 0                                    |
+    | Malate synthase G                   | Cα, Cβ*                | 500 / 207 / 0                                  | 639 / 584 / 2                                   | 622 / 511 / 0                                    |
+    | Maltose binding protein             | Cα, Cβ                 | 323 / 303 / 0                                  | 333 / 324 / 0                                   | 330 / 313 / 1                                    |
+    | Rous Sarcoma Virus capsid           | C′, Cα, Cβ             | 214 / 205 / 0                                  | 218 / 207 / 0                                   | 218 / 199 / 0                                    |
+    | Human carbonic anhydrase I          | C′, Cα, Cβ             | 242 / 235 / 0                                  | 242 / 237 / 0                                   | 242 / 225 / 0                                    |
+    | N-terminal domain of enzyme I (EIN) | Cα, Cβ                 | 246 / 232 / 0                                  | 246 / 246 / 0                                   | 248 / 245 / 0                                    |
+    | E-cadherin domains II and III       | Cα, Cβ                 | 116 / 77 / 1                                   | 134 / 102 / 0                                   | 136 / 70 / 1                                     |
+    | Human prion protein                 | Cα, Cβ                 | 138 / 103 / 0                                  | 155 / 127 / 0                                   | 154 / 118 / 0                                    |
+    | Superoxide dismutase                | C′, Cα, Cβ             | 112 / 101 / 0                                  | 112 / 104 / 0                                   | 111 / 100 / 0                                    |
+    | Superoxide dismutase                | Cα, Cβ                 | 111 / 101 / 0                                  | 112 / 104 / 0                                   | 112 / 103 / 0                                    |
+    | Calmodulin/M13                      | Cα, C′                 | 97 / 37 / 0                                    | 144 / 142 / 0                                   | 136 / 119 / 0                                    |
+    | Profilin                            | Cα, Cβ                 | 130 / 132 / 2                                  | 132 / 132 / 0                                   | 132 / 123 / 0                                    |
+    | E. coli EmrE                        | C′, Cα, Cβ             | 61 / 35 / 0                                    | 70 / 58 / 0                                     | 64 / 50 / 0                                      |
+    | Human ubiquitin                     | Cα, Cβ                 | 72 / 72 / 0                                    | 72 / 72 / 0                                     | 72 / 70 / 0                                      |
+    | Human ubiquitin                     | Cα only                | 32 / 9 / 0                                     | 58 / 18 / 0                                     | 58 / 9 / 0                                       |
+    | Z domain                            | Cα, Cβ, Hα†            | 65 / 65 / 0                                    | —                                               | —                                                |
+    | Z domain                            | Cα, Cβ‡                | 57 / 34 / 0                                    | —                                               | —                                                |
+    | Tir110                              | C′, Cα, Cβ§            | 91 / 80 / 0                                    | —                                               | —                                                |
+
 
     Our goal: match their results, but in a more modern, FOSS method.
     """)
@@ -281,7 +301,7 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(mo, shift_results):
+def _(mo, snaps_results):
     mo.md(rf"""
     # Comparing SNAPS
 
@@ -296,7 +316,7 @@ def _(mo, shift_results):
     - compare each result to the real assignment
     - And should the data be kept as in memory files only and just the outputs written? That's brittle. But it's also much cleaner.
 
-    {mo.md(shift_results.to_markdown(index=False))}
+    {mo.md(snaps_results.to_markdown(index=False))}
     """)
     return
 
@@ -522,23 +542,23 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path, stupid_var):
 
     # Configure the result-file locations for each condition.
     # Add II and III when those results are available.
-    CONDITIONS = {
-        "I": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-direct.txt",
-        "II": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-iterative.txt",
-        "III": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-triplet.txt",
+    STRATEGIES = {
+        "direct": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-direct.txt",
+        "iterative": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-iterative.txt",
+        "triplet": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-triplet.txt",
     }
-
 
     def assignment_counts(result, chain="A", label_to_residue=None):
         assigned = result.loc[
-            result["assigned"] 
-            & result["chain_code"].eq(chain) 
-            & result["residue_name"].ne("PRO") # Remove prolines because MARS doesn't predict them (I am fairly certain)
+            result["assigned"]
+            & result["chain_code"].eq(chain)
+            & result["residue_name"].ne("PRO")
         ].copy()
 
-
         if "merit" in assigned.columns:
-            reliable = assigned.loc[assigned["merit"].le(RELIABLE_MERIT)].copy()
+            reliable = assigned.loc[
+                assigned["merit"].le(RELIABLE_MERIT)
+            ].copy()
         elif "Confidence" in assigned.columns:
             reliable = assigned.loc[
                 assigned["Confidence"].isin(["High", "Medium"])
@@ -546,26 +566,16 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path, stupid_var):
         else:
             raise ValueError("Result has neither merit nor Confidence")
 
-        # Numeric labels are assumed to be original residue numbers,
-        # matching the assumption in your existing comparison.
         reference = reliable["spin_system"].copy()
 
-        # Optional explicit mappings for labels such as DSS_40.
         if label_to_residue is not None:
-            labels = (
-                reliable["unassigned_sequence_code"]
-                .astype(str)
-                .str.strip()
-            )
-            mapped = pd.to_numeric(
-                labels.map(label_to_residue), errors="coerce"
-            )
+            labels = reliable["unassigned_sequence_code"].astype(str).str.strip()
+            mapped = pd.to_numeric(labels.map(label_to_residue), errors="coerce")
             reference = mapped.combine_first(reference)
 
-        predicted = reliable["residue_number"]
+        predicted = pd.to_numeric(reliable["residue_number"], errors="coerce")
+        reference = pd.to_numeric(reference, errors="coerce")
 
-        # Do not report an error count unless every reliable assignment
-        # can be evaluated against a reference residue.
         evaluable = (
             reference.notna()
             & predicted.notna()
@@ -574,21 +584,16 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path, stupid_var):
         )
 
         errors = (
-            str(int(reference.ne(predicted).sum()))
+            int(reference[evaluable].ne(predicted[evaluable]).sum())
             if evaluable.all()
-            else "—"
+            else float("nan")
         )
 
-
-        reliable = assigned[assigned["Confidence"].isin(["High", "Medium"])]
-        wrong = reliable[reliable["spin_system"] != reliable["residue_number"]]
-        print(f"{len(wrong)} / {len(reliable)} reliable assignments are wrong")
-
-        return f"{len(assigned)} / {len(reliable)} / {errors}"
-
-
-    def markdown_cell(value):
-        return str(value).replace("|", r"\|").replace("\n", " ")
+        return {
+            "assignments": int(len(assigned)),
+            "reliable_assignments": int(len(reliable)),
+            "errors": errors,
+        }
 
 
     def assignment_table(
@@ -599,99 +604,256 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path, stupid_var):
         label_maps=None,
     ):
         label_maps = label_maps or {}
-
         rows = []
+
         for bmrb_id in bmrb_ids:
             protein, shifts_used = protein_info.get(
-                bmrb_id, (f"{BMRB_NAMES[bmrb_id]}", "—")
+                bmrb_id, (BMRB_NAMES[bmrb_id], "—")
             )
-            row = {
-                "Protein": protein,
-                "Chemical shifts used": shifts_used,
-            }
 
-            for condition in ("I", "II", "III"):
-                column = f"Condition {condition}: assignments / reliable / errors"
+            for condition in (STRATEGIES):
                 path_factory = conditions.get(condition)
+                path = Path(path_factory(bmrb_id)) if path_factory else None
 
-                if path_factory is None:
-                    row[column] = "—"
-                    continue
-
-                path = Path(path_factory(bmrb_id))
-                if not path.is_file():
-                    row[column] = "—"
-                    continue
-
-                result = read_test_result(path)
-                row[column] = assignment_counts(
-                    result,
-                    chain=chain,
-                    label_to_residue=label_maps.get(bmrb_id),
+                counts = (
+                    assignment_counts(
+                        read_test_result(path),
+                        chain=chain,
+                        label_to_residue=label_maps.get(bmrb_id),
+                    )
+                    if path is not None and path.is_file()
+                    else {
+                        "assignments": float("nan"),
+                        "reliable_assignments": float("nan"),
+                        "errors": float("nan"),
+                    }
                 )
 
-            rows.append(row)
+                rows.append({
+                    "bmrb_id": bmrb_id,
+                    "protein": protein,
+                    "chemical_shifts_used": shifts_used,
+                    "condition": condition,
+                    **counts,
+                })
 
-        return pd.DataFrame(rows)
+        df = pd.DataFrame(rows)
 
-    shift_results = assignment_table(
+        for column in ("assignments", "reliable_assignments"):
+            df[column] = df[column].astype("Int64")
+
+        return df
+
+    snaps_results = assignment_table(
         BMRB_IDS,
-        CONDITIONS,
+        STRATEGIES,
         PROTEIN_INFO,
     )
-    return pd, shift_results
+
+    print(snaps_results)
+    return pd, snaps_results
 
 
 @app.cell
-def _(pd, shift_results):
-    # Published comparison table, using the same columns and row format as shift_results.
-    mars_results = pd.DataFrame(
-        [
-            ("Malate synthase G", "C′, Cα, Cβ", "652 / 639 / 0", "652 / 639 / 0", "651 / 623 / 0"),
-            ("Malate synthase G", "Cα, Cβ*", "500 / 207 / 0", "639 / 584 / 2", "622 / 511 / 0"),
-            ("Maltose binding protein", "Cα, Cβ", "323 / 303 / 0", "333 / 324 / 0", "330 / 313 / 1"),
-            ("Rous Sarcoma Virus capsid", "C′, Cα, Cβ", "214 / 205 / 0", "218 / 207 / 0", "218 / 199 / 0"),
-            ("Human carbonic anhydrase I", "C′, Cα, Cβ", "242 / 235 / 0", "242 / 237 / 0", "242 / 225 / 0"),
-            ("N-terminal domain of enzyme I (EIN)", "Cα, Cβ", "246 / 232 / 0", "246 / 246 / 0", "248 / 245 / 0"),
-            ("E-cadherin domains II and III", "Cα, Cβ", "116 / 77 / 1", "134 / 102 / 0", "136 / 70 / 1"),
-            ("Human prion protein", "Cα, Cβ", "138 / 103 / 0", "155 / 127 / 0", "154 / 118 / 0"),
-            ("Superoxide dismutase", "C′, Cα, Cβ", "112 / 101 / 0", "112 / 104 / 0", "111 / 100 / 0"),
-            ("Superoxide dismutase", "Cα, Cβ", "111 / 101 / 0", "112 / 104 / 0", "112 / 103 / 0"),
-            ("Calmodulin/M13", "Cα, C′", "97 / 37 / 0", "144 / 142 / 0", "136 / 119 / 0"),
-            ("Profilin", "Cα, Cβ", "130 / 132 / 2", "132 / 132 / 0", "132 / 123 / 0"),
-            ("E. coli EmrE", "C′, Cα, Cβ", "61 / 35 / 0", "70 / 58 / 0", "64 / 50 / 0"),
-            ("Human ubiquitin", "Cα, Cβ", "72 / 72 / 0", "72 / 72 / 0", "72 / 70 / 0"),
-            ("Human ubiquitin", "Cα only", "32 / 9 / 0", "58 / 18 / 0", "58 / 9 / 0"),
-            ("Z domain", "Cα, Cβ, Hα†", "65 / 65 / 0", "—", "—"),
-            ("Z domain", "Cα, Cβ‡", "57 / 34 / 0", "—", "—"),
-            ("Tir110", "C′, Cα, Cβ§", "91 / 80 / 0", "—", "—"),
-        ],
-        columns=shift_results.columns,
+def _(pd):
+    data = [
+        ("Malate synthase G", "C′, Cα, Cβ",
+         (652, 639, 0), (652, 639, 0), (651, 623, 0)),
+        ("Malate synthase G", "Cα, Cβ*",
+         (500, 207, 0), (639, 584, 2), (622, 511, 0)),
+        ("Maltose binding protein", "Cα, Cβ",
+         (323, 303, 0), (333, 324, 0), (330, 313, 1)),
+        ("Rous Sarcoma Virus capsid", "C′, Cα, Cβ",
+         (214, 205, 0), (218, 207, 0), (218, 199, 0)),
+        ("Human carbonic anhydrase I", "C′, Cα, Cβ",
+         (242, 235, 0), (242, 237, 0), (242, 225, 0)),
+        ("N-terminal domain of enzyme I (EIN)", "Cα, Cβ",
+         (246, 232, 0), (246, 246, 0), (248, 245, 0)),
+        ("E-cadherin domains II and III", "Cα, Cβ",
+         (116, 77, 1), (134, 102, 0), (136, 70, 1)),
+        ("Human prion protein", "Cα, Cβ",
+         (138, 103, 0), (155, 127, 0), (154, 118, 0)),
+        ("Superoxide dismutase", "C′, Cα, Cβ",
+         (112, 101, 0), (112, 104, 0), (111, 100, 0)),
+        ("Superoxide dismutase", "Cα, Cβ",
+         (111, 101, 0), (112, 104, 0), (112, 103, 0)),
+        ("Calmodulin/M13", "Cα, C′",
+         (97, 37, 0), (144, 142, 0), (136, 119, 0)),
+        ("Profilin", "Cα, Cβ",
+         (130, 132, 2), (132, 132, 0), (132, 123, 0)),
+        ("E. coli EmrE", "C′, Cα, Cβ",
+         (61, 35, 0), (70, 58, 0), (64, 50, 0)),
+        ("Human ubiquitin", "Cα, Cβ",
+         (72, 72, 0), (72, 72, 0), (72, 70, 0)),
+        ("Human ubiquitin", "Cα only",
+         (32, 9, 0), (58, 18, 0), (58, 9, 0)),
+        ("Z domain", "Cα, Cβ, Hα†",
+         (65, 65, 0), None, None),
+        ("Z domain", "Cα, Cβ‡",
+         (57, 34, 0), None, None),
+        ("Tir110", "C′, Cα, Cβ§",
+         (91, 80, 0), None, None),
+    ]
+
+    conditions = ["I", "III", "III"]
+    rows = []
+
+    for protein, shifts_used, *condition_values in data:
+        for condition, values in zip(conditions, condition_values):
+            assignments, reliable, errors = values if values is not None else (pd.NA,) * 3
+            rows.append({
+                "bmrb_id": None,  # Fill in IDs when available
+                "protein": protein,
+                "chemical_shifts_used": shifts_used,
+                "condition": condition,
+                "assignments": assignments,
+                "reliable_assignments": reliable,
+                "errors": errors,
+            })
+
+    mars_results = pd.DataFrame(rows)
+    mars_results[["assignments", "reliable_assignments", "errors"]] = (
+        mars_results[["assignments", "reliable_assignments", "errors"]].astype("Int64")
     )
     return (mars_results,)
 
 
 @app.cell
-def _():
-    # Compare the tables
-
-    # Conditions I, II, and III in the shift_results is just strategies
+def _(mars_results, snaps_results):
+    print('SNAPS')
+    print(snaps_results)
+    print('=========')
+    print('MARS')
+    print(mars_results)
     return
 
 
 @app.cell(hide_code=True)
-def _(mars_results, mo, shift_results):
+def _(m, mo):
     mo.md(rf"""
-    Very simple comparison for now
-
-    # SNAPS
-
-    {mo.md(shift_results.to_markdown(index=False))}
-
-    # MARS
-
-    {mo.md(mars_results.to_markdown(index=False))}
+    {mo.md(m.to_markdown(index=False))}
     """)
+    return
+
+
+@app.cell
+def _(mars_results, pd, snaps_results):
+    from scipy import stats
+    import numpy as np
+
+    num = ['assignments', 'reliable_assignments', 'errors']
+    snaps, mars = snaps_results.copy(), mars_results.copy()
+    for d in (snaps, mars):
+        d['key'] = d['protein'].str.strip().str.lower()
+        d[num] = d[num].apply(pd.to_numeric, errors='coerce')
+    mars = mars.dropna(subset=num)
+
+    # 1. check the name matching
+    print("Only in one table:", set(snaps.key) ^ set(mars.key))   # fix any near-misses by hand
+
+    # 2. one row per protein per tool (mean over runs; use .max() instead for 'best run')
+    def summarise(df, tool):
+        g = df.groupby('key').agg(protein=('protein', 'first'),
+                                  n_assign=('assignments', 'max'),
+                                  reliable=('reliable_assignments', 'mean'),
+                                  errors=('errors', 'mean'),
+                                  n_runs=('errors', 'size'))
+        g['correct'] = g['reliable'] - g['errors']
+        return g.add_suffix(f'_{tool}')
+
+    m = summarise(snaps, 'snaps').join(summarise(mars, 'mars'), how='inner')
+    m['N'] = m[['n_assign_snaps', 'n_assign_mars']].max(axis=1)
+
+    for t in ('snaps', 'mars'):
+        m[f'correct_frac_{t}'] = m[f'correct_{t}'] / m['N']
+        m[f'reliable_frac_{t}'] = m[f'reliable_{t}'] / m['N']
+        m[f'err_rate_{t}'] = m[f'errors_{t}'] / m[f'reliable_{t}']
+    m['diff'] = m['correct_frac_snaps'] - m['correct_frac_mars']   # >0 means SNAPS better
+
+    # 3. per protein: Fisher exact on correct vs not-correct (approximate, see caveat)
+    def fisher(r):
+        N = int(r.N); a, b = round(r.correct_snaps), round(r.correct_mars)
+        return stats.fisher_exact([[a, N - a], [b, N - b]])[1]
+    m['p_fisher'] = m.apply(fisher, axis=1)
+
+    print(m[['protein_snaps', 'N', 'correct_frac_snaps', 'correct_frac_mars',
+             'diff', 'err_rate_snaps', 'err_rate_mars', 'p_fisher']].round(3))
+
+    # 4. overall
+    d = m['diff']
+    print(f"\nn proteins = {len(d)}, mean diff = {d.mean():.3f}, median = {d.median():.3f}")
+    print("Wilcoxon signed-rank:", stats.wilcoxon(d))
+    print("Paired t-test:", stats.ttest_rel(m.correct_frac_snaps, m.correct_frac_mars))
+    boot = [d.sample(len(d), replace=True).mean() for _ in range(10000)]
+    print("Bootstrap 95% CI of mean diff:", np.percentile(boot, [2.5, 97.5]).round(3))
+
+    # pooled across all residues (weights big proteins more)
+    pooled = m[['correct_snaps', 'correct_mars', 'N']].sum()
+    print("Pooled correct fraction  SNAPS:", round(pooled.correct_snaps / pooled.N, 3),
+          " MARS:", round(pooled.correct_mars / pooled.N, 3))
+    return (m,)
+
+
+@app.cell
+def _(m):
+    def _():
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        c_snaps, c_mars = '#1f77b4', '#d95f02'
+        plot = m.sort_values('diff').reset_index()
+        y = np.arange(len(plot))
+        labels = plot['protein_snaps']
+
+        fig, axes = plt.subplots(1, 3, figsize=(18, max(5, 0.45 * len(plot) + 2)),
+                                 gridspec_kw={'width_ratios': [1.4, 1, 1.1]})
+
+        # --- A. dumbbell: correct fraction per protein ---
+        ax = axes[0]
+        ax.hlines(y, plot.correct_frac_mars, plot.correct_frac_snaps, color='grey', alpha=.5, zorder=1)
+        ax.scatter(plot.correct_frac_snaps, y, color=c_snaps, s=60, label='SNAPS', zorder=2)
+        ax.scatter(plot.correct_frac_mars, y, color=c_mars, s=60, label='MARS', zorder=2)
+        for yi, p in zip(y, plot.p_fisher):
+            star = '***' if p < .001 else '**' if p < .01 else '*' if p < .05 else ''
+            if star:
+                ax.text(1.02, yi, star, va='center', ha='left', fontsize=10)
+        ax.set_yticks(y); ax.set_yticklabels(labels)
+        ax.set_xlim(0, 1.08); ax.set_xlabel('Correct assignments / total residues')
+        ax.set_title('A. Correct fraction per protein\n(* = Fisher p<0.05, approximate)')
+        ax.legend(loc='lower right'); ax.grid(axis='x', alpha=.3)
+
+        # --- B. difference per protein with overall mean and bootstrap CI ---
+        ax = axes[1]
+        colors = [c_snaps if v > 0 else c_mars for v in plot['diff']]
+        ax.barh(y, plot['diff'], color=colors, alpha=.85)
+        ax.axvline(0, color='k', lw=.8)
+        d = m['diff']
+        boot = np.array([d.sample(len(d), replace=True).mean() for _ in range(10000)])
+        lo, hi = np.percentile(boot, [2.5, 97.5])
+        ax.axvspan(lo, hi, color='grey', alpha=.2, label=f'Bootstrap 95% CI of mean\n({lo:.2f} to {hi:.2f})')
+        ax.axvline(d.mean(), color='k', ls='--', label=f'Mean diff = {d.mean():.2f}')
+        ax.set_yticks(y); ax.set_yticklabels([])
+        ax.set_xlabel('SNAPS − MARS (correct fraction)')
+        ax.set_title('B. Difference (>0: SNAPS better)')
+        ax.legend(loc='lower right', fontsize=8); ax.grid(axis='x', alpha=.3)
+
+        # --- C. completeness vs error-rate trade-off ---
+        ax = axes[2]
+        for t, col, lab in (('snaps', c_snaps, 'SNAPS'), ('mars', c_mars, 'MARS')):
+            ax.scatter(m[f'reliable_frac_{t}'], m[f'err_rate_{t}'], color=col, s=60, alpha=.85, label=lab)
+        for k in m.index:
+            ax.plot([m.loc[k, 'reliable_frac_snaps'], m.loc[k, 'reliable_frac_mars']],
+                    [m.loc[k, 'err_rate_snaps'], m.loc[k, 'err_rate_mars']], color='grey', alpha=.3, zorder=0)
+        ax.set_xlabel('Reliable assignments / total residues')
+        ax.set_ylabel('Errors / reliable assignments')
+        ax.set_title('C. Completeness vs error rate\n(lower right is best)')
+        ax.legend(); ax.grid(alpha=.3)
+
+        plt.tight_layout()
+        return plt.show()
+
+
+    _()
     return
 
 
