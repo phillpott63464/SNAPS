@@ -246,11 +246,12 @@ def _(
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     strategies = ['triplet', 'direct', 'iterative']
+    file_types = ['nef', 'txt']
 
     for bmrb_id in BMRB_IDS:
         if all(
-            (OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.nef').exists()
-            for strategy in strategies
+            (OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.{file_type}').exists()
+            for strategy in strategies for file_type in file_types
         ):
             continue
 
@@ -259,22 +260,23 @@ def _(
         base_overrides = {
             'obs_file': DATA_DIR / f'{bmrb_id}.nef',
             'pred_file': DATA_DIR / f'{bmrb_id}-shiftx2.nef:shiftx2',
-            'output_type': 'nef',
             'sequence_file': DATA_DIR / f'{bmrb_id}.fasta',
         }
 
         for strategy in strategies:
-            if (OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.nef').exists():
-                continue
+            for file_type in file_types:
+                if (OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.{file_type}').exists():
+                    continue
 
-            config = build_config(
-                cli_overrides = {
-                    'strategy': strategy,
-                    **({'SS_num': True} if strategy == 'triplet' else {}),
-                    'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.nef',
-                    **base_overrides
-                }
-            )
+                config = build_config(
+                    cli_overrides = {
+                        'strategy': strategy,
+                        **({'SS_num': True} if strategy == 'triplet' else {}),
+                        **({'output_type': 'nef'} if file_type == 'nef' else {'output_type': 'snaps'}),
+                        'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.{file_type}',
+                        **base_overrides
+                    }
+                )
 
             run_pipeline(config)
     return
@@ -317,6 +319,102 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
     # readers
     # --------------------------------------------------------------------------- #
     def read_test_result(path: Path) -> pd.DataFrame:
+        if path.suffix == '.nef':
+            return read_test_result_nef(path)
+        else:
+            return read_test_result_snaps(path)
+
+    def read_test_result_snaps(path: Path) -> pd.DataFrame:
+        """Parse the assignment table printed by SNAPS text output."""
+        lines = Path(path).read_text().splitlines()
+
+        required = {
+            "Res_name",
+            "Res_N",
+            "SS_name",
+            "Log_prob",
+            "Confidence",
+        }
+        header_index = None
+        headings = None
+
+        for i, line in enumerate(lines):
+            fields = shlex.split(line.strip())
+            if required.issubset(fields):
+                header_index = i
+                headings = fields
+                break
+
+        if header_index is None:
+            raise ValueError(f"No SNAPS assignment table found in {path}")
+
+        rows = []
+        for line in lines[header_index + 1 :]:
+            s = line.strip()
+            if not s:
+                continue
+
+            fields = shlex.split(s)
+            if len(fields) != len(headings):
+                # The table has ended; following lines are status output.
+                if rows:
+                    break
+                continue
+
+            rows.append(fields)
+
+        if not rows:
+            raise ValueError(f"No assignment rows found in {path}")
+
+        df = pd.DataFrame(rows, columns=headings)
+
+        numeric_columns = [
+            "Res_N",
+            "Log_prob",
+            "Max_mismatch_m1",
+            "Max_mismatch_p1",
+            "Max_mismatch",
+            "Num_good_links_m1",
+            "Num_good_links_p1",
+            "Num_good_links",
+        ]
+        for column in numeric_columns:
+            if column in df.columns:
+                df[column] = pd.to_numeric(df[column], errors="coerce")
+
+        for column in ("Dummy_res", "Dummy_SS"):
+            if column in df.columns:
+                df[column] = df[column].str.lower().map(
+                    {"true": True, "false": False}
+                )
+
+        # In the SNAPS table, SS_name is the spin-system label and Res_N
+        # is the assigned residue number.
+        df["spin_system"] = df["SS_name"]
+        df["residue_number"] = df["Res_N"]
+
+        AA3 = {
+        "A": "ALA", "C": "CYS", "D": "ASP", "E": "GLU",
+        "F": "PHE", "G": "GLY", "H": "HIS", "I": "ILE",
+        "K": "LYS", "L": "LEU", "M": "MET", "N": "ASN",
+        "P": "PRO", "Q": "GLN", "R": "ARG", "S": "SER",
+        "T": "THR", "V": "VAL", "W": "TRP", "Y": "TYR",
+    }
+
+        # After building df in read_test_result_snaps:
+        df["assigned"] = ~df["Dummy_res"]
+        df["chain_code"] = "A"  # SNAPS text output doesn't include the chain
+        df["residue_name"] = df["Res_type"].str.upper().map(AA3).fillna(df["Res_type"])
+        df["unassigned_sequence_code"] = df["SS_name"]
+        df["sequence_code"] = df["Res_N"]
+        df["spin_system"] = pd.to_numeric(
+            df["SS_name"].str.extract(r"^\s*(-?\d+)")[0], errors="coerce"
+        )
+        df["residue_number"] = pd.to_numeric(df["Res_N"], errors="coerce")
+
+        return df
+    
+    def read_test_result_nef(path: Path) -> pd.DataFrame:
         """Parse the _nefpls_assignments loop with a plain text parser.
 
         (The result file has no data_ header / sf_category, so pynmrstar can't be
@@ -424,9 +522,9 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
     # Configure the result-file locations for each condition.
     # Add II and III when those results are available.
     CONDITIONS = {
-        "I": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-direct.nef",
-        "II": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-iterative.nef",
-        "III": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-triplet.nef",
+        "I": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-direct.txt",
+        "II": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-iterative.txt",
+        "III": lambda bmrb_id: OUTPUT_DIR / f"{bmrb_id}-test-result-triplet.txt",
     }
 
 
@@ -437,9 +535,15 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
             & result["residue_name"].ne("PRO") # Remove prolines because MARS doesn't predict them (I am fairly certain)
         ].copy()
 
-        reliable = assigned.loc[
-            assigned["merit"].le(RELIABLE_MERIT)
-        ].copy()
+    
+        if "merit" in assigned.columns:
+            reliable = assigned.loc[assigned["merit"].le(RELIABLE_MERIT)].copy()
+        elif "Confidence" in assigned.columns:
+            reliable = assigned.loc[
+                assigned["Confidence"].isin(["High", "Medium"])
+            ].copy()
+        else:
+            raise ValueError("Result has neither merit nor Confidence")
 
         # Numeric labels are assumed to be original residue numbers,
         # matching the assumption in your existing comparison.
