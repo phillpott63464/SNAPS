@@ -217,15 +217,16 @@ def _(
                 DATA_DIR / f"{bmrb_id}-shiftx2.nef",
             )
 
-            with Path(DATA_DIR / f"{bmrb_id}.nef").open("rb") as nef_input:
-                subprocess.run(
-                    ["nef", "fasta", "export", "sequence", "--force"],
-                    stdin=nef_input,
-                    cwd=DATA_DIR,
-                    check=True,
-                )
+            if (DATA_DIR / f"{bmrb_id}.fasta").exists() == False:
+                with Path(DATA_DIR / f"{bmrb_id}.nef").open("rb") as nef_input:
+                    subprocess.run(
+                        ["nef", "fasta", "export", "sequence", "--force"],
+                        stdin=nef_input,
+                        cwd=DATA_DIR,
+                        check=True,
+                    )
 
-            shutil.copyfile(DATA_DIR / "nef.fasta", DATA_DIR / f"{bmrb_id}.fasta")
+                shutil.copyfile(DATA_DIR / "nef.fasta", DATA_DIR / f"{bmrb_id}.fasta")
 
         except (urllib.error.URLError, OSError, subprocess.CalledProcessError) as exc:
             print(f"Failed to process BMRB {bmrb_id}: {exc}", file=sys.stderr)
@@ -271,15 +272,17 @@ def _(
                 config = build_config(
                     cli_overrides = {
                         'strategy': strategy,
-                        **({'SS_num': True} if strategy == 'triplet' else {}),
+                        'SS_num': True,
                         **({'output_type': 'nef'} if file_type == 'nef' else {'output_type': 'snaps'}),
                         'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.{file_type}',
                         **base_overrides
                     }
                 )
 
-            run_pipeline(config)
-    return
+                run_pipeline(config)
+
+    stupid_var = True # Marimo problems - the analysis won't automatically run unless there's some direct in python link between the two blocks
+    return (stupid_var,)
 
 
 @app.cell(hide_code=True)
@@ -304,8 +307,11 @@ def _(mo, shift_results):
 
 
 @app.cell
-def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
+def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path, stupid_var):
     # Create our results
+
+    if stupid_var == True:
+        pass
 
     import shlex
 
@@ -413,7 +419,7 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
         df["residue_number"] = pd.to_numeric(df["Res_N"], errors="coerce")
 
         return df
-    
+
     def read_test_result_nef(path: Path) -> pd.DataFrame:
         """Parse the _nefpls_assignments loop with a plain text parser.
 
@@ -535,7 +541,7 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
             & result["residue_name"].ne("PRO") # Remove prolines because MARS doesn't predict them (I am fairly certain)
         ].copy()
 
-    
+
         if "merit" in assigned.columns:
             reliable = assigned.loc[assigned["merit"].le(RELIABLE_MERIT)].copy()
         elif "Confidence" in assigned.columns:
@@ -577,6 +583,11 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
             if evaluable.all()
             else "—"
         )
+
+    
+        reliable = assigned[assigned["Confidence"].isin(["High", "Medium"])]
+        wrong = reliable[reliable["spin_system"] != reliable["residue_number"]]
+        print(f"{len(wrong)} / {len(reliable)} reliable assignments are wrong")
 
         return f"{len(assigned)} / {len(reliable)} / {errors}"
 
