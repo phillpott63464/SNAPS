@@ -75,6 +75,8 @@ def _(DATA_DIR, Path, re, subprocess, sys, urllib):
     # Download functions
 
     def download(url: str, destination: Path) -> None:
+        if destination.exists():
+            return
         request = urllib.request.Request(url, headers={"User-Agent": "Python"})
         with urllib.request.urlopen(request) as response, destination.open("wb") as output:
             while chunk := response.read(1024 * 64):
@@ -250,12 +252,6 @@ def _(
     file_types = ['nef', 'txt']
 
     for bmrb_id in BMRB_IDS:
-        if all(
-            (OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.{file_type}').exists()
-            for strategy in strategies for file_type in file_types
-        ):
-            continue
-
         process_bmrb(bmrb_id)
 
         base_overrides = {
@@ -265,21 +261,20 @@ def _(
         }
 
         for strategy in strategies:
-            for file_type in file_types:
-                if (OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.{file_type}').exists():
+            if (OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.txt').exists():
                     continue
 
-                config = build_config(
-                    cli_overrides = {
-                        'strategy': strategy,
-                        'SS_num': True,
-                        **({'output_type': 'nef'} if file_type == 'nef' else {'output_type': 'snaps'}),
-                        'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.{file_type}',
-                        **base_overrides
-                    }
-                )
+            config = build_config(
+                cli_overrides = {
+                    'strategy': strategy,
+                    'SS_num': True,
+                    'output_type': 'snaps',
+                    'output_file': OUTPUT_DIR / f'{bmrb_id}-test-result-{strategy}.txt',
+                    **base_overrides
+                }
+            )
 
-                run_pipeline(config)
+            run_pipeline(config)
 
     stupid_var = True # Marimo problems - the analysis won't automatically run unless there's some direct in python link between the two blocks
     return (stupid_var,)
@@ -584,7 +579,7 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path, stupid_var):
             else "—"
         )
 
-    
+
         reliable = assigned[assigned["Confidence"].isin(["High", "Medium"])]
         wrong = reliable[reliable["spin_system"] != reliable["residue_number"]]
         print(f"{len(wrong)} / {len(reliable)} reliable assignments are wrong")
