@@ -40,16 +40,16 @@ def _(Path):
     BMRB_IDS = [5471, 4354, 4384, 4022, 4106, 4457, 4402, 4341, 547, 4082, 4136]
     BMRB_NAMES = {
         5471: "Malate synthase G",
-        4354: "Maltose-binding protein",
-        4384: "Rous sarcoma virus capsid protein",
-        4022: "Carbonic anhydrase I",
-        4106: "Enzyme I N-terminal domain",
-        4457: "E-cadherin",
+        4354: "Maltose binding protein",
+        4384: "Rous Sarcoma Virus capsid",
+        4022: "Human carbonic anhydrase I",
+        4106: "N-terminal domain of enzyme I (EIN)",
+        4457: "E-cadherin domains II and III",
         4402: "Human prion protein",
-        4341: "Iron superoxide dismutase",
-        547: "Calmodulin",
+        4341: "Superoxide dismutase",
+        547: "Calmodulin/M13",
         4082: "Profilin",
-        4136: "EmrE multidrug resistance protein",
+        4136: "E. coli EmrE",
     }
     DATA_DIR = Path(__file__).resolve().parent / "mars_test_set"
     OUTPUT_DIR = Path(__file__).resolve().parent / "mars_test_result"
