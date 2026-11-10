@@ -432,7 +432,9 @@ def _(BMRB_IDS, BMRB_NAMES, OUTPUT_DIR, Path):
 
     def assignment_counts(result, chain="A", label_to_residue=None):
         assigned = result.loc[
-            result["assigned"] & result["chain_code"].eq(chain)
+            result["assigned"] 
+            & result["chain_code"].eq(chain) 
+            & result["residue_name"].ne("PRO") # Remove prolines because MARS doesn't predict them (I am fairly certain)
         ].copy()
 
         reliable = assigned.loc[
