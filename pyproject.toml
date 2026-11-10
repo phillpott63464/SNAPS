@@ -56,6 +56,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "python"}
+py-modules = ["NEF_reader"]
 
 [tool.setuptools.packages.find]
 where = ["python"]
