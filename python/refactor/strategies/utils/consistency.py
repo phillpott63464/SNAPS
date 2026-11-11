@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from modules.assigner_functions import df_lookup
+from refactor.strategies.utils.misc import df_lookup
 
 
 def calc_mismatch_matrix(obs, threshold=0.2, logger=None):
