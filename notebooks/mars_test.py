@@ -720,6 +720,16 @@ def _(pd):
     return (mars_results,)
 
 
+@app.cell(hide_code=True)
+def _(mars_results, mo, snaps_results):
+    mo.md(rf"""
+    {mo.md(snaps_results.to_markdown(index=False))}
+
+    {mo.md(mars_results.to_markdown(index=False))}
+    """)
+    return
+
+
 @app.cell
 def _(mars_results, snaps_results):
     print('SNAPS')
@@ -740,75 +750,97 @@ def _(m, mo):
 
 @app.cell
 def _(mars_results, pd, snaps_results):
-    from scipy import stats
-    import numpy as np
+    def _():
+        from scipy import stats
+        import numpy as np
 
-    num = ['assignments', 'reliable_assignments', 'errors']
-    snaps, mars = snaps_results.copy(), mars_results.copy()
-    for d in (snaps, mars):
-        d['key'] = d['protein'].str.strip().str.lower()
-        d[num] = d[num].apply(pd.to_numeric, errors='coerce')
-    mars = mars.dropna(subset=num)
+        num = ['assignments', 'reliable_assignments', 'errors']
+        snaps, mars = snaps_results.copy(), mars_results.copy()
+        for d in (snaps, mars):
+            d['key'] = d['protein'].str.strip().str.lower()
+            d[num] = d[num].apply(pd.to_numeric, errors='coerce')
+        snaps['condition'] = snaps['condition'].astype(str).str.strip()
+        mars = mars.dropna(subset=num)
 
-    # 1. check the name matching
-    print("Only in one table:", set(snaps.key) ^ set(mars.key))   # fix any near-misses by hand
+        # 1. check the name matching
+        print("Only in one table:", set(snaps.key) ^ set(mars.key))
+        print("SNAPS conditions:", sorted(snaps.condition.unique()))
 
-    # 2. one row per protein per tool (mean over runs; use .max() instead for 'best run')
-    def summarise(df, tool):
-        g = df.groupby('key').agg(protein=('protein', 'first'),
-                                  n_assign=('assignments', 'max'),
-                                  reliable=('reliable_assignments', 'mean'),
-                                  errors=('errors', 'mean'),
-                                  n_runs=('errors', 'size'))
-        g['correct'] = g['reliable'] - g['errors']
-        return g.add_suffix(f'_{tool}')
+        # 2. one row per protein (per condition for SNAPS); mean over runs within that group
+        def summarise(df, tool, by):
+            g = df.groupby(by).agg(protein=('protein', 'first'),
+                                   n_assign=('assignments', 'max'),
+                                   reliable=('reliable_assignments', 'mean'),
+                                   errors=('errors', 'mean'),
+                                   n_runs=('errors', 'size'))
+            g['correct'] = g['reliable'] - g['errors']
+            return g.add_suffix(f'_{tool}')
 
-    m = summarise(snaps, 'snaps').join(summarise(mars, 'mars'), how='inner')
-    m['N'] = m[['n_assign_snaps', 'n_assign_mars']].max(axis=1)
+        s = summarise(snaps, 'snaps', ['key', 'condition']).reset_index(level='condition')
+        r = summarise(mars, 'mars', ['key'])
+        m = s.join(r, how='inner').reset_index()      # each SNAPS condition row paired with that protein's MARS row
+        m['N'] = m[['n_assign_snaps', 'n_assign_mars']].max(axis=1)
 
-    for t in ('snaps', 'mars'):
-        m[f'correct_frac_{t}'] = m[f'correct_{t}'] / m['N']
-        m[f'reliable_frac_{t}'] = m[f'reliable_{t}'] / m['N']
-        m[f'err_rate_{t}'] = m[f'errors_{t}'] / m[f'reliable_{t}']
-    m['diff'] = m['correct_frac_snaps'] - m['correct_frac_mars']   # >0 means SNAPS better
+        for t in ('snaps', 'mars'):
+            m[f'correct_frac_{t}'] = m[f'correct_{t}'] / m['N']
+            m[f'reliable_frac_{t}'] = m[f'reliable_{t}'] / m['N']
+            m[f'err_rate_{t}'] = m[f'errors_{t}'] / m[f'reliable_{t}']
+        m['diff'] = m['correct_frac_snaps'] - m['correct_frac_mars']   # >0 means SNAPS better
 
-    # 3. per protein: Fisher exact on correct vs not-correct (approximate, see caveat)
-    def fisher(r):
-        N = int(r.N); a, b = round(r.correct_snaps), round(r.correct_mars)
-        return stats.fisher_exact([[a, N - a], [b, N - b]])[1]
-    m['p_fisher'] = m.apply(fisher, axis=1)
+        # 3. per protein x condition: Fisher exact (approximate, see caveat)
+        def fisher(r):
+            N = int(r.N); a, b = round(r.correct_snaps), round(r.correct_mars)
+            return stats.fisher_exact([[a, N - a], [b, N - b]])[1]
+        m['p_fisher'] = m.apply(fisher, axis=1)
 
-    print(m[['protein_snaps', 'N', 'correct_frac_snaps', 'correct_frac_mars',
+        pd.set_option('display.max_rows', None)
+        print(m.sort_values(['condition', 'key'])[
+            ['condition', 'protein_snaps', 'N', 'correct_frac_snaps', 'correct_frac_mars',
              'diff', 'err_rate_snaps', 'err_rate_mars', 'p_fisher']].round(3))
 
-    # 4. overall
-    d = m['diff']
-    print(f"\nn proteins = {len(d)}, mean diff = {d.mean():.3f}, median = {d.median():.3f}")
-    print("Wilcoxon signed-rank:", stats.wilcoxon(d))
-    print("Paired t-test:", stats.ttest_rel(m.correct_frac_snaps, m.correct_frac_mars))
-    boot = [d.sample(len(d), replace=True).mean() for _ in range(10000)]
-    print("Bootstrap 95% CI of mean diff:", np.percentile(boot, [2.5, 97.5]).round(3))
+        # 4. overall, separately for each SNAPS condition vs MARS
+        rng = np.random.default_rng(0)
+        rows = []
+        for cond, g in m.groupby('condition'):
+            d = g['diff'].to_numpy()
+            boot = rng.choice(d, size=(10000, len(d)), replace=True).mean(axis=1)
+            lo, hi = np.percentile(boot, [2.5, 97.5])
+            try:
+                p_w = stats.wilcoxon(d).pvalue
+            except ValueError:                      # all differences zero
+                p_w = np.nan
+            p_t = stats.ttest_rel(g.correct_frac_snaps, g.correct_frac_mars).pvalue
+            pooled_s = g.correct_snaps.sum() / g.N.sum()
+            pooled_m = g.correct_mars.sum() / g.N.sum()
+            rows.append(dict(condition=cond, n_proteins=len(d), mean_diff=d.mean(),
+                             median_diff=np.median(d), ci_lo=lo, ci_hi=hi,
+                             p_wilcoxon=p_w, p_ttest=p_t,
+                             pooled_snaps=pooled_s, pooled_mars=pooled_m))
+        summary = pd.DataFrame(rows).set_index('condition')
+        print(summary.round(3))
+        return m
 
-    # pooled across all residues (weights big proteins more)
-    pooled = m[['correct_snaps', 'correct_mars', 'N']].sum()
-    print("Pooled correct fraction  SNAPS:", round(pooled.correct_snaps / pooled.N, 3),
-          " MARS:", round(pooled.correct_mars / pooled.N, 3))
+
+    m = _()
     return (m,)
 
 
 @app.cell
 def _(m):
-    def _():
-        import matplotlib.pyplot as plt
-        import numpy as np
+    import matplotlib.pyplot as plt
+    import numpy as np
 
-        c_snaps, c_mars = '#1f77b4', '#d95f02'
-        plot = m.sort_values('diff').reset_index()
+    c_snaps, c_mars = '#1f77b4', '#d95f02'
+    rng = np.random.default_rng(0)
+
+    def plot_condition(cond, xlim_diff=None):
+        plot = m[m['condition'] == cond].sort_values('diff').reset_index(drop=True)
         y = np.arange(len(plot))
         labels = plot['protein_snaps']
 
         fig, axes = plt.subplots(1, 3, figsize=(18, max(5, 0.45 * len(plot) + 2)),
                                  gridspec_kw={'width_ratios': [1.4, 1, 1.1]})
+        fig.suptitle(f'SNAPS condition: {cond}  vs  MARS', fontsize=14, y=1.02)
 
         # --- A. dumbbell: correct fraction per protein ---
         ax = axes[0]
@@ -829,11 +861,14 @@ def _(m):
         colors = [c_snaps if v > 0 else c_mars for v in plot['diff']]
         ax.barh(y, plot['diff'], color=colors, alpha=.85)
         ax.axvline(0, color='k', lw=.8)
-        d = m['diff']
-        boot = np.array([d.sample(len(d), replace=True).mean() for _ in range(10000)])
+        d = plot['diff'].to_numpy()
+        boot = rng.choice(d, size=(10000, len(d)), replace=True).mean(axis=1)
         lo, hi = np.percentile(boot, [2.5, 97.5])
-        ax.axvspan(lo, hi, color='grey', alpha=.2, label=f'Bootstrap 95% CI of mean\n({lo:.2f} to {hi:.2f})')
+        ax.axvspan(lo, hi, color='grey', alpha=.2,
+                   label=f'Bootstrap 95% CI of mean\n({lo:.2f} to {hi:.2f})')
         ax.axvline(d.mean(), color='k', ls='--', label=f'Mean diff = {d.mean():.2f}')
+        if xlim_diff is not None:
+            ax.set_xlim(*xlim_diff)
         ax.set_yticks(y); ax.set_yticklabels([])
         ax.set_xlabel('SNAPS − MARS (correct fraction)')
         ax.set_title('B. Difference (>0: SNAPS better)')
@@ -842,20 +877,23 @@ def _(m):
         # --- C. completeness vs error-rate trade-off ---
         ax = axes[2]
         for t, col, lab in (('snaps', c_snaps, 'SNAPS'), ('mars', c_mars, 'MARS')):
-            ax.scatter(m[f'reliable_frac_{t}'], m[f'err_rate_{t}'], color=col, s=60, alpha=.85, label=lab)
-        for k in m.index:
-            ax.plot([m.loc[k, 'reliable_frac_snaps'], m.loc[k, 'reliable_frac_mars']],
-                    [m.loc[k, 'err_rate_snaps'], m.loc[k, 'err_rate_mars']], color='grey', alpha=.3, zorder=0)
+            ax.scatter(plot[f'reliable_frac_{t}'], plot[f'err_rate_{t}'],
+                       color=col, s=60, alpha=.85, label=lab)
+        for _, row in plot.iterrows():
+            ax.plot([row.reliable_frac_snaps, row.reliable_frac_mars],
+                    [row.err_rate_snaps, row.err_rate_mars], color='grey', alpha=.3, zorder=0)
         ax.set_xlabel('Reliable assignments / total residues')
         ax.set_ylabel('Errors / reliable assignments')
         ax.set_title('C. Completeness vs error rate\n(lower right is best)')
         ax.legend(); ax.grid(alpha=.3)
 
         plt.tight_layout()
-        return plt.show()
+        plt.show()
 
-
-    _()
+    # same x-range on panel B in every figure so the conditions are directly comparable
+    lim = np.abs(m['diff']).max() * 1.1
+    for cond in sorted(m['condition'].unique()):
+        plot_condition(cond, xlim_diff=(-lim, lim))
     return
 
 
