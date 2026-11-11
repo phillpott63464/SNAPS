@@ -157,10 +157,64 @@ def _(comparison, mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo, plots):
+    mo.md(rf"""
+    ## 4. Figures
+
+    Positive differences mean that SNAPS has a higher correct-assignment fraction.
+
+    ### 4.1 Direct Strategy
+    {mo.as_html(plots[0])}
+
+    ### 4.2 Iterative Strategy
+    {mo.as_html(plots[1])}
+
+    ### 4.3 Triplet Strategy
+    {mo.as_html(plots[2])}
+    """)
+    return
+
+
 @app.cell
-def _(comparison, mo, plot_comparisons):
-    mo.md("## 4. Figures\n\nPositive differences mean that SNAPS has a higher correct-assignment fraction.")
-    plot_comparisons(comparison)
+def _(comparison, plot_comparisons):
+    plots = plot_comparisons(comparison)
+    return (plots,)
+
+
+@app.cell
+def _(
+    BMRB_IDS,
+    BMRB_NAMES,
+    OUTPUT_DIR,
+    STRATEGIES,
+    assignment_table,
+    compare_results,
+    mars_results,
+    plot_comparisons,
+):
+    snaps_results_high_med = assignment_table(BMRB_IDS, STRATEGIES, BMRB_NAMES, OUTPUT_DIR, good_confidences=['High', 'Medium'])
+    comparison_high_med = compare_results(snaps_results_high_med, mars_results)
+    plots_high_med = plot_comparisons(comparison_high_med)
+    return (plots_high_med,)
+
+
+@app.cell(hide_code=True)
+def _(mo, plots_high_med):
+    mo.md(rf"""
+    ## 5 Including High and Medium confidence results
+
+    Slightly higher scores, but much higher error rates
+
+    ### 5.1 Direct Strategy
+    {mo.as_html(plots_high_med[0])}
+
+    ### 5.2 Iterative Strategy
+    {mo.as_html(plots_high_med[1])}
+
+    ### 5.3 Triplet Strategy
+    {mo.as_html(plots_high_med[2])}
+    """)
     return
 
 

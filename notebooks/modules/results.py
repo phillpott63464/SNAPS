@@ -82,12 +82,12 @@ def read_test_result_nef(path: Path) -> pd.DataFrame:
     return result
 
 
-def assignment_counts(result: pd.DataFrame, chain: str = "A", label_to_residue=None) -> dict:
+def assignment_counts(result: pd.DataFrame, chain: str = "A", label_to_residue=None, good_confidences: list[str] = ["High"]) -> dict:
     assigned = result.loc[result["assigned"] & result["chain_code"].eq(chain) & result["residue_name"].ne("PRO")].copy()
     if "merit" in assigned:
         reliable = assigned.loc[assigned["merit"].le(RELIABLE_MERIT)]
     elif "Confidence" in assigned:
-        reliable = assigned.loc[assigned["Confidence"].isin(["High", "Medium"])]
+        reliable = assigned.loc[assigned["Confidence"].isin(good_confidences)]
     else:
         raise ValueError("Result has neither merit nor Confidence")
     reference = reliable["spin_system"].copy()
@@ -101,12 +101,12 @@ def assignment_counts(result: pd.DataFrame, chain: str = "A", label_to_residue=N
     return {"assignments": int(len(assigned)), "reliable_assignments": int(len(reliable)), "errors": errors}
 
 
-def assignment_table(bmrb_ids, strategies, protein_names, output_dir: Path) -> pd.DataFrame:
+def assignment_table(bmrb_ids, strategies, protein_names, output_dir: Path, good_confidences: list[str] = ["High"]) -> pd.DataFrame:
     rows = []
     for bmrb_id in bmrb_ids:
         for condition, filename in strategies.items():
             path = output_dir / filename.format(bmrb_id=bmrb_id)
-            counts = assignment_counts(read_test_result(path)) if path.is_file() else {
+            counts = assignment_counts(read_test_result(path), good_confidences=good_confidences) if path.is_file() else {
                 "assignments": float("nan"), "reliable_assignments": float("nan"), "errors": float("nan")}
             rows.append(
                 {

@@ -47,6 +47,7 @@ def plot_comparisons(compared: pd.DataFrame) -> None:
     colors = {"snaps": "#1f77b4", "mars": "#d95f02"}
     limit = np.abs(compared["diff"]).max() * 1.1
     rng = np.random.default_rng(0)
+    plots = []
     for condition in sorted(compared["condition"].unique()):
         plot = compared[compared["condition"] == condition].sort_values("diff").reset_index(drop=True)
         y = np.arange(len(plot))
@@ -86,4 +87,5 @@ def plot_comparisons(compared: pd.DataFrame) -> None:
                title="C. Completeness vs error rate\n(lower right is best)")
         ax.legend(); ax.grid(alpha=.3)
         plt.tight_layout()
-        plt.show()
+        plots.append(fig)
+    return plots
