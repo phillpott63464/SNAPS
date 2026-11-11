@@ -2,7 +2,7 @@
 
 ## Modified version 
 
-Refactored version of SNAPS (see forked from). Install with `uv tool install 'git+https://github.com/phillpott63464/SNAPS'`, upgrade with `uv tool upgrade snaps`, and run with `snaps`
+Refactored version of SNAPS. Install with `uv tool install 'git+https://github.com/phillpott63464/SNAPS'`, upgrade with `uv tool upgrade snaps`, and run with `snaps`. Or run with `uv run snaps` from repo root.
 
 Usage:
 
@@ -14,6 +14,9 @@ Usage:
 
 `snaps [filename].nef [filename].cs2 output.nef --sequence_file [filename].fasta --strategy iterative` - overrides specific values.
 
+### Notebooks
+
+Marimo notebooks in the notebooks folder for plot and data displays. Run with `uv run marimo run notebooks` from root, or edit with `uv run marimo edit notebooks`.
 
 # Original Description:
 
