@@ -36,7 +36,7 @@ def _():
 
 @app.cell
 def _(Path):
-    BMRB_IDS = [5471, 4354, 4384, 4022, 4106, 4457, 4402, 4341, 547, 4082, 4136]
+    BMRB_IDS = [5471, 4354, 4384, 4022, 4106, 4457, 4402, 4341, 547, 4082, 4136, 5387]
     BMRB_NAMES = {
         5471: "Malate synthase G",
         4354: "Maltose binding protein",
