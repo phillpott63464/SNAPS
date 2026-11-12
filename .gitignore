@@ -12,3 +12,6 @@
 /.idea/inspectionProfiles/Project_Default.xml
 /.idea/modules.xml
 /.idea/inspectionProfiles/profiles_settings.xml
+/notebooks/mars_test_*
+*__marimo__*
+notebooks/layouts
