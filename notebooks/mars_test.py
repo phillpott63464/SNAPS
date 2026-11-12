@@ -82,6 +82,7 @@ def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, mo, run_test_set):
 def _(
     BMRB_IDS,
     BMRB_NAMES,
+    DATA_DIR,
     OUTPUT_DIR,
     STRATEGIES,
     assignment_table,
@@ -89,7 +90,7 @@ def _(
 ):
     if not test_set_ready:
         raise RuntimeError("The test set was not prepared")
-    snaps_results = assignment_table(BMRB_IDS, STRATEGIES, BMRB_NAMES, OUTPUT_DIR)
+    snaps_results = assignment_table(BMRB_IDS, STRATEGIES, BMRB_NAMES, DATA_DIR, OUTPUT_DIR)
     return (snaps_results,)
 
 
@@ -186,6 +187,7 @@ def _(comparison, plot_comparisons):
 def _(
     BMRB_IDS,
     BMRB_NAMES,
+    DATA_DIR,
     OUTPUT_DIR,
     STRATEGIES,
     assignment_table,
@@ -193,7 +195,7 @@ def _(
     mars_results,
     plot_comparisons,
 ):
-    snaps_results_high_med = assignment_table(BMRB_IDS, STRATEGIES, BMRB_NAMES, OUTPUT_DIR, good_confidences=['High', 'Medium'])
+    snaps_results_high_med = assignment_table(BMRB_IDS, STRATEGIES, BMRB_NAMES, DATA_DIR, OUTPUT_DIR, good_confidences=['High', 'Medium'])
     comparison_high_med = compare_results(snaps_results_high_med, mars_results)
     plots_high_med = plot_comparisons(comparison_high_med)
     return (plots_high_med,)
