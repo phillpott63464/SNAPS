@@ -44,7 +44,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install SNAPS from source
-        run: uv sync --locked
+        run: uv sync
 
       - name: Run SNAPS tests
         run: uv run pytest -v
