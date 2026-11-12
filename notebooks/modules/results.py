@@ -194,7 +194,7 @@ def assignment_counts(
     assigned = result.loc[
         result["assigned"]
         & result["chain_code"].eq(chain)
-        # & result["residue_name"].ne("PRO")
+        & result["residue_name"].ne("PRO")
     ].copy()
 
     if "merit" in assigned:
