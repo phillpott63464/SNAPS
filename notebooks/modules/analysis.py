@@ -16,6 +16,13 @@ def compare_results(snaps_results: pd.DataFrame, mars_results: pd.DataFrame) -> 
         frame["key"] = frame["protein"].str.strip().str.lower()
         frame[numeric] = frame[numeric].apply(pd.to_numeric, errors="coerce")
     snaps["condition"] = snaps["condition"].astype(str).str.strip()
+    mars["condition"] = mars["condition"].astype(str).str.strip()
+    # discard every condition but condition II
+    mars = mars[mars["condition"] == "II"].dropna(subset=numeric)
+    mars = (
+        mars.sort_values("reliable_assignments", ascending=False)
+        .drop_duplicates(subset="key", keep="first")
+    )
     mars = mars.dropna(subset=numeric)
 
     def summarise(frame, tool, by):
