@@ -49,13 +49,14 @@ def _(Path):
         547: "Calmodulin/M13",
         4082: "Profilin",
         4136: "E. coli EmrE",
+        5387: "Human ubiquitin",
     }
     DATA_DIR = Path(__file__).resolve().parent / "mars_test_set"
     OUTPUT_DIR = Path(__file__).resolve().parent / "mars_test_result"
     STRATEGIES = {
-        "I": "{bmrb_id}-test-result-direct.txt",
-        "II": "{bmrb_id}-test-result-iterative.txt",
-        "III": "{bmrb_id}-test-result-triplet.txt",
+        "direct": "{bmrb_id}-test-result-direct.txt",
+        "iterative": "{bmrb_id}-test-result-iterative.txt",
+        "triplet": "{bmrb_id}-test-result-triplet.txt",
     }
     return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR, STRATEGIES
 
