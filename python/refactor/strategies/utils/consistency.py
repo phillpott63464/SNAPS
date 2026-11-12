@@ -29,10 +29,9 @@ def calc_mismatch_matrix(obs, threshold=0.2, logger=None):
         mismatch_atom.columns.name = "i"
         mismatch_atom.index.name = "i_m1"
 
-        consistent_links_atom = abs(mismatch_atom) < threshold
         na_mask = mismatch_atom.isna()
         mismatch_atom = mismatch_atom.mask(na_mask, 0)
-        consistent_links_atom = consistent_links_atom.mask(na_mask, 0).infer_objects()
+        consistent_links_atom = (abs(mismatch_atom) < threshold).astype("int8")
         mismatch_matrix = mismatch_matrix.combine(abs(mismatch_atom), np.maximum)
         consistent_links_matrix = consistent_links_matrix + consistent_links_atom
 
