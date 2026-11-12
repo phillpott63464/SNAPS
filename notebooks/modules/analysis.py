@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from scipy import stats
+from collections import Counter
+import matplotlib.pyplot as plt
 
 
 def compare_results(snaps_results: pd.DataFrame, mars_results: pd.DataFrame) -> pd.DataFrame:
@@ -89,3 +91,110 @@ def plot_comparisons(compared: pd.DataFrame) -> None:
         plt.tight_layout()
         plots.append(fig)
     return plots
+
+def analyse_mismatches(mismatches):
+    amino_acids = [
+        "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY",
+        "HIS", "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER",
+        "THR", "TRP", "TYR", "VAL",
+    ]
+    amino_acid_set = set(amino_acids)
+    figures = []
+
+    def plot_counts(ax, counts, title, *, limit=20, sort_by_value=True):
+        if not counts:
+            ax.set_title(title)
+            ax.text(0.5, 0.5, "No data", ha="center", va="center",
+                    transform=ax.transAxes)
+            return
+
+        items = list(counts.items())
+        if sort_by_value:
+            items.sort(key=lambda item: item[1], reverse=True)
+        else:
+            items.sort(key=lambda item: item[0])
+
+        items = items[:limit]
+        labels, values = zip(*items)
+        labels = [str(label) for label in labels]
+
+        ax.bar(labels, values, color="#4C78A8")
+        ax.set_title(title)
+        ax.set_ylabel("Count")
+        ax.tick_params(axis="x", labelrotation=45)
+        ax.grid(axis="y", alpha=0.25)
+        ax.set_axisbelow(True)
+
+    for condition_name, proteins in mismatches.items():
+        err_residue = Counter()
+        real_residue = Counter()
+        real_err_res_pair = Counter()
+        res_number = Counter()
+        reference_number = Counter()
+        distance_gap = Counter()
+
+        for df in proteins.values():
+            err_residue.update(
+                name for name in df["residue_name"].dropna()
+                if name in amino_acid_set
+            )
+            real_residue.update(
+                name for name in df["reference_residue_name"].dropna()
+                if name in amino_acid_set
+            )
+
+            for residue, reference in zip(
+                df["residue_name"], df["reference_residue_name"]
+            ):
+                if residue in amino_acid_set and reference in amino_acid_set:
+                    real_err_res_pair[(residue, reference)] += 1
+
+            res_number.update(df["residue_number"].dropna())
+            reference_number.update(df["reference_number"].dropna())
+
+            numbers = df[["residue_number", "reference_number"]].dropna()
+            distance_gap.update(
+                residue - reference
+                for residue, reference in zip(
+                    numbers["residue_number"], numbers["reference_number"]
+                )
+            )
+
+        fig, axes = plt.subplots(2, 3, figsize=(17, 10))
+        fig.suptitle(f"Mismatch analysis: {condition_name}", fontsize=16)
+
+        plot_counts(axes[0, 0], err_residue, "Mismatch residue")
+        plot_counts(axes[0, 1], real_residue, "Reference residue")
+
+        pair_matrix = np.zeros((len(amino_acids), len(amino_acids)))
+        aa_index = {aa: i for i, aa in enumerate(amino_acids)}
+        for (residue, reference), count in real_err_res_pair.items():
+            pair_matrix[aa_index[residue], aa_index[reference]] = count
+
+        image = axes[0, 2].imshow(pair_matrix, cmap="Blues", aspect="auto")
+        axes[0, 2].set_title("Mismatch vs. reference residue")
+        axes[0, 2].set_xlabel("Reference residue")
+        axes[0, 2].set_ylabel("Mismatch residue")
+        axes[0, 2].set_xticks(range(len(amino_acids)), amino_acids,
+                               rotation=90, fontsize=7)
+        axes[0, 2].set_yticks(range(len(amino_acids)), amino_acids,
+                               fontsize=7)
+        fig.colorbar(image, ax=axes[0, 2], label="Count")
+
+        plot_counts(
+            axes[1, 0], res_number, "Residue number (top 20)",
+            limit=20, sort_by_value=True,
+        )
+        plot_counts(
+            axes[1, 1], reference_number, "Reference number (top 20)",
+            limit=20, sort_by_value=True,
+        )
+        plot_counts(
+            axes[1, 2], distance_gap, "Residue − reference number gap",
+            limit=25, sort_by_value=False,
+        )
+
+        fig.tight_layout(rect=(0, 0, 1, 0.96))
+        figures.append(fig)
+
+    return figures

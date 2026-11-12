@@ -17,12 +17,14 @@ def _():
     import pandas as pd
     from pathlib import Path
 
-    from modules.analysis import compare_results, plot_comparisons
+    from modules.analysis import compare_results, plot_comparisons, analyse_mismatches
     from modules.bmrb import run_test_set
     from modules.results import assignment_table, all_mismatches
+    # from modules.pdb import colour_mars_set
     return (
         Path,
         all_mismatches,
+        analyse_mismatches,
         assignment_table,
         compare_results,
         mo,
@@ -270,6 +272,32 @@ def _(BMRB_NAMES, mismatches, mo):
     return
 
 
+@app.cell
+def _(analyse_mismatches, mismatches):
+    mismatch_figs = analyse_mismatches(mismatches)
+    return (mismatch_figs,)
+
+
+@app.cell(hide_code=True)
+def _(mismatch_figs, mo):
+    mo.md(rf"""
+    ## 6 Mismatch Figures
+
+    ### 6.1 Direct Strategy
+    {mo.as_html(mismatch_figs[0])}
+
+    ### 6.2 Iterative Strategy
+    {mo.as_html(mismatch_figs[1])}
+
+    ### 6.3 Triplet Strategy
+    {mo.as_html(mismatch_figs[2])}
+    """)
+    return
+
+
+@app.cell
+def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, colour_mars_set):
+    colour_mars_set(BMRB_IDS, DATA_DIR, OUTPUT_DIR)
     return
 
 
