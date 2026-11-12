@@ -194,7 +194,7 @@ def assignment_counts(
     assigned = result.loc[
         result["assigned"]
         & result["chain_code"].eq(chain)
-        & result["residue_name"].ne("PRO")
+        # & result["residue_name"].ne("PRO")
     ].copy()
 
     if "merit" in assigned:
@@ -250,12 +250,14 @@ def calculate_residue_mismatches(
     reference_file: Path,
     chain: str = "A",
     flank: int = 0,
+    good_confidences = ['High'],
 ) -> pd.DataFrame:
     """Return assignment errors and nearby residues as a DataFrame."""
     result = read_test_result(result_path)
     assigned = result.loc[
         result["assigned"] & result["chain_code"].eq(chain)
     ].copy()
+    assigned = assigned[assigned["Confidence"].isin(good_confidences)]
 
     columns = [
         "residue_number",
@@ -331,10 +333,12 @@ def calculate_residue_mismatches(
 
 def all_mismatches(bmrb_ids, strategies, data_dir: Path, output_dir: Path) -> pd.DataFrame:
     output = {}
-    for bmrb_id in bmrb_ids:
-        for condition, filename in strategies.items():
+
+    for condition, filename in strategies.items():
+        output[condition] = {}
+        for bmrb_id in bmrb_ids:
             result_path = output_dir / filename.format(bmrb_id=bmrb_id)
             reference_path = data_dir / f'{bmrb_id}.nef'
-            output[bmrb_id] = calculate_residue_mismatches(result_path, reference_path)
+            output[condition][bmrb_id] = calculate_residue_mismatches(result_path, reference_path)
 
     return output

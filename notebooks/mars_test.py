@@ -222,29 +222,54 @@ def _(mo, plots_high_med):
 
 @app.cell
 def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, STRATEGIES, all_mismatches):
-    print(all_mismatches(BMRB_IDS, STRATEGIES, DATA_DIR, OUTPUT_DIR))
-    return
-
-
-@app.cell
-def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, STRATEGIES, all_mismatches):
     mismatches = all_mismatches(BMRB_IDS, STRATEGIES, DATA_DIR, OUTPUT_DIR)
     return (mismatches,)
 
 
 @app.cell
-def _(mismatches, mo):
-    mo.vstack(
-        [
-            mo.vstack(
-                [
-                    mo.md(f"### BMRB {bmrb_id} · {len(df)} rows"),
-                    mo.ui.table(df),
-                ]
+def _(BMRB_NAMES, mismatches, mo):
+    def _():
+        condition_blocks = []
+
+        for condition, protein_results in mismatches.items():
+            no_error_proteins = []
+            protein_tables = []
+
+            for bmrb_id, df in protein_results.items():
+                protein = BMRB_NAMES[bmrb_id]
+
+                if df.empty:
+                    no_error_proteins.append(protein)
+                else:
+                    protein_tables.extend(
+                        [
+                            mo.md(f"#### {protein} · {len(df)} rows"),
+                            mo.ui.table(df),
+                        ]
+                    )
+
+            content = []
+            if no_error_proteins:
+                names = ", ".join(no_error_proteins)
+                content.append(mo.md(f"**{names} had no errors.**"))
+
+            content.extend(protein_tables)
+
+            condition_blocks.append(
+                mo.vstack(
+                    [
+                        mo.md(f"## {condition}"),
+                        mo.vstack(content) if content else mo.md("No results."),
+                    ]
+                )
             )
-            for bmrb_id, df in mismatches.items()
-        ]
-    )
+        return mo.vstack(condition_blocks)
+
+
+    _()
+    return
+
+
     return
 
 
