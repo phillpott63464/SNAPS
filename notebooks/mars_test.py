@@ -19,10 +19,10 @@ def _():
 
     from modules.analysis import compare_results, plot_comparisons
     from modules.bmrb import run_test_set
-    from modules.results import assignment_table
-
+    from modules.results import assignment_table, all_mismatches
     return (
         Path,
+        all_mismatches,
         assignment_table,
         compare_results,
         mo,
@@ -217,6 +217,34 @@ def _(mo, plots_high_med):
     ### 5.3 Triplet Strategy
     {mo.as_html(plots_high_med[2])}
     """)
+    return
+
+
+@app.cell
+def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, STRATEGIES, all_mismatches):
+    print(all_mismatches(BMRB_IDS, STRATEGIES, DATA_DIR, OUTPUT_DIR))
+    return
+
+
+@app.cell
+def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, STRATEGIES, all_mismatches):
+    mismatches = all_mismatches(BMRB_IDS, STRATEGIES, DATA_DIR, OUTPUT_DIR)
+    return (mismatches,)
+
+
+@app.cell
+def _(mismatches, mo):
+    mo.vstack(
+        [
+            mo.vstack(
+                [
+                    mo.md(f"### BMRB {bmrb_id} · {len(df)} rows"),
+                    mo.ui.table(df),
+                ]
+            )
+            for bmrb_id, df in mismatches.items()
+        ]
+    )
     return
 
 

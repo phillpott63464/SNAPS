@@ -244,3 +244,97 @@ def assignment_table(bmrb_ids, strategies, protein_names, data_dir: Path, output
     result = pd.DataFrame(rows)
     result[["assignments", "reliable_assignments"]] = result[["assignments", "reliable_assignments"]].astype("Int64")
     return result
+
+def calculate_residue_mismatches(
+    result_path: Path,
+    reference_file: Path,
+    chain: str = "A",
+    flank: int = 0,
+) -> pd.DataFrame:
+    """Return assignment errors and nearby residues as a DataFrame."""
+    result = read_test_result(result_path)
+    assigned = result.loc[
+        result["assigned"] & result["chain_code"].eq(chain)
+    ].copy()
+
+    columns = [
+        "residue_number",
+        "residue_name",
+        "reference_number",
+        "reference_residue_name",
+        "is_error",
+    ]
+
+    if assigned.empty:
+        return pd.DataFrame(columns=columns)
+
+    reference = read_reference_assignment(reference_file)
+    assigned["reference_sequence_code"] = assigned["observed_shifts"].apply(
+        lambda shifts: match_reference_residue(shifts, reference)
+    )
+    assigned["residue_number"] = pd.to_numeric(
+        assigned["residue_number"], errors="coerce"
+    )
+    assigned["reference_number"] = pd.to_numeric(
+        assigned["reference_sequence_code"], errors="coerce"
+    )
+
+    comparable = assigned.dropna(subset=["residue_number", "reference_number"])
+    errors = comparable.loc[
+        comparable["residue_number"].ne(comparable["reference_number"])
+    ]
+
+    if errors.empty:
+        return pd.DataFrame(columns=columns)
+
+    error_numbers = errors["residue_number"].tolist()
+    in_window = assigned["residue_number"].apply(
+        lambda number: pd.notna(number)
+        and any(abs(number - error_number) <= flank for error_number in error_numbers)
+    )
+    shown = assigned.loc[in_window].copy()
+
+    reference_names = dict(
+        zip(reference["sequence_code"].astype(str), reference["residue_name"])
+    )
+    shown["reference_residue_name"] = shown["reference_sequence_code"].map(
+        lambda code: reference_names.get(str(code), pd.NA)
+    )
+    shown["is_error"] = (
+        shown["residue_number"].notna()
+        & shown["reference_number"].notna()
+        & shown["residue_number"].ne(shown["reference_number"])
+    )
+
+    return (
+        shown[columns]
+        .sort_values("residue_number", na_position="last")
+        .reset_index(drop=True)
+    )
+
+
+    # Plots a figure of the full residue list with which ones SNAPS went wrong
+    # Needs to be easy to read so we're going to end up with literally 400 images and that's annoying
+    # Or... we just ignore the residues that are correct and only do incorrect residues +/- 2? Could work better
+
+
+
+    # Figure should be:
+    # Res number
+    # Res name
+    # Correct assignment
+    # Incorrect assignment
+    # Just text output atm, we can make figure figures later
+
+    # FUTURE EXTENSION: Include metrics like RCI for each residue
+    # TODO That
+
+def all_mismatches(bmrb_ids, strategies, data_dir: Path, output_dir: Path) -> pd.DataFrame:
+    output = {}
+    for bmrb_id in bmrb_ids:
+        for condition, filename in strategies.items():
+            result_path = output_dir / filename.format(bmrb_id=bmrb_id)
+            reference_path = data_dir / f'{bmrb_id}.nef'
+            output[bmrb_id] = calculate_residue_mismatches(result_path, reference_path)
+
+    return output
