@@ -288,6 +288,7 @@ class SNAPSImporter:
                 "or for sequential links to be provided. Overriding provided value. "
                 "If this is not the behaviour you expected, please panic."
             )
+            # TODO: rewrite this error message before it's actually important
             self.config.SS_num = True
 
         if self.config.SS_num == True:
