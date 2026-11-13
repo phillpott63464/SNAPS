@@ -63,12 +63,20 @@ class SNAPSImporter:
         """Find appropriate reader for file"""
         # Try format hint first
         if format_hint and format_hint in self._reader_by_format:
-            return self._reader_by_format[format_hint]
+            reader = self._reader_by_format[format_hint]
+            if reader.can_read(file_path):
+                return reader
+            else:
+                self.config.logger.warning("Format hint and file contents don't match. Ignoring format hint.")
 
         # # Try extension mapping
         ext = file_path.suffix.lower()
         if ext in self._reader_by_ext and len(self._reader_by_ext[ext]) == 1:
-            return self._reader_by_ext[ext][0]
+            reader = self._reader_by_ext[ext][0]
+            if reader.can_read(file_path):
+                return reader
+            else:
+                self.config.logger.warning("File extension and file contents don't match. Ignoring file extension.")
 
         # Try each reader's can_read method
         for reader in self.readers:
