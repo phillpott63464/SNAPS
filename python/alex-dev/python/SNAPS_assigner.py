@@ -852,7 +852,7 @@ class SNAPS_assigner:
         return(self.obs, self.preds)
 
     def calc_prob_matrix(self, preds=None, atom_sd=None, atom_res_sd=None, 
-                         glycine_CB_penalty=0.01, delta_correlation=None, 
+                         glycine_CB_penalty=10e-10, delta_correlation=None,
                          normalise_by=None):
         """Calculate a matrix of probabilities based on match between observed
         and predicted chemical shifts.
@@ -979,8 +979,8 @@ class SNAPS_assigner:
 
         # Pair up the proline dummy spin systems with the appropriate residue
         prolines = preds[preds.Res_type=="P"].Res_name
-        prob_matrix.loc[:, prolines] = 1e-10
-        prob_matrix.loc[prolines, :] = 1e-10
+        prob_matrix.loc[:, prolines] = 1e-100
+        prob_matrix.loc[prolines, :] = 1e-100
         for x in prolines:
             prob_matrix.loc[x, x] = 1.0
 
