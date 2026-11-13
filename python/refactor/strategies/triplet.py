@@ -481,8 +481,8 @@ class TripletStrategy(AssignmentStrategy):
 
         # Pair up the proline dummy spin systems with the appropriate residue
         prolines = preds[preds.Res_type == "P"].Res_name
-        prob_matrix.loc[:, prolines] = 1e-10
-        prob_matrix.loc[prolines, :] = 1e-10
+        prob_matrix.loc[:, prolines] = 1e-100
+        prob_matrix.loc[prolines, :] = 1e-100
         for x in prolines:
             prob_matrix.loc[x, x] = 1.0
 

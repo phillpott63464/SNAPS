@@ -189,7 +189,7 @@ class SNAPSConfig(BaseModel):
         description="Number of alternative assignments to generate",
     )
     glycine_CB_penalty: float = Field(
-        default=0.01,
+        default=10e-10,
         description="How much to penalise the probability that an observation corresponds to a glycine if it has a CB chemical shift",
     )
     SS_num: bool = Field(
