@@ -171,7 +171,7 @@ def analyse_mismatches(mismatches):
 
             numbers = df[["residue_number", "reference_number"]].dropna()
             distance_gap_pct.extend(
-                (numbers["residue_number"] - numbers["reference_number"])
+                abs(numbers["residue_number"] - numbers["reference_number"])
                 / sequence_length * 100
             )
 
@@ -206,7 +206,7 @@ def analyse_mismatches(mismatches):
         axes[1, 1].set(title="Reference position in protein", xlabel="Position (%)",
                        ylabel="Count")
 
-        gap_bins = np.arange(-100, 110, 10)
+        gap_bins = np.arange(0, 110, 10)
         axes[1, 2].hist(distance_gap_pct, bins=gap_bins,
                         color="#4C78A8", edgecolor="white")
         axes[1, 2].set(title="Residue − reference distance (% of protein length)",
