@@ -140,7 +140,14 @@ def analyse_mismatches(mismatches):
         reference_number = Counter()
         distance_gap = Counter()
 
+        res_position_pct = []
+        reference_position_pct = []
+        distance_gap_pct = []
+
         for df in proteins.values():
+            print(df)
+            sequence_length = df.attrs["protein_length"]
+
             err_residue.update(
                 name for name in df["residue_name"].dropna()
                 if name in amino_acid_set
@@ -156,15 +163,16 @@ def analyse_mismatches(mismatches):
                 if residue in amino_acid_set and reference in amino_acid_set:
                     real_err_res_pair[(residue, reference)] += 1
 
-            res_number.update(df["residue_number"].dropna())
-            reference_number.update(df["reference_number"].dropna())
+            res = df["residue_number"].dropna()
+            ref = df["reference_number"].dropna()
+
+            res_position_pct.extend(res / sequence_length * 100)
+            reference_position_pct.extend(ref / sequence_length * 100)
 
             numbers = df[["residue_number", "reference_number"]].dropna()
-            distance_gap.update(
-                residue - reference
-                for residue, reference in zip(
-                    numbers["residue_number"], numbers["reference_number"]
-                )
+            distance_gap_pct.extend(
+                (numbers["residue_number"] - numbers["reference_number"])
+                / sequence_length * 100
             )
 
         fig, axes = plt.subplots(2, 3, figsize=(17, 10))
@@ -188,18 +196,21 @@ def analyse_mismatches(mismatches):
                                fontsize=7)
         fig.colorbar(image, ax=axes[0, 2], label="Count")
 
-        plot_counts(
-            axes[1, 0], res_number, "Residue number (top 20)",
-            limit=20, sort_by_value=True,
-        )
-        plot_counts(
-            axes[1, 1], reference_number, "Reference number (top 20)",
-            limit=20, sort_by_value=True,
-        )
-        plot_counts(
-            axes[1, 2], distance_gap, "Residue − reference number gap",
-            limit=25, sort_by_value=False,
-        )
+        axes[1, 0].hist(res_position_pct, bins=np.arange(0, 110, 10),
+                        color="#4C78A8", edgecolor="white")
+        axes[1, 0].set(title="Mismatch position in protein", xlabel="Position (%)",
+                       ylabel="Count")
+
+        axes[1, 1].hist(reference_position_pct, bins=np.arange(0, 110, 10),
+                        color="#4C78A8", edgecolor="white")
+        axes[1, 1].set(title="Reference position in protein", xlabel="Position (%)",
+                       ylabel="Count")
+
+        gap_bins = np.arange(-100, 110, 10)
+        axes[1, 2].hist(distance_gap_pct, bins=gap_bins,
+                        color="#4C78A8", edgecolor="white")
+        axes[1, 2].set(title="Residue − reference distance (% of protein length)",
+                       xlabel="Signed distance (%)", ylabel="Count")
 
         fig.tight_layout(rect=(0, 0, 1, 0.96))
         figures.append(fig)

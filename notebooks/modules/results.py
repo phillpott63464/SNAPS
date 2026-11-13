@@ -267,10 +267,14 @@ def calculate_residue_mismatches(
         "is_error",
     ]
 
-    if assigned.empty:
-        return pd.DataFrame(columns=columns)
-
     reference = read_reference_assignment(reference_file)
+    protein_length = reference["sequence_code"].nunique()
+
+    if assigned.empty:
+        result = pd.DataFrame(columns=columns)
+        result.attrs["protein_length"] = protein_length
+        return result
+
     assigned["reference_sequence_code"] = assigned["observed_shifts"].apply(
         lambda shifts: match_reference_residue(shifts, reference)
     )
@@ -287,7 +291,9 @@ def calculate_residue_mismatches(
     ]
 
     if errors.empty:
-        return pd.DataFrame(columns=columns)
+        result = pd.DataFrame(columns=columns)
+        result.attrs["protein_length"] = protein_length
+        return result
 
     error_numbers = errors["residue_number"].tolist()
     in_window = assigned["residue_number"].apply(
@@ -308,11 +314,15 @@ def calculate_residue_mismatches(
         & shown["residue_number"].ne(shown["reference_number"])
     )
 
-    return (
+    result = (
         shown[columns]
         .sort_values("residue_number", na_position="last")
         .reset_index(drop=True)
     )
+
+    result.attrs["protein_length"] = protein_length
+
+    return result
 
 
     # Plots a figure of the full residue list with which ones SNAPS went wrong
