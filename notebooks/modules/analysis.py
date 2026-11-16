@@ -91,7 +91,30 @@ def plot_comparisons(compared: pd.DataFrame) -> None:
         for tool in ("snaps", "mars"):
             ax.scatter(plot[f"reliable_frac_{tool}"], plot[f"err_rate_{tool}"], color=colors[tool], s=60, alpha=.85, label=tool.upper())
         for _, row in plot.iterrows():
-            ax.plot([row.reliable_frac_snaps, row.reliable_frac_mars], [row.err_rate_snaps, row.err_rate_mars], color="grey", alpha=.3)
+            for tool, offset in (("snaps", (5, 5)), ("mars", (5, -8))):
+                ax.scatter(
+                    row[f"reliable_frac_{tool}"],
+                    row[f"err_rate_{tool}"],
+                    color=colors[tool],
+                    s=60,
+                    alpha=.85,
+                    label=tool.upper() if row is plot.iloc[0] else None,
+                )
+                ax.annotate(
+                    row["protein_snaps"],
+                    (row[f"reliable_frac_{tool}"], row[f"err_rate_{tool}"]),
+                    xytext=offset,
+                    textcoords="offset points",
+                    fontsize=7,
+                    color=colors[tool],
+                )
+
+            ax.plot(
+                [row.reliable_frac_snaps, row.reliable_frac_mars],
+                [row.err_rate_snaps, row.err_rate_mars],
+                color="grey",
+                alpha=.3,
+            )
         ax.set(xlabel="Reliable assignments / total residues", ylabel="Errors / reliable assignments",
                title="C. Completeness vs error rate\n(lower right is best)")
         ax.legend(); ax.grid(alpha=.3)
