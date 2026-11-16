@@ -25,7 +25,7 @@ def download(url: str, destination: Path) -> None:
             output.write(chunk)
 
 
-def _run_download_pipeline(commands: list[list[str]], output_file: Path) -> None:
+def _run_download_pipeline(commands: list[list[str]], output_file: Path, cwd: Path) -> None:
     if output_file.exists():
         return
 
@@ -37,6 +37,7 @@ def _run_download_pipeline(commands: list[list[str]], output_file: Path) -> None
                 command,
                 stdin=previous_stdout,
                 stdout=subprocess.PIPE,
+                cwd=cwd,
             )
             if previous_stdout is not None:
                 previous_stdout.close()
@@ -102,12 +103,17 @@ def process_bmrb(bmrb_id: int, data_dir: Path) -> None:
             [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(star_file)],
              ["nef", "nmrstar", "import", "shifts", str(star_file)]],
             data_dir / f"{bmrb_id}.nef",
+            data_dir,
         )
         download_first_pdb_for_bmrb(bmrb_id, data_dir)
         _run_download_pipeline(
-            [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(star_file)],
-             ["nef", "shiftx2", "import", "shifts", str(data_dir / f"{bmrb_id}.pdb")]],
+            [
+                ["nef", "header"],
+                ["nef", "nmrstar", "import", "sequence", str(star_file)],
+                ["nef", "shiftx2", "import", "shifts", str(data_dir / f"{bmrb_id}.pdb")]
+            ],
             data_dir / f"{bmrb_id}-shiftx2.nef",
+            data_dir,
         )
         fasta_file = data_dir / f"{bmrb_id}.fasta"
         if not fasta_file.exists():
