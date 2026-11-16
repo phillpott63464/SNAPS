@@ -12,7 +12,18 @@ from pathlib import Path
 
 from refactor.SNAPSpipeline import run_pipeline
 from refactor.SNAPSconfig import build_config
+import os
+from pathlib import Path
+from urllib.parse import urljoin, urlparse
+import time
 
+from tempfile import TemporaryDirectory, NamedTemporaryFile
+import requests
+from urllib.request import urlopen
+import tarfile
+
+# TODO: Have these return filepaths as like, dicts of paths and then have the processing take the dicts instead of rebuilding the paths constantly
+# TODO: Also clean this up the folders have thousands of files in them. Maybe {bmrb_id}/files and {bmrb_id}/mars/files (because mars has huge output quantities too)
 
 def download(url: str, destination: Path) -> None:
     """Download *url* unless the destination already exists."""
@@ -150,3 +161,178 @@ def run_test_set(bmrb_ids: list[int], data_dir: Path, output_dir: Path) -> None:
                 **base,
             })
             run_pipeline(config)
+API_BASE = "https://bioinf.cs.ucl.ac.uk/psipred/api/"
+
+
+def download_psipred(
+    fasta_file,
+    email,
+    output_dir,
+    *,
+    interval=30,
+    timeout=60,
+    max_wait=None,
+):
+    """Submit one FASTA sequence to PSIPRED and download its result files.
+
+    Returns the directory containing the downloaded files.
+    `interval` is in seconds; the PSIPRED example asks clients to wait
+    at least 30 seconds between status checks.
+    """
+    fasta_file = Path(fasta_file)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if interval < 30:
+        raise ValueError("Use an interval of at least 30 seconds.")
+
+    # Keep the submission name within the server's documented 64-character limit.
+    submission_name = fasta_file.stem[:64]
+    result_dir = output_dir / f"{fasta_file.name} output"
+    result_dir.mkdir(parents=True, exist_ok=True)
+
+    with requests.Session() as session:
+        # Submit the FASTA.
+        with fasta_file.open("rb") as fasta:
+            response = session.post(
+                urljoin(API_BASE, "submission.json"),
+                data={
+                    "job": "psipred",
+                    "submission_name": submission_name,
+                    "email": email,
+                },
+                files={"input_data": (fasta_file.name, fasta)},
+                headers={"Accept": "application/json"},
+                timeout=timeout,
+            )
+
+        response.raise_for_status()
+        try:
+            submission = response.json()
+        except requests.exceptions.JSONDecodeError as exc:
+            raise RuntimeError(
+                "PSIPRED returned a non-JSON response to the submission "
+                f"(HTTP {response.status_code}, "
+                f"content type {response.headers.get('Content-Type')!r}):\n"
+                f"{response.text[:1000]}"
+            ) from exc
+
+        job_id = submission.get("UUID")
+        if not job_id:
+            raise RuntimeError(
+                "PSIPRED did not provide a job UUID. "
+                f"Server response: {submission}"
+            )
+
+        # Poll until the job finishes, or until max_wait is reached.
+        status_url = urljoin(API_BASE, f"submission/{job_id}")
+        start = time.monotonic()
+
+        while True:
+            time.sleep(interval)
+
+            response = session.get(
+                status_url,
+                params={"format": "json"},
+                headers={"Accept": "application/json"},
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            try:
+                status = response.json()
+            except requests.exceptions.JSONDecodeError as exc:
+                raise RuntimeError(
+                    "PSIPRED returned a non-JSON response while checking job "
+                    f"{job_id} (HTTP {response.status_code}):\n"
+                    f"{response.text[:1000]}"
+                ) from exc
+
+            state = status.get("state")
+            if state == "Complete":
+                break
+            if state == "Error":
+                raise RuntimeError(f"PSIPRED job {job_id} failed: {status}")
+
+            print(f"PSIPRED job state: {state or 'unknown'}")
+
+            if max_wait is not None and time.monotonic() - start >= max_wait:
+                raise TimeoutError(
+                    f"PSIPRED job {job_id} did not finish within {max_wait} seconds."
+                )
+
+        # Download each result listed by the completed job.
+        try:
+            results = status["submissions"][0]["results"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(
+                f"Completed job response did not contain result paths: {status}"
+            ) from exc
+
+        for result in results:
+            data_path = result["data_path"]
+            result_url = urljoin(API_BASE, data_path.lstrip("/"))
+            response = session.get(result_url, timeout=timeout)
+            response.raise_for_status()
+
+            filename = Path(urlparse(result_url).path).name
+            if not filename:
+                filename = "psipred_result"
+            (result_dir / filename).write_bytes(response.content)
+
+def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> None:
+    if psipred_dir is None:
+        with TemporaryDirectory() as psipred_dir:
+            psipred_dir = Path(psipred_dir)
+            archive = psipred_dir / "psipred.tar.gz"
+            with urlopen("https://bioinf.cs.ucl.ac.uk/downloads/psipred/psipred.4.02.tar.gz") as response, archive.open("wb") as out:
+                out.write(response.read())
+
+            with tarfile.open(archive, "r:gz") as tar:
+                tar.extractall(psipred_dir, filter="data")
+
+            psipred_dir = psipred_dir / "psipred"
+
+            run_mars_set(bmrb_ids, DATA_DIR, psipred_dir=psipred_dir)
+            return
+
+    for bmrb_id in bmrb_ids:
+        data_dir = DATA_DIR / str(bmrb_id)
+        star_file = data_dir / f"{bmrb_id}.str"
+        download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", star_file)
+        _run_download_pipeline(
+            [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(star_file)],
+             ["nef", "nmrstar", "import", "shifts", str(star_file)]],
+            data_dir / f"{bmrb_id}.nef",
+            data_dir,
+        )
+        download_first_pdb_for_bmrb(bmrb_id, data_dir)
+
+        with TemporaryDirectory() as tmp_dir:
+            _run_download_pipeline(
+                [
+                    ['nef', 'stream', f'{bmrb_id}.nef'],
+                    ['nef', 'entry', 'rename', f'{bmrb_id}'],
+                    ['nef', 'mars', 'export', 'sequence', '--force'], # This may overwrite the previous fasta file but also isn't different at all so currently ignored
+                    ['nef', 'mars', 'export', 'shifts', '--force'],
+                    ['nef', 'mars', 'export', 'input', '--force'], # Exports to bmrb_id.inp
+                ],
+                Path(tmp_dir) / f'abba',
+                data_dir,
+            )
+
+        if (data_dir / f"{bmrb_id}_psipred.tab").exists() == False:
+            shutil.copy(data_dir / f"{bmrb_id}.fasta", f'{psipred_dir}/{bmrb_id}.fasta')
+            subprocess.run(
+                ['runpsipred_single', f'{bmrb_id}.fasta'],
+                cwd=psipred_dir
+            )
+            shutil.copy(f'{psipred_dir}/{bmrb_id}.horiz', f'{data_dir}/{bmrb_id}_psipred.tab')
+
+        # Find out how to tell what is available on path because if mars-podman isn't this could maybe not go well
+        # Or include the dockerfiles in here?
+        # But then not sure if we have podman installed either
+        # Could also run a usual mars but not sure how to test native since I don't have native
+        if (data_dir / 'assigned_AA.out').exists() == False:
+            subprocess.run(
+                ['mars-podman', 'run', f'{bmrb_id}.inp'], cwd=data_dir
+            )
