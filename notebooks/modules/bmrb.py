@@ -332,7 +332,7 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> Non
                 [
                     ['nef', 'stream', f'{bmrb_id}.nef'],
                     ['nef', 'entry', 'rename', f'{bmrb_id}'],
-                    ['nef', 'mars', 'export', 'sequence', '--force'], # This may overwrite the previous fasta file but also isn't different at all so currently ignored
+                    ["nef", "fasta", "export", "sequence", "--force"], # Must use nef fasta not mars because mars export sequence breaks with 2+ chains
                     ['nef', 'mars', 'export', 'shifts', '--force'],
                     ['nef', 'mars', 'export', 'input', '--force'], # Exports to bmrb_id.inp
                 ],
@@ -352,7 +352,7 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> Non
         # Or include the dockerfiles in here?
         # But then not sure if we have podman installed either
         # Could also run a usual mars but not sure how to test native since I don't have native
-        if (data_dir / 'assigned_AA.out').exists() == False:
+        if (data_dir / 'assignment_AA.out').exists() == False:
             subprocess.run(
                 ['mars-podman', 'run', f'{bmrb_id}.inp'], cwd=data_dir
             )
