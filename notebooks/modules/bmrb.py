@@ -302,7 +302,6 @@ def process_bmrb(
         print(f"Failed to process BMRB {bmrb_id}: {exc}", file=sys.stderr)
 
 
-@with_psipred_dir
 def run_test_set(bmrb_ids: list[int], DATA_DIR: Path, OUTPUT_DIR: Path) -> dict:
     """Run all configured SNAPS strategies, skipping existing result files."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -472,13 +471,13 @@ def download_psipred(
 
 def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path) -> dict:
     output = {}
+    output["II"] = {} # Basically just defining a single condition at the moment so that everything is very simple
     for bmrb_id in bmrb_ids:
         data_dir = DATA_DIR / str(bmrb_id)
-        output["II"] = {}
         output["II"][bmrb_id] = process_bmrb(bmrb_id, data_dir)
         output["II"][
             bmrb_id
-        ] = {  # Basically just defining a single condition at the moment so that everything is very simple
+        ] = {
             "assignment_AA": data_dir / "assignment_AA.out",
             **output["II"][bmrb_id],
         }
