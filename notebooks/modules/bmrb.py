@@ -23,8 +23,44 @@ from urllib.request import urlopen
 import tarfile
 from pynmrstar import Entry
 
+from typing import Optional
+
 # TODO: Have these return filepaths as like, dicts of paths and then have the processing take the dicts instead of rebuilding the paths constantly
 # TODO: Also clean this up the folders have thousands of files in them. Maybe {bmrb_id}/files and {bmrb_id}/mars/files (because mars has huge output quantities too)
+
+from functools import wraps
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from urllib.request import urlopen
+import tarfile
+
+
+def with_psipred_dir(func):
+    @wraps(func)
+    def wrapper(bmrb_ids, DATA_DIR, psipred_dir=None, *args, **kwargs):
+        if psipred_dir is not None:
+            return func(bmrb_ids, DATA_DIR, psipred_dir=psipred_dir, *args, **kwargs)
+
+        with TemporaryDirectory() as temp_dir:
+            temp_dir = Path(temp_dir)
+            archive = temp_dir / "psipred.tar.gz"
+
+            with urlopen("https://bioinf.cs.ucl.ac.uk/downloads/psipred/psipred.4.02.tar.gz") as response:
+                archive.write_bytes(response.read())
+
+            with tarfile.open(archive, "r:gz") as tar:
+                tar.extractall(temp_dir, filter="data")
+
+            return func(
+                bmrb_ids,
+                DATA_DIR,
+                psipred_dir=temp_dir / "psipred",
+                *args,
+                **kwargs,
+            )
+
+    return wrapper
+
 
 def download(url: str, destination: Path) -> None:
     """Download *url* unless the destination already exists."""
@@ -181,8 +217,8 @@ def download_first_pdb_for_bmrb(bmrb_id: int, data_dir: Path, output_file: Path)
     print(f"No linked structure available in .pdb format for BMRB {bmrb_id}", file=sys.stderr)
     return False
 
-
-def process_bmrb(bmrb_id: int, data_dir: Path) -> dict:
+@with_psipred_dir
+def process_bmrb(bmrb_id: int, data_dir: Path, psipred_dir: Optional[Path] = None) -> dict:
     """Create the NEF, predicted-shift, PDB, and FASTA inputs for one BMRB entry."""
     data_dir.mkdir(parents=True, exist_ok=True)
     files = {
@@ -191,6 +227,7 @@ def process_bmrb(bmrb_id: int, data_dir: Path) -> dict:
         'shiftx2_file': data_dir / f"{bmrb_id}-shiftx2.nef",
         'fasta_file': data_dir / f"{bmrb_id}.fasta",
         'pdb_file': data_dir / f'{bmrb_id}.pdb',
+        'psipred_file': data_dir / f'{bmrb_id}_psipred.tab',
     }
     try:
         download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files['star_file'])
@@ -211,17 +248,36 @@ def process_bmrb(bmrb_id: int, data_dir: Path) -> dict:
             files['shiftx2_file'],
             data_dir,
         )
-        if not files['fasta_file'].exists():
-            with (data_dir / f"{bmrb_id}.nef").open("rb") as nef_input:
-                subprocess.run(["nef", "fasta", "export", "sequence", "--force"],
-                               stdin=nef_input, cwd=data_dir, check=True)
-            shutil.copyfile(data_dir / "nef.fasta", files['fasta_file'])
+
+        with TemporaryDirectory() as tmp_dir:
+            if (data_dir / f'{bmrb_id}.inp').exists() == False:
+                _run_download_pipeline(
+                    [
+                        ['nef', 'stream', f'{bmrb_id}.nef'],
+                        ['nef', 'entry', 'rename', f'{bmrb_id}'],
+                        ["nef", "fasta", "export", "sequence", "--force"], # Must use nef fasta not mars because mars export sequence breaks with 2+ chains
+                        ['nef', 'mars', 'export', 'shifts', '--force'],
+                        ['nef', 'mars', 'export', 'input', '--force'], # Exports to bmrb_id.inp
+                    ],
+                    Path(tmp_dir) / f'abba', # Discard pipe output
+                    data_dir,
+                )
+
+        if files['psipred_file'].exists() == False:
+            shutil.copy(files['fasta_file'], f'{psipred_dir}/{bmrb_id}.fasta')
+            subprocess.run(
+                ['runpsipred_single', f'{bmrb_id}.fasta'],
+                cwd=psipred_dir
+            )
+            walk_tree(psipred_dir)
+            shutil.copy(f'{psipred_dir}/{bmrb_id}.horiz', files['psipred_file'])
 
         return files
     except (urllib.error.URLError, OSError, subprocess.CalledProcessError) as exc:
         print(f"Failed to process BMRB {bmrb_id}: {exc}", file=sys.stderr)
 
 
+@with_psipred_dir
 def run_test_set(bmrb_ids: list[int], DATA_DIR: Path, OUTPUT_DIR: Path) -> dict:
     """Run all configured SNAPS strategies, skipping existing result files."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -242,6 +298,7 @@ def run_test_set(bmrb_ids: list[int], DATA_DIR: Path, OUTPUT_DIR: Path) -> dict:
             "SS_num": True,
             "output_type": "snaps",
         }
+
         for strategy in ("triplet", "direct", "iterative"):
             strat_files = {
                 "result_file": output_dir / f"{bmrb_id}-test-result-{strategy}.txt",
@@ -383,68 +440,19 @@ def download_psipred(
                 filename = "psipred_result"
             (result_dir / filename).write_bytes(response.content)
 
-def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dict:
-    if psipred_dir is None:
-        with TemporaryDirectory() as psipred_dir:
-            psipred_dir = Path(psipred_dir)
-            archive = psipred_dir / "psipred.tar.gz"
-            with urlopen("https://bioinf.cs.ucl.ac.uk/downloads/psipred/psipred.4.02.tar.gz") as response, archive.open("wb") as out:
-                out.write(response.read())
 
-            with tarfile.open(archive, "r:gz") as tar:
-                tar.extractall(psipred_dir, filter="data")
-
-            psipred_dir = psipred_dir / "psipred"
-
-            return run_mars_set(bmrb_ids, DATA_DIR, psipred_dir=psipred_dir)
-
+def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path) -> dict:
     output = {}
     for bmrb_id in bmrb_ids:
 
         data_dir = DATA_DIR / str(bmrb_id)
         output['II'] = {}
+        output['II'][bmrb_id] = process_bmrb(bmrb_id, data_dir)
         output['II'][bmrb_id] = { # Basically just defining a single condition at the moment so that everything is very simple
-            'star_file': data_dir / f"{bmrb_id}.str",
-            'nef_file': data_dir / f"{bmrb_id}.nef",
-            'pdb_file': data_dir / f"{bmrb_id}.pdb",
-            'fasta_file': data_dir / f'{bmrb_id}.fasta', # Implicitly created by nef pipelines
-            'assignment_AA': data_dir / f'assignment_AA.out',
-            'psipred_file': data_dir / f'{bmrb_id}_psipred.tab',
+           'assignment_AA': data_dir / f'assignment_AA.out',
+            **output['II'][bmrb_id],
         }
         files = output['II'][bmrb_id].copy()
-
-        download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files['star_file'])
-        _trim_star_to_chain_a(files['star_file'])
-        _run_download_pipeline(
-            [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(files['star_file'])],
-             ["nef", "nmrstar", "import", "shifts", str(files['star_file'])]],
-            files['nef_file'],
-            data_dir,
-        )
-        download_first_pdb_for_bmrb(bmrb_id, data_dir, files['pdb_file'])
-
-        with TemporaryDirectory() as tmp_dir:
-            if (data_dir / f'{bmrb_id}.inp').exists() == False:
-                _run_download_pipeline(
-                    [
-                        ['nef', 'stream', f'{bmrb_id}.nef'],
-                        ['nef', 'entry', 'rename', f'{bmrb_id}'],
-                        ["nef", "fasta", "export", "sequence", "--force"], # Must use nef fasta not mars because mars export sequence breaks with 2+ chains
-                        ['nef', 'mars', 'export', 'shifts', '--force'],
-                        ['nef', 'mars', 'export', 'input', '--force'], # Exports to bmrb_id.inp
-                    ],
-                    Path(tmp_dir) / f'abba', # Discard pipe output
-                    data_dir,
-                )
-
-        if files['psipred_file'].exists() == False:
-            shutil.copy(files['fasta_file'], f'{psipred_dir}/{bmrb_id}.fasta')
-            subprocess.run(
-                ['runpsipred_single', f'{bmrb_id}.fasta'],
-                cwd=psipred_dir
-            )
-            walk_tree(psipred_dir)
-            shutil.copy(f'{psipred_dir}/{bmrb_id}.horiz', files['psipred_file'])
 
         # Find out how to tell what is available on path because if mars-podman isn't this could maybe not go well
         # Or include the dockerfiles in here?
