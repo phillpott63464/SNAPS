@@ -21,6 +21,7 @@ from tempfile import TemporaryDirectory, NamedTemporaryFile
 import requests
 from urllib.request import urlopen
 import tarfile
+from pynmrstar import Entry
 
 # TODO: Have these return filepaths as like, dicts of paths and then have the processing take the dicts instead of rebuilding the paths constantly
 # TODO: Also clean this up the folders have thousands of files in them. Maybe {bmrb_id}/files and {bmrb_id}/mars/files (because mars has huge output quantities too)
@@ -34,6 +35,84 @@ def download(url: str, destination: Path) -> None:
     with urllib.request.urlopen(request) as response, destination.open("wb") as output:
         while chunk := response.read(1024 * 64):
             output.write(chunk)
+
+
+def _trim_star_to_chain_a(star_file: Path) -> None:
+    """Keep only STAR data belonging to chain A."""
+    entry = Entry.from_file(star_file)
+    assembly_loop = None
+
+    for saveframe in entry.frame_list:
+        for loop in saveframe.loops:
+            tags = [tag.lstrip("_").lower() for tag in loop.tags]
+            if "pdb_chain_id" in tags and "id" in tags:
+                assembly_loop = (loop, tags)
+                break
+        if assembly_loop is not None:
+            break
+
+    if assembly_loop is None:
+        raise ValueError(f"STAR file has no entity assembly chain mapping: {star_file}")
+
+    loop, tags = assembly_loop
+    chain_index = tags.index("pdb_chain_id")
+    assembly_id_index = tags.index("id")
+    entity_id_index = tags.index("entity_id") if "entity_id" in tags else None
+    asym_id_index = tags.index("asym_id") if "asym_id" in tags else None
+
+    chain_a_rows = [
+        row for row in loop.data
+        if str(row[chain_index]).strip("'\"") == "A"
+    ]
+    if not chain_a_rows and asym_id_index is not None:
+        chain_a_rows = [
+            row for row in loop.data
+            if str(row[asym_id_index]).strip("'\"") == "A"
+        ]
+    # BMRB entries often leave both chain labels as '.', while NEF assigns
+    # the first molecular assembly to chain A.
+    if not chain_a_rows:
+        chain_a_rows = loop.data[:1]
+    if not chain_a_rows:
+        raise ValueError(f"STAR file has no chain A: {star_file}")
+
+    assembly_ids = {row[assembly_id_index] for row in chain_a_rows}
+    entity_ids = (
+        {row[entity_id_index] for row in chain_a_rows}
+        if entity_id_index is not None
+        else set()
+    )
+    asym_ids = (
+        {row[asym_id_index] for row in chain_a_rows}
+        if asym_id_index is not None
+        else set()
+    )
+
+    for saveframe in entry.frame_list:
+        for loop in saveframe.loops:
+            tags = [tag.lstrip("_").lower() for tag in loop.tags]
+            filters = []
+            if "entity_assembly_id" in tags:
+                index = tags.index("entity_assembly_id")
+                filters.append(lambda row, index=index: row[index] in assembly_ids)
+            if "entity_id" in tags and entity_ids:
+                index = tags.index("entity_id")
+                filters.append(lambda row, index=index: row[index] in entity_ids)
+            if "entity_assembly_asym_id" in tags and asym_ids:
+                index = tags.index("entity_assembly_asym_id")
+                filters.append(lambda row, index=index: row[index] in asym_ids)
+            if filters:
+                retained_rows = [
+                    row for row in loop.data
+                    if all(predicate(row) for predicate in filters)
+                ]
+                loop.clear_data()
+                if retained_rows:
+                    loop.add_data(retained_rows)
+
+    temporary_file = star_file.with_suffix(f"{star_file.suffix}.tmp")
+    entry.write_to_file(temporary_file)
+    temporary_file.replace(star_file)
 
 
 def _run_download_pipeline(commands: list[list[str]], output_file: Path, cwd: Path) -> None:
@@ -115,6 +194,7 @@ def process_bmrb(bmrb_id: int, data_dir: Path) -> dict:
     }
     try:
         download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files['star_file'])
+        _trim_star_to_chain_a(files['star_file'])
         _run_download_pipeline(
             [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(files['star_file'])],
              ["nef", "nmrstar", "import", "shifts", str(files['star_file'])]],
@@ -329,6 +409,7 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dic
         files = output[bmrb_id]['II'].copy()
 
         download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files['star_file'])
+        _trim_star_to_chain_a(files['star_file'])
         _run_download_pipeline(
             [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(files['star_file'])],
              ["nef", "nmrstar", "import", "shifts", str(files['star_file'])]],
