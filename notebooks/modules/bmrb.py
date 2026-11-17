@@ -442,6 +442,7 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dic
                 ['runpsipred_single', f'{bmrb_id}.fasta'],
                 cwd=psipred_dir
             )
+            walk_tree(psipred_dir)
             shutil.copy(f'{psipred_dir}/{bmrb_id}.horiz', f'{data_dir}/{bmrb_id}_psipred.tab')
 
         # Find out how to tell what is available on path because if mars-podman isn't this could maybe not go well
@@ -454,3 +455,10 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dic
             )
 
     return output
+
+def walk_tree(path: Path):
+    for root, dirs, files in os.walk(path):
+        depth = root.count(os.sep)
+        print("  " * depth + os.path.basename(root) + "/")
+        for name in files:
+            print("  " * (depth + 1) + name)
