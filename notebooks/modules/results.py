@@ -8,8 +8,12 @@ from pathlib import Path
 import pandas as pd
 
 RELIABLE_MERIT = 0.01
-AA3 = dict(zip("ACDEFGHIKLMNPQRSTVWY", "ALA CYS ASP GLU PHE GLY HIS ILE LYS LEU MET ASN PRO GLN ARG SER THR VAL TRP TYR".split()))
-
+AA3 = dict(
+    zip(
+        "ACDEFGHIKLMNPQRSTVWY",
+        ["ALA", "CYS", "ASP", "GLU", "PHE", "GLY", "HIS", "ILE", "LYS", "LEU", "MET", "ASN", "PRO", "GLN", "ARG", "SER", "THR", "VAL", "TRP", "TYR"],
+    )
+)
 
 
 def read_test_result(path: Path) -> pd.DataFrame:
@@ -23,7 +27,7 @@ def read_test_result(path: Path) -> pd.DataFrame:
         raise ValueError(f"No SNAPS assignment table found in {path}")
 
     rows = []
-    for line in lines[index + 1:]:
+    for line in lines[index + 1 :]:
         if not line.strip():
             continue
         fields = shlex.split(line.strip())
@@ -36,25 +40,37 @@ def read_test_result(path: Path) -> pd.DataFrame:
         raise ValueError(f"No assignment rows found in {path}")
 
     result = pd.DataFrame(rows, columns=headings)
-    for column in ("Res_N", "Log_prob", "Max_mismatch_m1", "Max_mismatch_p1", "Max_mismatch",
-                   "Num_good_links_m1", "Num_good_links_p1", "Num_good_links"):
+    for column in (
+        "Res_N",
+        "Log_prob",
+        "Max_mismatch_m1",
+        "Max_mismatch_p1",
+        "Max_mismatch",
+        "Num_good_links_m1",
+        "Num_good_links_p1",
+        "Num_good_links",
+    ):
         if column in result:
             result[column] = pd.to_numeric(result[column], errors="coerce")
     for column in ("Dummy_res", "Dummy_SS"):
         if column in result:
-            result[column] = result[column].str.lower().map({"true": True, "false": False})
+            result[column] = (
+                result[column].str.lower().map({"true": True, "false": False})
+            )
     result["assigned"] = ~result["Dummy_res"]
     result["chain_code"] = "A"
-    result["residue_name"] = result["Res_type"].str.upper().map(AA3).fillna(result["Res_type"])
+    result["residue_name"] = (
+        result["Res_type"].str.upper().map(AA3).fillna(result["Res_type"])
+    )
     result["unassigned_sequence_code"] = result["SS_name"]
     result["sequence_code"] = result["Res_N"]
-    result["spin_system"] = pd.to_numeric(result["SS_name"].str.extract(r"^\s*(-?\d+)")[0], errors="coerce")
+    result["spin_system"] = pd.to_numeric(
+        result["SS_name"].str.extract(r"^\s*(-?\d+)")[0], errors="coerce"
+    )
     result["residue_number"] = pd.to_numeric(result["Res_N"], errors="coerce")
 
     # For residue fingerprinting
-    observed_shift_columns = [
-        "C", "CA", "CB", "H", "HA", "N"
-    ]
+    observed_shift_columns = ["C", "CA", "CB", "H", "HA", "N"]
     observed_shift_columns = [
         column for column in observed_shift_columns if column in result.columns
     ]
@@ -64,9 +80,7 @@ def read_test_result(path: Path) -> pd.DataFrame:
 
     result["observed_shifts"] = result[observed_shift_columns].apply(
         lambda row: {
-            atom: float(value)
-            for atom, value in row.items()
-            if pd.notna(value)
+            atom: float(value) for atom, value in row.items() if pd.notna(value)
         },
         axis=1,
     )
@@ -94,7 +108,7 @@ def read_reference_assignment(reference_file: Path) -> pd.DataFrame:
 
         if value.startswith(prefix):
             in_shift_loop = True
-            headings.append(value[len(prefix):].split()[0])
+            headings.append(value[len(prefix) :].split()[0])
             continue
 
         if value in {"stop_", "save_"}:
@@ -142,13 +156,16 @@ def read_reference_assignment(reference_file: Path) -> pd.DataFrame:
         ["sequence_code", "residue_name"], sort=False
     ):
         atom_shifts = dict(zip(group["atom_name"], group["value"]))
-        grouped.append({
-            "sequence_code": sequence_code,
-            "residue_name": residue_name,
-            "shifts": atom_shifts,
-        })
+        grouped.append(
+            {
+                "sequence_code": sequence_code,
+                "residue_name": residue_name,
+                "shifts": atom_shifts,
+            }
+        )
 
     return pd.DataFrame(grouped)
+
 
 def match_reference_residue(
     observed_shifts: dict,
@@ -158,9 +175,7 @@ def match_reference_residue(
 ):
     """Return the unique reference sequence code matching the observed shifts."""
 
-    observed_shift_columns = [
-        "C", "CA", "CB", "H", "HA", "N"
-    ]
+    observed_shift_columns = ["C", "CA", "CB", "H", "HA", "N"]
 
     observed = {
         atom: float(value)
@@ -200,9 +215,7 @@ def assignment_counts(
     if "merit" in assigned:
         reliable = assigned.loc[assigned["merit"].le(RELIABLE_MERIT)].copy()
     elif "Confidence" in assigned:
-        reliable = assigned.loc[
-            assigned["Confidence"].isin(good_confidences)
-        ].copy()
+        reliable = assigned.loc[assigned["Confidence"].isin(good_confidences)].copy()
     else:
         raise ValueError("Result has neither merit nor Confidence")
 
@@ -218,13 +231,19 @@ def assignment_counts(
     errors = int(source[evaluable].ne(predicted[evaluable]).sum())
 
     return {
-        "assignments": int(len(assigned)),
-        "reliable_assignments": int(len(reliable)),
+        "assignments": len(assigned),
+        "reliable_assignments": len(reliable),
         "errors": errors,
     }
 
 
-def assignment_table(test_files, protein_names, data_dir: Path, output_dir: Path, good_confidences: list[str] = ["High"]) -> pd.DataFrame:
+def assignment_table(
+    test_files,
+    protein_names,
+    data_dir: Path,
+    output_dir: Path,
+    good_confidences: list[str] = ["High"],
+) -> pd.DataFrame:
     rows = []
     for bmrb_id, test in test_files.items():
         print(bmrb_id)
@@ -232,8 +251,19 @@ def assignment_table(test_files, protein_names, data_dir: Path, output_dir: Path
         for condition, files in test.items():
             print(condition)
             print(files)
-            counts = assignment_counts(read_test_result(files['result_file']), files['nef_file'], good_confidences=good_confidences) if files['result_file'].is_file() else {
-                "assignments": float("nan"), "reliable_assignments": float("nan"), "errors": float("nan")}
+            counts = (
+                assignment_counts(
+                    read_test_result(files["result_file"]),
+                    files["nef_file"],
+                    good_confidences=good_confidences,
+                )
+                if files["result_file"].is_file()
+                else {
+                    "assignments": float("nan"),
+                    "reliable_assignments": float("nan"),
+                    "errors": float("nan"),
+                }
+            )
             rows.append(
                 {
                     "bmrb_id": bmrb_id,
@@ -244,21 +274,22 @@ def assignment_table(test_files, protein_names, data_dir: Path, output_dir: Path
                 }
             )
     result = pd.DataFrame(rows)
-    result[["assignments", "reliable_assignments"]] = result[["assignments", "reliable_assignments"]].astype("Int64")
+    result[["assignments", "reliable_assignments"]] = result[
+        ["assignments", "reliable_assignments"]
+    ].astype("Int64")
     return result
+
 
 def calculate_residue_mismatches(
     result_path: Path,
     reference_file: Path,
     chain: str = "A",
     flank: int = 0,
-    good_confidences = ['High'],
+    good_confidences=["High"],
 ) -> pd.DataFrame:
     """Return assignment errors and nearby residues as a DataFrame."""
     result = read_test_result(result_path)
-    assigned = result.loc[
-        result["assigned"] & result["chain_code"].eq(chain)
-    ].copy()
+    assigned = result.loc[result["assigned"] & result["chain_code"].eq(chain)].copy()
     assigned = assigned[assigned["Confidence"].isin(good_confidences)]
 
     columns = [
@@ -299,8 +330,12 @@ def calculate_residue_mismatches(
 
     error_numbers = errors["residue_number"].tolist()
     in_window = assigned["residue_number"].apply(
-        lambda number: pd.notna(number)
-        and any(abs(number - error_number) <= flank for error_number in error_numbers)
+        lambda number: (
+            pd.notna(number)
+            and any(
+                abs(number - error_number) <= flank for error_number in error_numbers
+            )
+        )
     )
     shown = assigned.loc[in_window].copy()
 
@@ -326,12 +361,9 @@ def calculate_residue_mismatches(
 
     return result
 
-
     # Plots a figure of the full residue list with which ones SNAPS went wrong
     # Needs to be easy to read so we're going to end up with literally 400 images and that's annoying
     # Or... we just ignore the residues that are correct and only do incorrect residues +/- 2? Could work better
-
-
 
     # Figure should be:
     # Res number
@@ -342,6 +374,7 @@ def calculate_residue_mismatches(
 
     # FUTURE EXTENSION: Include metrics like RCI for each residue
     # TODO That
+
 
 def all_mismatches(test_set, data_dir: Path, output_dir: Path) -> pd.DataFrame:
     output = {}
@@ -355,6 +388,8 @@ def all_mismatches(test_set, data_dir: Path, output_dir: Path) -> pd.DataFrame:
     for condition, protein in transposed.items():
         output[condition] = {}
         for bmrb_id, files in protein.items():
-            output[condition][bmrb_id] = calculate_residue_mismatches(files['result_file'], files['nef_file'])
+            output[condition][bmrb_id] = calculate_residue_mismatches(
+                files["result_file"], files["nef_file"]
+            )
 
     return output
