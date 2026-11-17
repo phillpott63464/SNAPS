@@ -291,6 +291,30 @@ def process_bmrb(
                     data_dir,
                 )
 
+                # Replace mars.inp defaults
+                input_file = data_dir / f"{bmrb_id}.inp"
+                input_text = input_file.read_text()
+
+                updates = {
+                    "cutoffCA": "0.2",
+                    "cutoffCB": "0.4",
+                    "cutoffCO": "0.15",
+                }
+
+                for key, value in updates.items():
+                    pattern = rf"^(\s*{key}:\s*)\S+"
+                    input_text, count = re.subn(
+                        pattern,
+                        lambda match: match.group(1) + value,
+                        input_text,
+                        count=1,
+                        flags=re.MULTILINE,
+                    )
+                    if count != 1:
+                        raise ValueError(f"Expected one {key} setting; found {count}")
+
+                input_file.write_text(input_text)
+
         if files["psipred_file"].exists() == False:
             shutil.copy(files["fasta_file"], f"{psipred_dir}/{bmrb_id}.fasta")
             subprocess.run(["runpsipred_single", f"{bmrb_id}.fasta"], cwd=psipred_dir)
@@ -473,6 +497,7 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path) -> dict:
     output = {}
     output["II"] = {} # Basically just defining a single condition at the moment so that everything is very simple
     for bmrb_id in bmrb_ids:
+        print(f'{bmrb_id}')
         data_dir = DATA_DIR / str(bmrb_id)
         output["II"][bmrb_id] = process_bmrb(bmrb_id, data_dir)
         output["II"][
