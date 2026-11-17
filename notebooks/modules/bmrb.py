@@ -423,7 +423,7 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dic
         download_first_pdb_for_bmrb(bmrb_id, data_dir, files['pdb_file'])
 
         with TemporaryDirectory() as tmp_dir:
-            if (data_dir / f'{bmrb_id}.inp').exists == False:
+            if (data_dir / f'{bmrb_id}.inp').exists() == False:
                 _run_download_pipeline(
                     [
                         ['nef', 'stream', f'{bmrb_id}.nef'],
