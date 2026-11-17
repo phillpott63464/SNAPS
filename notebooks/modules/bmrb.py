@@ -70,9 +70,8 @@ def _run_download_pipeline(commands: list[list[str]], output_file: Path, cwd: Pa
         raise
 
 
-def download_first_pdb_for_bmrb(bmrb_id: int, data_dir: Path) -> bool:
+def download_first_pdb_for_bmrb(bmrb_id: int, data_dir: Path, output_file: Path) -> bool:
     """Download the first usable PDB structure linked from a BMRB entry."""
-    output_file = data_dir / f"{bmrb_id}.pdb"
     if output_file.exists():
         return True
 
@@ -112,6 +111,7 @@ def process_bmrb(bmrb_id: int, data_dir: Path) -> dict:
         'nef_file': data_dir / f"{bmrb_id}.nef",
         'shiftx2_file': data_dir / f"{bmrb_id}-shiftx2.nef",
         'fasta_file': data_dir / f"{bmrb_id}.fasta",
+        'pdb_file': data_dir / f'{bmrb_id}.pdb',
     }
     try:
         download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files['star_file'])
@@ -121,7 +121,7 @@ def process_bmrb(bmrb_id: int, data_dir: Path) -> dict:
             files['nef_file'] ,
             data_dir,
         )
-        download_first_pdb_for_bmrb(bmrb_id, data_dir)
+        download_first_pdb_for_bmrb(bmrb_id, data_dir, files['pdb_file'])
         _run_download_pipeline(
             [
                 ["nef", "header"],
@@ -299,7 +299,7 @@ def download_psipred(
                 filename = "psipred_result"
             (result_dir / filename).write_bytes(response.content)
 
-def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> None:
+def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dict:
     if psipred_dir is None:
         with TemporaryDirectory() as psipred_dir:
             psipred_dir = Path(psipred_dir)
@@ -312,20 +312,30 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> Non
 
             psipred_dir = psipred_dir / "psipred"
 
-            run_mars_set(bmrb_ids, DATA_DIR, psipred_dir=psipred_dir)
-            return
+            return run_mars_set(bmrb_ids, DATA_DIR, psipred_dir=psipred_dir)
 
+    output = {}
     for bmrb_id in bmrb_ids:
+
         data_dir = DATA_DIR / str(bmrb_id)
-        star_file = data_dir / f"{bmrb_id}.str"
-        download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", star_file)
+        output[bmrb_id] = {}
+        output[bmrb_id]['II'] = { # Basically just defining a single condition at the moment so that everything is very simple
+            'star_file': data_dir / f"{bmrb_id}.str",
+            'nef_file': data_dir / f"{bmrb_id}.nef",
+            'pdb_file': data_dir / f"{bmrb_id}.pdb",
+            'fasta_file': data_dir / f'{bmrb_id}.fasta', # Implicitly created by nef pipelines
+            'result_file': data_dir / f'assignment_AA.out',
+        }
+        files = output[bmrb_id]['II'].copy()
+
+        download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files['star_file'])
         _run_download_pipeline(
-            [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(star_file)],
-             ["nef", "nmrstar", "import", "shifts", str(star_file)]],
-            data_dir / f"{bmrb_id}.nef",
+            [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(files['star_file'])],
+             ["nef", "nmrstar", "import", "shifts", str(files['star_file'])]],
+            files['nef_file'],
             data_dir,
         )
-        download_first_pdb_for_bmrb(bmrb_id, data_dir)
+        download_first_pdb_for_bmrb(bmrb_id, data_dir, files['pdb_file'])
 
         with TemporaryDirectory() as tmp_dir:
             _run_download_pipeline(
@@ -336,12 +346,12 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> Non
                     ['nef', 'mars', 'export', 'shifts', '--force'],
                     ['nef', 'mars', 'export', 'input', '--force'], # Exports to bmrb_id.inp
                 ],
-                Path(tmp_dir) / f'abba',
+                Path(tmp_dir) / f'abba', # Discard pipe output
                 data_dir,
             )
 
         if (data_dir / f"{bmrb_id}_psipred.tab").exists() == False:
-            shutil.copy(data_dir / f"{bmrb_id}.fasta", f'{psipred_dir}/{bmrb_id}.fasta')
+            shutil.copy(files['fasta_file'], f'{psipred_dir}/{bmrb_id}.fasta')
             subprocess.run(
                 ['runpsipred_single', f'{bmrb_id}.fasta'],
                 cwd=psipred_dir
@@ -352,7 +362,9 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> Non
         # Or include the dockerfiles in here?
         # But then not sure if we have podman installed either
         # Could also run a usual mars but not sure how to test native since I don't have native
-        if (data_dir / 'assignment_AA.out').exists() == False:
+        if (files['result_file']).exists() == False:
             subprocess.run(
                 ['mars-podman', 'run', f'{bmrb_id}.inp'], cwd=data_dir
             )
+
+    return output
