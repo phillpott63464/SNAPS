@@ -1,5 +1,5 @@
 import pandas as pd
-from refactor.dataclasses import AssignmentResult
+from refactor.data_formats import AssignmentResult
 from refactor.strategies.direct import DirectStrategy
 
 

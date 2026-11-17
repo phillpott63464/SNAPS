@@ -1,6 +1,6 @@
 import pandas as pd
 
-from refactor.dataclasses import AssignmentResult, ShiftData
+from refactor.data_formats import AssignmentResult, ShiftData
 from refactor.strategies.base import AssignmentStrategy
 from refactor.strategies.registry import StrategyRegistry
 

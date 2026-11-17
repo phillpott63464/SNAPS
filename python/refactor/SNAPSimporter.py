@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from Bio import Align, SeqIO
 
-from refactor.dataclasses import ShiftData
+from refactor.data_formats import ShiftData
 from refactor.format_readers import (
     CCPNReader,
     FormatReader,

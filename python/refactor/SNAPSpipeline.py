@@ -1,4 +1,4 @@
-from refactor.dataclasses import AnalysisResult
+from refactor.data_formats import AnalysisResult
 from refactor.SNAPSconfig import SNAPSConfig
 from refactor.SNAPSimporter import SNAPSImporter
 from refactor.SNAPSoutput import create_output

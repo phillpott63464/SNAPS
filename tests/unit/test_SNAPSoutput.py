@@ -7,7 +7,7 @@ from refactor.SNAPSoutput import (
     SNAPSOutput,
     create_output,
 )
-from refactor.dataclasses import AssignmentResult
+from refactor.data_formats import AssignmentResult
 from refactor.SNAPSconfig import build_config
 
 

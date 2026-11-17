@@ -5,7 +5,7 @@ from refactor.SNAPSstrategy import (
     create_strategy,
 )
 from refactor.SNAPSimporter import SNAPSImporter
-from refactor.dataclasses import ShiftData
+from refactor.data_formats import ShiftData
 from SNAPS_assigner import SNAPS_assigner
 from modules.assigner_functions import (
     prepare_obs_preds,

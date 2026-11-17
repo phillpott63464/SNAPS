@@ -3,7 +3,7 @@ import pandas as pd
 
 from refactor.SNAPSconfig import build_config
 from refactor.SNAPSoutput import SNAPSOutput
-from refactor.dataclasses import AssignmentResult, ShiftData
+from refactor.data_formats import AssignmentResult, ShiftData
 
 """
 Not certain about these tests, testing whether the outputs exist isn't a perfectly

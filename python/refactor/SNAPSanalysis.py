@@ -1,5 +1,5 @@
-from python.refactor.dataclasses import AnalysisResult
-from refactor.dataclasses import AssignmentResult, ShiftData
+from python.refactor.data_formats import AnalysisResult
+from refactor.data_formats import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 
 Result

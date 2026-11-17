@@ -3,7 +3,7 @@ from typing import Optional, Union
 
 import pandas as pd
 
-from refactor.dataclasses import AssignmentResult, ShiftData
+from refactor.data_formats import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 from refactor.strategies.utils import consistency, matching, preprocessing, probability
 from refactor.strategies.utils.output import make_assign_df
