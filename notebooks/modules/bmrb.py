@@ -222,14 +222,18 @@ def process_bmrb(bmrb_id: int, data_dir: Path) -> dict:
         print(f"Failed to process BMRB {bmrb_id}: {exc}", file=sys.stderr)
 
 
-def run_test_set(bmrb_ids: list[int], DATA_DIR: Path, output_dir: Path) -> dict:
+def run_test_set(bmrb_ids: list[int], DATA_DIR: Path, OUTPUT_DIR: Path) -> dict:
     """Run all configured SNAPS strategies, skipping existing result files."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output = {}
     for bmrb_id in bmrb_ids:
         output[bmrb_id] = {}
         data_dir = DATA_DIR / f'{bmrb_id}'
+        output_dir = OUTPUT_DIR / f'{bmrb_id}'
+
+        data_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
         files = process_bmrb(bmrb_id, data_dir)
         base = {
             "obs_file": files['nef_file'],
