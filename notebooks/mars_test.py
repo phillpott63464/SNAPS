@@ -161,13 +161,13 @@ def _(mo, plots):
     Positive differences mean that SNAPS has a higher correct-assignment fraction.
 
     ### 4.1 Direct Strategy
-    {mo.as_html(plots[0])}
+    {mo.as_html(plots['direct'])}
 
     ### 4.2 Iterative Strategy
-    {mo.as_html(plots[1])}
+    {mo.as_html(plots['iterative'])}
 
     ### 4.3 Triplet Strategy
-    {mo.as_html(plots[2])}
+    {mo.as_html(plots['triplet'])}
     """)
     return
 
@@ -203,13 +203,13 @@ def _(mo, plots_high_med):
     Slightly higher scores, but much higher error rates
 
     ### 5.1 Direct Strategy
-    {mo.as_html(plots_high_med[0])}
+    {mo.as_html(plots_high_med['direct'])}
 
     ### 5.2 Iterative Strategy
-    {mo.as_html(plots_high_med[1])}
+    {mo.as_html(plots_high_med['iterative'])}
 
     ### 5.3 Triplet Strategy
-    {mo.as_html(plots_high_med[2])}
+    {mo.as_html(plots_high_med['triplet'])}
     """)
     return
 
@@ -276,13 +276,13 @@ def _(mismatch_figs, mo):
     ## 6 Mismatch Figures
 
     ### 6.1 Direct Strategy
-    {mo.as_html(mismatch_figs[0])}
+    {mo.as_html(mismatch_figs['direct'])}
 
     ### 6.2 Iterative Strategy
-    {mo.as_html(mismatch_figs[1])}
+    {mo.as_html(mismatch_figs['iterative'])}
 
     ### 6.3 Triplet Strategy
-    {mo.as_html(mismatch_figs[2])}
+    {mo.as_html(mismatch_figs['triplet'])}
     """)
     return
 

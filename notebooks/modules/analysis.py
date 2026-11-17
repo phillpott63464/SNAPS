@@ -50,13 +50,13 @@ def compare_results(snaps_results: pd.DataFrame, mars_results: pd.DataFrame) -> 
     return compared
 
 
-def plot_comparisons(compared: pd.DataFrame) -> None:
+def plot_comparisons(compared: pd.DataFrame) -> dict:
     import matplotlib.pyplot as plt
 
     colors = {"snaps": "#1f77b4", "mars": "#d95f02"}
     limit = np.abs(compared["diff"]).max() * 1.1
     rng = np.random.default_rng(0)
-    plots = []
+    plots = {}
     for condition in sorted(compared["condition"].unique()):
         plot = compared[compared["condition"] == condition].sort_values("diff").reset_index(drop=True)
         y = np.arange(len(plot))
@@ -119,7 +119,7 @@ def plot_comparisons(compared: pd.DataFrame) -> None:
                title="C. Completeness vs error rate\n(lower right is best)")
         ax.legend(); ax.grid(alpha=.3)
         plt.tight_layout()
-        plots.append(fig)
+        plots[condition] = fig
     return plots
 
 def analyse_mismatches(mismatches):
@@ -129,7 +129,7 @@ def analyse_mismatches(mismatches):
         "THR", "TRP", "TYR", "VAL",
     ]
     amino_acid_set = set(amino_acids)
-    figures = []
+    figures = {}
 
     def plot_counts(ax, counts, title, *, limit=20, sort_by_value=True):
         if not counts:
@@ -236,6 +236,6 @@ def analyse_mismatches(mismatches):
                        xlabel="Signed distance (%)", ylabel="Count")
 
         fig.tight_layout(rect=(0, 0, 1, 0.96))
-        figures.append(fig)
+        figures[condition_name] = fig
 
     return figures
