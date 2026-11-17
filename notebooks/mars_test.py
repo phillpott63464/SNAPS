@@ -58,7 +58,7 @@ def _(Path):
         "iterative": "{bmrb_id}-test-result-iterative.txt",
         "triplet": "{bmrb_id}-test-result-triplet.txt",
     }
-    return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR, STRATEGIES
+    return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
 
 
 @app.cell(hide_code=True)
@@ -76,30 +76,22 @@ def _(mo):
 @app.cell
 def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, mo, run_test_set):
     mo.md("## 1. Prepare the test set\n\nExisting inputs and result files are reused.")
-    run_test_set(BMRB_IDS, DATA_DIR, OUTPUT_DIR)
-    test_set_ready = True
-    return (test_set_ready,)
+    snaps_test_files = run_test_set(BMRB_IDS, DATA_DIR, OUTPUT_DIR)
+    return (snaps_test_files,)
 
 
 @app.cell
-def _(
-    BMRB_IDS,
-    BMRB_NAMES,
-    DATA_DIR,
-    OUTPUT_DIR,
-    STRATEGIES,
-    assignment_table,
-    test_set_ready,
-):
-    if not test_set_ready:
-        raise RuntimeError("The test set was not prepared")
-    snaps_results = assignment_table(BMRB_IDS, STRATEGIES, BMRB_NAMES, DATA_DIR, OUTPUT_DIR)
+def _(BMRB_NAMES, DATA_DIR, OUTPUT_DIR, assignment_table, snaps_test_files):
+    snaps_results = assignment_table(snaps_test_files, BMRB_NAMES, DATA_DIR, OUTPUT_DIR)
     return (snaps_results,)
 
 
 @app.cell
 def _(pd):
     # Published MARS counts used in the original benchmark.
+
+
+
     mars_data = [
         ("Malate synthase G", "C′, Cα, Cβ", (652, 639, 0), (652, 639, 0), (651, 623, 0)),
         ("Malate synthase G", "Cα, Cβ*", (500, 207, 0), (639, 584, 2), (622, 511, 0)),
@@ -188,17 +180,16 @@ def _(comparison, plot_comparisons):
 
 @app.cell
 def _(
-    BMRB_IDS,
     BMRB_NAMES,
     DATA_DIR,
     OUTPUT_DIR,
-    STRATEGIES,
     assignment_table,
     compare_results,
     mars_results,
     plot_comparisons,
+    snaps_test_files,
 ):
-    snaps_results_high_med = assignment_table(BMRB_IDS, STRATEGIES, BMRB_NAMES, DATA_DIR, OUTPUT_DIR, good_confidences=['High', 'Medium'])
+    snaps_results_high_med = assignment_table(snaps_test_files, BMRB_NAMES, DATA_DIR, OUTPUT_DIR, good_confidences=['High', 'Medium'])
     comparison_high_med = compare_results(snaps_results_high_med, mars_results)
     plots_high_med = plot_comparisons(comparison_high_med)
     return (plots_high_med,)
@@ -224,8 +215,8 @@ def _(mo, plots_high_med):
 
 
 @app.cell
-def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, STRATEGIES, all_mismatches):
-    mismatches = all_mismatches(BMRB_IDS, STRATEGIES, DATA_DIR, OUTPUT_DIR)
+def _(DATA_DIR, OUTPUT_DIR, all_mismatches, snaps_test_files):
+    mismatches = all_mismatches(snaps_test_files, DATA_DIR, OUTPUT_DIR)
     return (mismatches,)
 
 

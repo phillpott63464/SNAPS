@@ -224,13 +224,15 @@ def assignment_counts(
     }
 
 
-def assignment_table(bmrb_ids, strategies, protein_names, data_dir: Path, output_dir: Path, good_confidences: list[str] = ["High"]) -> pd.DataFrame:
+def assignment_table(test_files, protein_names, data_dir: Path, output_dir: Path, good_confidences: list[str] = ["High"]) -> pd.DataFrame:
     rows = []
-    for bmrb_id in bmrb_ids:
-        for condition, filename in strategies.items():
-            result_path = output_dir / filename.format(bmrb_id=bmrb_id)
-            reference_path = data_dir / f'{bmrb_id}.nef'
-            counts = assignment_counts(read_test_result(result_path), reference_path, good_confidences=good_confidences) if result_path.is_file() else {
+    for bmrb_id, test in test_files.items():
+        print(bmrb_id)
+        print(test)
+        for condition, files in test.items():
+            print(condition)
+            print(files)
+            counts = assignment_counts(read_test_result(files['result_file']), files['nef_file'], good_confidences=good_confidences) if files['result_file'].is_file() else {
                 "assignments": float("nan"), "reliable_assignments": float("nan"), "errors": float("nan")}
             rows.append(
                 {
@@ -341,14 +343,18 @@ def calculate_residue_mismatches(
     # FUTURE EXTENSION: Include metrics like RCI for each residue
     # TODO That
 
-def all_mismatches(bmrb_ids, strategies, data_dir: Path, output_dir: Path) -> pd.DataFrame:
+def all_mismatches(test_set, data_dir: Path, output_dir: Path) -> pd.DataFrame:
     output = {}
 
-    for condition, filename in strategies.items():
+    transposed = {}
+
+    for protein_id, results in test_set.items():
+        for strategy, result in results.items():
+            transposed.setdefault(strategy, {})[protein_id] = result
+
+    for condition, protein in transposed.items():
         output[condition] = {}
-        for bmrb_id in bmrb_ids:
-            result_path = output_dir / filename.format(bmrb_id=bmrb_id)
-            reference_path = data_dir / f'{bmrb_id}.nef'
-            output[condition][bmrb_id] = calculate_residue_mismatches(result_path, reference_path)
+        for bmrb_id, files in protein.items():
+            output[condition][bmrb_id] = calculate_residue_mismatches(files['result_file'], files['nef_file'])
 
     return output

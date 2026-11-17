@@ -104,63 +104,83 @@ def download_first_pdb_for_bmrb(bmrb_id: int, data_dir: Path) -> bool:
     return False
 
 
-def process_bmrb(bmrb_id: int, data_dir: Path) -> None:
+def process_bmrb(bmrb_id: int, data_dir: Path) -> dict:
     """Create the NEF, predicted-shift, PDB, and FASTA inputs for one BMRB entry."""
     data_dir.mkdir(parents=True, exist_ok=True)
-    star_file = data_dir / f"{bmrb_id}.str"
+    files = {
+        'star_file': data_dir / f"{bmrb_id}.str",
+        'nef_file': data_dir / f"{bmrb_id}.nef",
+        'shiftx2_file': data_dir / f"{bmrb_id}-shiftx2.nef",
+        'fasta_file': data_dir / f"{bmrb_id}.fasta",
+    }
     try:
-        download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", star_file)
+        download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files['star_file'])
         _run_download_pipeline(
-            [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(star_file)],
-             ["nef", "nmrstar", "import", "shifts", str(star_file)]],
-            data_dir / f"{bmrb_id}.nef",
+            [["nef", "header"], ["nef", "nmrstar", "import", "sequence", str(files['star_file'])],
+             ["nef", "nmrstar", "import", "shifts", str(files['star_file'])]],
+            files['nef_file'] ,
             data_dir,
         )
         download_first_pdb_for_bmrb(bmrb_id, data_dir)
         _run_download_pipeline(
             [
                 ["nef", "header"],
-                ["nef", "nmrstar", "import", "sequence", str(star_file)],
+                ["nef", "nmrstar", "import", "sequence", str(files['star_file'])],
                 ["nef", "shiftx2", "import", "shifts", str(data_dir / f"{bmrb_id}.pdb")]
             ],
-            data_dir / f"{bmrb_id}-shiftx2.nef",
+            files['shiftx2_file'],
             data_dir,
         )
-        fasta_file = data_dir / f"{bmrb_id}.fasta"
-        if not fasta_file.exists():
+        if not files['fasta_file'].exists():
             with (data_dir / f"{bmrb_id}.nef").open("rb") as nef_input:
                 subprocess.run(["nef", "fasta", "export", "sequence", "--force"],
                                stdin=nef_input, cwd=data_dir, check=True)
-            shutil.copyfile(data_dir / "nef.fasta", fasta_file)
+            shutil.copyfile(data_dir / "nef.fasta", files['fasta_file'])
+
+        return files
     except (urllib.error.URLError, OSError, subprocess.CalledProcessError) as exc:
         print(f"Failed to process BMRB {bmrb_id}: {exc}", file=sys.stderr)
 
 
-def run_test_set(bmrb_ids: list[int], data_dir: Path, output_dir: Path) -> None:
+def run_test_set(bmrb_ids: list[int], DATA_DIR: Path, output_dir: Path) -> dict:
     """Run all configured SNAPS strategies, skipping existing result files."""
-    data_dir.mkdir(parents=True, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
+    output = {}
     for bmrb_id in bmrb_ids:
-        process_bmrb(bmrb_id, data_dir)
+        output[bmrb_id] = {}
+        data_dir = DATA_DIR / f'{bmrb_id}'
+        files = process_bmrb(bmrb_id, data_dir)
         base = {
-            "obs_file": data_dir / f"{bmrb_id}.nef",
-            "pred_file": data_dir / f"{bmrb_id}-shiftx2.nef:shiftx2",
-            "sequence_file": data_dir / f"{bmrb_id}.fasta",
+            "obs_file": files['nef_file'],
+            "pred_file": f'{files['shiftx2_file']}:shiftx2',
+            "sequence_file": files['fasta_file'],
             "SS_num": True,
             "output_type": "snaps",
         }
         for strategy in ("triplet", "direct", "iterative"):
-            result_file = output_dir / f"{bmrb_id}-test-result-{strategy}.txt"
-            if result_file.exists():
-                continue
-            config = build_config(cli_overrides={
-                "strategy": strategy,
-                "output_file": result_file,
+            strat_files = {
+                "result_file": output_dir / f"{bmrb_id}-test-result-{strategy}.txt",
                 "hsqc_plot_file": output_dir / f"{bmrb_id}-test-result-{strategy}-hsqc.html",
                 "strip_plot_file": output_dir / f"{bmrb_id}-test-result-{strategy}-strip.html",
+                **files,
+            }
+            output[bmrb_id][strategy] = strat_files
+
+            if strat_files["result_file"].exists():
+                continue
+
+            config = build_config(cli_overrides={
+                "strategy": strategy,
+                "output_file": strat_files["result_file"],
+                "hsqc_plot_file": strat_files["hsqc_plot_file"],
+                "strip_plot_file": strat_files["strip_plot_file"],
                 **base,
             })
             run_pipeline(config)
+
+    return output
+
 API_BASE = "https://bioinf.cs.ucl.ac.uk/psipred/api/"
 
 
