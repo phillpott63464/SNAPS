@@ -246,11 +246,7 @@ def assignment_table(
 ) -> pd.DataFrame:
     rows = []
     for bmrb_id, test in test_files.items():
-        print(bmrb_id)
-        print(test)
         for condition, files in test.items():
-            print(condition)
-            print(files)
             counts = (
                 assignment_counts(
                     read_test_result(files["result_file"]),
