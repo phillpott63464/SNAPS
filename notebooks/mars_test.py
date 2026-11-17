@@ -28,7 +28,6 @@ def _():
         assignment_table,
         compare_results,
         mo,
-        pd,
         plot_comparisons,
         run_test_set,
     )
@@ -36,7 +35,7 @@ def _():
 
 @app.cell
 def _(Path):
-    BMRB_IDS = [5471, 4354, 4384, 4022, 4106, 4457, 4402, 4341, 547, 4082, 4136, 5387]
+    BMRB_IDS = [ 5471, 4354, 4384, 4022, 4106, 4457, 4402, 4341, 547, 4082, 4136, 5387 ]
     BMRB_NAMES = {
         5471: "Malate synthase G",
         4354: "Maltose binding protein",
@@ -87,50 +86,12 @@ def _(BMRB_NAMES, DATA_DIR, OUTPUT_DIR, assignment_table, snaps_test_files):
 
 
 @app.cell
-def _(pd):
+def _(BMRB_IDS, BMRB_NAMES, DATA_DIR):
     # Published MARS counts used in the original benchmark.
 
+    from modules.mars import get_mars_data
 
-
-    mars_data = [
-        ("Malate synthase G", "C′, Cα, Cβ", (652, 639, 0), (652, 639, 0), (651, 623, 0)),
-        ("Malate synthase G", "Cα, Cβ*", (500, 207, 0), (639, 584, 2), (622, 511, 0)),
-        ("Maltose binding protein", "Cα, Cβ", (323, 303, 0), (333, 324, 0), (330, 313, 1)),
-        ("Rous Sarcoma Virus capsid", "C′, Cα, Cβ", (214, 205, 0), (218, 207, 0), (218, 199, 0)),
-        ("Human carbonic anhydrase I", "C′, Cα, Cβ", (242, 235, 0), (242, 237, 0), (242, 225, 0)),
-        ("N-terminal domain of enzyme I (EIN)", "Cα, Cβ", (246, 232, 0), (246, 246, 0), (248, 245, 0)),
-        ("E-cadherin domains II and III", "Cα, Cβ", (116, 77, 1), (134, 102, 0), (136, 70, 1)),
-        ("Human prion protein", "Cα, Cβ", (138, 103, 0), (155, 127, 0), (154, 118, 0)),
-        ("Superoxide dismutase", "C′, Cα, Cβ", (112, 101, 0), (112, 104, 0), (111, 100, 0)),
-        ("Superoxide dismutase", "Cα, Cβ", (111, 101, 0), (112, 104, 0), (112, 103, 0)),
-        ("Calmodulin/M13", "Cα, C′", (97, 37, 0), (144, 142, 0), (136, 119, 0)),
-        ("Profilin", "Cα, Cβ", (130, 132, 2), (132, 132, 0), (132, 123, 0)),
-        ("E. coli EmrE", "C′, Cα, Cβ", (61, 35, 0), (70, 58, 0), (64, 50, 0)),
-        ("Human ubiquitin", "Cα, Cβ", (72, 72, 0), (72, 72, 0), (72, 70, 0)),
-        ("Human ubiquitin", "Cα only", (32, 9, 0), (58, 18, 0), (58, 9, 0)),
-        ("Z domain", "Cα, Cβ, Hα†", (65, 65, 0), None, None),
-        ("Z domain", "Cα, Cβ‡", (57, 34, 0), None, None),
-        ("Tir110", "C′, Cα, Cβ§", (91, 80, 0), None, None),
-    ]
-    conditions = ["I", "II", "III"]
-    rows = []
-    for protein, shifts_used, *values_by_condition in mars_data:
-        for condition, values in zip(conditions, values_by_condition):
-            assignments, reliable, errors = values or (pd.NA,) * 3
-            rows.append(
-                {
-                    "protein": protein,
-                    "chemical_shifts_used": shifts_used,
-                    "condition": condition,
-                    "assignments": assignments,
-                    "reliable_assignments": reliable,
-                    "errors": errors,
-                }
-            )
-    mars_results = pd.DataFrame(rows)
-    mars_results[["assignments", "reliable_assignments", "errors"]] = mars_results[
-        ["assignments", "reliable_assignments", "errors"]
-    ].astype("Int64")
+    mars_results = get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR)
     return (mars_results,)
 
 
@@ -143,6 +104,8 @@ def _(mars_results, mo, snaps_results):
 
 @app.cell
 def _(compare_results, mars_results, snaps_results):
+    print(snaps_results, mars_results)
+
     comparison = compare_results(snaps_results, mars_results)
     return (comparison,)
 
