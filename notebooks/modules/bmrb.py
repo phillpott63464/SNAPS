@@ -402,15 +402,15 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dic
     for bmrb_id in bmrb_ids:
 
         data_dir = DATA_DIR / str(bmrb_id)
-        output[bmrb_id] = {}
-        output[bmrb_id]['II'] = { # Basically just defining a single condition at the moment so that everything is very simple
+        output['II'] = {}
+        output['II'][bmrb_id] = { # Basically just defining a single condition at the moment so that everything is very simple
             'star_file': data_dir / f"{bmrb_id}.str",
             'nef_file': data_dir / f"{bmrb_id}.nef",
             'pdb_file': data_dir / f"{bmrb_id}.pdb",
             'fasta_file': data_dir / f'{bmrb_id}.fasta', # Implicitly created by nef pipelines
-            'result_file': data_dir / f'assignment_AA.out',
+            'assignment_AA': data_dir / f'assignment_AA.out',
         }
-        files = output[bmrb_id]['II'].copy()
+        files = output['II'][bmrb_id].copy()
 
         download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files['star_file'])
         _trim_star_to_chain_a(files['star_file'])
@@ -423,17 +423,18 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dic
         download_first_pdb_for_bmrb(bmrb_id, data_dir, files['pdb_file'])
 
         with TemporaryDirectory() as tmp_dir:
-            _run_download_pipeline(
-                [
-                    ['nef', 'stream', f'{bmrb_id}.nef'],
-                    ['nef', 'entry', 'rename', f'{bmrb_id}'],
-                    ["nef", "fasta", "export", "sequence", "--force"], # Must use nef fasta not mars because mars export sequence breaks with 2+ chains
-                    ['nef', 'mars', 'export', 'shifts', '--force'],
-                    ['nef', 'mars', 'export', 'input', '--force'], # Exports to bmrb_id.inp
-                ],
-                Path(tmp_dir) / f'abba', # Discard pipe output
-                data_dir,
-            )
+            if (data_dir / f'{bmrb_id}.inp').exists == False:
+                _run_download_pipeline(
+                    [
+                        ['nef', 'stream', f'{bmrb_id}.nef'],
+                        ['nef', 'entry', 'rename', f'{bmrb_id}'],
+                        ["nef", "fasta", "export", "sequence", "--force"], # Must use nef fasta not mars because mars export sequence breaks with 2+ chains
+                        ['nef', 'mars', 'export', 'shifts', '--force'],
+                        ['nef', 'mars', 'export', 'input', '--force'], # Exports to bmrb_id.inp
+                    ],
+                    Path(tmp_dir) / f'abba', # Discard pipe output
+                    data_dir,
+                )
 
         if (data_dir / f"{bmrb_id}_psipred.tab").exists() == False:
             shutil.copy(files['fasta_file'], f'{psipred_dir}/{bmrb_id}.fasta')
@@ -447,7 +448,7 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dic
         # Or include the dockerfiles in here?
         # But then not sure if we have podman installed either
         # Could also run a usual mars but not sure how to test native since I don't have native
-        if (files['result_file']).exists() == False:
+        if (files['assignment_AA']).exists() == False:
             subprocess.run(
                 ['mars-podman', 'run', f'{bmrb_id}.inp'], cwd=data_dir
             )
