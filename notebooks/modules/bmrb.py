@@ -409,6 +409,7 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dic
             'pdb_file': data_dir / f"{bmrb_id}.pdb",
             'fasta_file': data_dir / f'{bmrb_id}.fasta', # Implicitly created by nef pipelines
             'assignment_AA': data_dir / f'assignment_AA.out',
+            'psipred_file': data_dir / f'{bmrb_id}_psipred.tab',
         }
         files = output['II'][bmrb_id].copy()
 
@@ -436,14 +437,14 @@ def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir = None) -> dic
                     data_dir,
                 )
 
-        if (data_dir / f"{bmrb_id}_psipred.tab").exists() == False:
+        if files['psipred_file'].exists() == False:
             shutil.copy(files['fasta_file'], f'{psipred_dir}/{bmrb_id}.fasta')
             subprocess.run(
                 ['runpsipred_single', f'{bmrb_id}.fasta'],
                 cwd=psipred_dir
             )
             walk_tree(psipred_dir)
-            shutil.copy(f'{psipred_dir}/{bmrb_id}.horiz', f'{data_dir}/{bmrb_id}_psipred.tab')
+            shutil.copy(f'{psipred_dir}/{bmrb_id}.horiz', files['psipred_file'])
 
         # Find out how to tell what is available on path because if mars-podman isn't this could maybe not go well
         # Or include the dockerfiles in here?
