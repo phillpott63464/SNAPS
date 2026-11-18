@@ -75,13 +75,13 @@ def _(mo):
 @app.cell
 def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, mo, run_test_set):
     mo.md("## 1. Prepare the test set\n\nExisting inputs and result files are reused.")
-    snaps_test_files = run_test_set(BMRB_IDS, DATA_DIR, OUTPUT_DIR)
+    snaps_test_files = run_test_set(bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR)
     return (snaps_test_files,)
 
 
 @app.cell
-def _(BMRB_NAMES, DATA_DIR, OUTPUT_DIR, assignment_table, snaps_test_files):
-    snaps_results = assignment_table(snaps_test_files, BMRB_NAMES, DATA_DIR, OUTPUT_DIR)
+def _(BMRB_NAMES, assignment_table, snaps_test_files):
+    snaps_results = assignment_table(snaps_test_files, BMRB_NAMES, 'snaps')
     return (snaps_results,)
 
 
@@ -144,16 +144,14 @@ def _(comparison, plot_comparisons):
 @app.cell
 def _(
     BMRB_NAMES,
-    DATA_DIR,
-    OUTPUT_DIR,
     assignment_table,
     compare_results,
-    mars_results,
     plot_comparisons,
+    snaps_results,
     snaps_test_files,
 ):
-    snaps_results_high_med = assignment_table(snaps_test_files, BMRB_NAMES, DATA_DIR, OUTPUT_DIR, good_confidences=['High', 'Medium'])
-    comparison_high_med = compare_results(snaps_results_high_med, mars_results)
+    snaps_results_high_med = assignment_table(snaps_test_files, BMRB_NAMES, 'snaps_high_med', good_confidences=['High', 'Medium'])
+    comparison_high_med = compare_results(snaps_results_high_med, snaps_results)
     plots_high_med = plot_comparisons(comparison_high_med)
     return (plots_high_med,)
 
