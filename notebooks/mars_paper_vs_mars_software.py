@@ -25,7 +25,7 @@ def _():
 
 
 @app.cell
-def _(Path, get_mars_data):
+def _(Path):
     ## test_mars_download
 
 
@@ -48,33 +48,40 @@ def _(Path, get_mars_data):
         5387: "Human ubiquitin",
     }
     DATA_DIR = Path(__file__).resolve().parent / "mars_test_set"
+    return BMRB_IDS, BMRB_NAMES, DATA_DIR
 
+
+@app.cell
+def _(
+    BMRB_IDS,
+    BMRB_NAMES,
+    DATA_DIR,
+    compare_results,
+    get_mars_data,
+    plot_comparisons,
+):
     new_mars_data = get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR)
     original_mars_data = get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR, use_defaults=True)
-    return new_mars_data, original_mars_data
-
-
-@app.cell
-def _(compare_results, new_mars_data, original_mars_data):
     comparison = compare_results(new_mars_data, original_mars_data)
-    return (comparison,)
-
-
-@app.cell
-def _(comparison, mo):
-    mo.md("## 3. Comparison statistics\n\n" + comparison.to_markdown(index=False))
-    return
-
-
-@app.cell
-def _(comparison, plot_comparisons):
     plots = plot_comparisons(comparison)
-    return (plots,)
+    return comparison, plots
 
 
-@app.cell
-def _(plots):
-    plots['II']
+@app.cell(hide_code=True)
+def _(comparison, mo, plots):
+    mo.md(rf"""
+    # Test mars the software against mars the results from the paper
+
+    Hypothesis: The software is 20 years old and has probably changed a little. Test whether the results are the same.
+
+    Conclusions: Yeah it's changed a little
+
+    Requirements: mars-podman on path, more details on that later
+
+    {mo.as_html(plots['II'])}
+
+    {comparison.to_markdown(index=False)}
+    """)
     return
 
 
