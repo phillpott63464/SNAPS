@@ -11,21 +11,23 @@ from scipy import stats
 
 
 def compare_results(
-    snaps_results: pd.DataFrame, mars_results: pd.DataFrame
+    results_1_orig: pd.DataFrame, results_2_orig: pd.DataFrame
 ) -> pd.DataFrame:
     numeric = ["assignments", "reliable_assignments", "errors"]
-    snaps, mars = snaps_results.copy(), mars_results.copy()
-    for frame in (snaps, mars):
+    results_1, results_2 = results_1_orig.copy(), results_2_orig.copy()
+    name_1 = results_1.attrs['name']
+    name_2 = results_2.attrs['name']
+    for frame in (results_1, results_2):
         frame["key"] = frame["protein"].str.strip().str.lower()
         frame[numeric] = frame[numeric].apply(pd.to_numeric, errors="coerce")
-    snaps["condition"] = snaps["condition"].astype(str).str.strip()
-    mars["condition"] = mars["condition"].astype(str).str.strip()
-    # discard every condition but condition II
-    mars = mars[mars["condition"] == "II"].dropna(subset=numeric)
-    mars = mars.sort_values("reliable_assignments", ascending=False).drop_duplicates(
+    results_1["condition"] = results_1["condition"].astype(str).str.strip()
+    results_2["condition"] = results_2["condition"].astype(str).str.strip()
+    # discard every condition in results_2 but the best one
+    # results_2 = results_2[results_2["condition"] == "II"].dropna(subset=numeric)
+    results_2 = results_2.sort_values("reliable_assignments", ascending=False).drop_duplicates(
         subset="key", keep="first"
     )
-    mars = mars.dropna(subset=numeric)
+    results_2 = results_2.dropna(subset=numeric)
 
     def summarise(frame, tool, by):
         grouped = frame.groupby(by).agg(
@@ -35,43 +37,53 @@ def compare_results(
             errors=("errors", "mean"),
             n_runs=("errors", "size"),
         )
-        grouped["correct"] = grouped["reliable"] - grouped["errors"]
+        grouped["correct"] = grouped["n_assign"] - grouped["errors"]
         return grouped.add_suffix(f"_{tool}")
 
-    snap_summary = summarise(snaps, "snaps", ["key", "condition"]).reset_index(
+    summary_1 = summarise(results_1, name_1, ["key", "condition"]).reset_index(
         level="condition"
     )
-    mars_summary = summarise(mars, "mars", ["key"])
-    compared = snap_summary.join(mars_summary, how="inner").reset_index()
-    compared["N"] = compared[["n_assign_snaps", "n_assign_mars"]].max(axis=1)
-    for tool in ("snaps", "mars"):
+    summary_2 = summarise(results_2, name_2, ["key"])
+    compared = summary_1.join(summary_2, how="inner").reset_index()
+    compared["N"] = compared[[f"n_assign_{name_1}", f"n_assign_{name_2}"]].max(axis=1)
+    for tool in (name_1, name_2):
         compared[f"correct_frac_{tool}"] = compared[f"correct_{tool}"] / compared["N"]
         compared[f"reliable_frac_{tool}"] = compared[f"reliable_{tool}"] / compared["N"]
         compared[f"err_rate_{tool}"] = (
             compared[f"errors_{tool}"] / compared[f"reliable_{tool}"]
         )
-    compared["diff"] = compared["correct_frac_snaps"] - compared["correct_frac_mars"]
+    compared["diff"] = compared[f"correct_frac_{name_1}"] - compared[f"correct_frac_{name_2}"]
 
     def fisher(row):
-        total = int(row.N)
+        total = int(row["N"])
+        correct_1 = round(row[f"correct_{name_1}"])
+        correct_2 = round(row[f"correct_{name_2}"])
+
         return stats.fisher_exact(
             [
-                [round(row.correct_snaps), total - round(row.correct_snaps)],
-                [round(row.correct_mars), total - round(row.correct_mars)],
+                [correct_1, total - correct_1],
+                [correct_2, total - correct_2],
             ]
         )[1]
 
     compared["p_fisher"] = compared.apply(fisher, axis=1)
+    compared.attrs['name_1'] = name_1
+    compared.attrs['name_2'] = name_2
     return compared
 
 
 def plot_comparisons(compared: pd.DataFrame) -> dict:
     import matplotlib.pyplot as plt
 
-    colors = {"snaps": "#1f77b4", "mars": "#d95f02"}
+    name_1 = compared.attrs["name_1"]
+    name_2 = compared.attrs["name_2"]
+
+    # Keep a stable color assignment by comparison order.
+    colors = {name_1: "#1f77b4", name_2: "#d95f02"}
     limit = np.abs(compared["diff"]).max() * 1.1
     rng = np.random.default_rng(0)
     plots = {}
+
     for condition in sorted(compared["condition"].unique()):
         plot = (
             compared[compared["condition"] == condition]
@@ -85,17 +97,41 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
             figsize=(18, max(5, 0.45 * len(plot) + 2)),
             gridspec_kw={"width_ratios": [1.4, 1, 1.1]},
         )
-        fig.suptitle(f"SNAPS condition: {condition} vs MARS", fontsize=14, y=1.02)
+        fig.suptitle(
+            f"{name_1} condition: {condition} vs {name_2}", fontsize=14, y=1.02
+        )
+
+        correct_frac_1 = f"correct_frac_{name_1}"
+        correct_frac_2 = f"correct_frac_{name_2}"
+        reliable_frac_1 = f"reliable_frac_{name_1}"
+        reliable_frac_2 = f"reliable_frac_{name_2}"
+        err_rate_1 = f"err_rate_{name_1}"
+        err_rate_2 = f"err_rate_{name_2}"
+        protein_col = f"protein_{name_1}"
 
         ax = axes[0]
         ax.hlines(
-            y, plot.correct_frac_mars, plot.correct_frac_snaps, color="grey", alpha=0.5
+            y,
+            plot[correct_frac_2],
+            plot[correct_frac_1],
+            color="grey",
+            alpha=0.5,
         )
         ax.scatter(
-            plot.correct_frac_snaps, y, color=colors["snaps"], s=60, label="SNAPS"
+            plot[correct_frac_1],
+            y,
+            color=colors[name_1],
+            s=60,
+            label=name_1,
         )
-        ax.scatter(plot.correct_frac_mars, y, color=colors["mars"], s=60, label="MARS")
-        for yi, p_value in zip(y, plot.p_fisher):
+        ax.scatter(
+            plot[correct_frac_2],
+            y,
+            color=colors[name_2],
+            s=60,
+            label=name_2,
+        )
+        for yi, p_value in zip(y, plot["p_fisher"]):
             star = (
                 "***"
                 if p_value < 0.001
@@ -109,7 +145,7 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
                 ax.text(1.02, yi, star, va="center", ha="left")
         ax.set(
             yticks=y,
-            yticklabels=plot["protein_snaps"],
+            yticklabels=plot[protein_col],
             xlim=(0, 1.08),
             xlabel="Correct assignments / total residues",
             title="A. Correct fraction per protein\n(* = Fisher p<0.05, approximate)",
@@ -122,7 +158,7 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
             y,
             plot["diff"],
             color=[
-                colors["snaps"] if value > 0 else colors["mars"]
+                colors[name_1] if value > 0 else colors[name_2]
                 for value in plot["diff"]
             ],
             alpha=0.85,
@@ -150,47 +186,43 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
             yticks=y,
             yticklabels=[],
             xlim=(-limit, limit),
-            xlabel="SNAPS - MARS (correct fraction)",
-            title="B. Difference (>0: SNAPS better)",
+            xlabel=f"{name_1} - {name_2} (correct fraction)",
+            title=f"B. Difference (>0: {name_1} better)",
         )
         ax.legend(loc="lower right", fontsize=8)
         ax.grid(axis="x", alpha=0.3)
 
         ax = axes[2]
-        for tool in ("snaps", "mars"):
+        for tool, reliable_col, err_col, offset in (
+            (name_1, reliable_frac_1, err_rate_1, (5, 5)),
+            (name_2, reliable_frac_2, err_rate_2, (5, -8)),
+        ):
             ax.scatter(
-                plot[f"reliable_frac_{tool}"],
-                plot[f"err_rate_{tool}"],
+                plot[reliable_col],
+                plot[err_col],
                 color=colors[tool],
                 s=60,
                 alpha=0.85,
-                label=tool.upper(),
+                label=tool,
             )
-        for _, row in plot.iterrows():
-            for tool, offset in (("snaps", (5, 5)), ("mars", (5, -8))):
-                ax.scatter(
-                    row[f"reliable_frac_{tool}"],
-                    row[f"err_rate_{tool}"],
-                    color=colors[tool],
-                    s=60,
-                    alpha=0.85,
-                    label=tool.upper() if row is plot.iloc[0] else None,
-                )
+            for _, row in plot.iterrows():
                 ax.annotate(
-                    row["protein_snaps"],
-                    (row[f"reliable_frac_{tool}"], row[f"err_rate_{tool}"]),
+                    row[protein_col],
+                    (row[reliable_col], row[err_col]),
                     xytext=offset,
                     textcoords="offset points",
                     fontsize=7,
                     color=colors[tool],
                 )
 
+        for _, row in plot.iterrows():
             ax.plot(
-                [row.reliable_frac_snaps, row.reliable_frac_mars],
-                [row.err_rate_snaps, row.err_rate_mars],
+                [row[reliable_frac_1], row[reliable_frac_2]],
+                [row[err_rate_1], row[err_rate_2]],
                 color="grey",
                 alpha=0.3,
             )
+
         ax.set(
             xlabel="Reliable assignments / total residues",
             ylabel="Errors / reliable assignments",
@@ -198,8 +230,10 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
         )
         ax.legend()
         ax.grid(alpha=0.3)
+
         plt.tight_layout()
         plots[condition] = fig
+
     return plots
 
 

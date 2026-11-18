@@ -240,8 +240,7 @@ def assignment_counts(
 def assignment_table(
     test_files,
     protein_names,
-    data_dir: Path,
-    output_dir: Path,
+    test_name: str,
     good_confidences: list[str] = ["High"],
 ) -> pd.DataFrame:
     rows = []
@@ -273,6 +272,7 @@ def assignment_table(
     result[["assignments", "reliable_assignments"]] = result[
         ["assignments", "reliable_assignments"]
     ].astype("Int64")
+    result.attrs['name'] = test_name
     return result
 
 
