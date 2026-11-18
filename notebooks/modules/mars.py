@@ -112,6 +112,7 @@ def get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR, use_defaults: bool = False):
                         "assignments": assignments,
                         "reliable_assignments": reliable,
                         "errors": errors,
+                        'fasta_file': mars_data_files[condition][bmrb_id]['fasta_file'],
                     }
                 )
 

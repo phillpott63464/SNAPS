@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import stats
-
+from Bio import SeqIO
 
 def compare_results(
     results_1_orig: pd.DataFrame, results_2_orig: pd.DataFrame
@@ -30,13 +30,17 @@ def compare_results(
     results_2 = results_2.dropna(subset=numeric)
 
     def summarise(frame, tool, by):
-        grouped = frame.groupby(by).agg(
-            protein=("protein", "first"),
-            n_assign=("assignments", "max"),
-            reliable=("reliable_assignments", "mean"),
-            errors=("errors", "mean"),
-            n_runs=("errors", "size"),
-        )
+        aggregations = {
+            "protein": ("protein", "first"),
+            "n_assign": ("assignments", "max"),
+            "reliable": ("reliable_assignments", "mean"),
+            "errors": ("errors", "mean"),
+            "n_runs": ("errors", "size"),
+        }
+        if "fasta_file" in frame.columns:
+            aggregations["fasta_file"] = ("fasta_file", "first")
+
+        grouped = frame.groupby(by).agg(**aggregations)
         grouped["correct"] = grouped["n_assign"] - grouped["errors"]
         return grouped.add_suffix(f"_{tool}")
 
@@ -45,7 +49,27 @@ def compare_results(
     )
     summary_2 = summarise(results_2, name_2, ["key"])
     compared = summary_1.join(summary_2, how="inner").reset_index()
-    compared["N"] = compared[[f"n_assign_{name_1}", f"n_assign_{name_2}"]].max(axis=1)
+    # Original total length assumption - assume it's the maximum of whichever one is longest
+    # compared["N"] = compared[[f"n_assign_{name_1}", f"n_assign_{name_2}"]].max(axis=1)
+    # Instead now we'll read the sequence length from results_x['fasta_file'] using biopython
+    # And if there is no fasta file then fall back to that
+
+    def sequence_length(path):
+        if pd.isna(path):
+            return np.nan
+        return len(next(SeqIO.parse(path, "fasta")).seq)
+
+    for tool in (name_1, name_2):
+        fasta_col = f"fasta_file_{tool}"
+        n_assign_col = f"n_assign_{tool}"
+        if fasta_col in compared.columns:
+            fasta_lengths = compared[fasta_col].map(sequence_length)
+            compared[f"total_{tool}"] = fasta_lengths.fillna(compared[n_assign_col])
+        else:
+            compared[f"total_{tool}"] = compared[n_assign_col]
+
+    compared["N"] = compared[[f"total_{name_1}", f"total_{name_2}"]].max(axis=1)
+
     for tool in (name_1, name_2):
         compared[f"correct_frac_{tool}"] = compared[f"correct_{tool}"] / compared["N"]
         compared[f"reliable_frac_{tool}"] = compared[f"reliable_{tool}"] / compared["N"]

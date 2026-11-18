@@ -266,6 +266,7 @@ def assignment_table(
                     "chemical_shifts_used": "—",
                     "condition": condition,
                     **counts,
+                    'fasta_file': files["fasta_file"],
                 }
             )
     result = pd.DataFrame(rows)
