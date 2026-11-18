@@ -9,99 +9,117 @@ from modules.results import read_reference_assignment
 # BMRB_NAMES = {
 #     5471: "Malate synthase G",
 # } example
-def get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR):
-    # try:
-    mars_data_files = run_mars_set(BMRB_IDS, DATA_DIR)
-    mars_data = format_mars(mars_data_files)
+def get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR, use_defaults: bool = False):
 
-    # except OSError:
-    #     print('using default')
-    #     mars_data = {
-    #         "I": {
-    #             "Malate synthase G | C′, Cα, Cβ": (652, 639, 0),
-    #             "Malate synthase G | Cα, Cβ*": (500, 207, 0),
-    #             "Maltose binding protein | Cα, Cβ": (323, 303, 0),
-    #             "Rous Sarcoma Virus capsid | C′, Cα, Cβ": (214, 205, 0),
-    #             "Human carbonic anhydrase I | C′, Cα, Cβ": (242, 235, 0),
-    #             "N-terminal domain of enzyme I (EIN) | Cα, Cβ": (246, 232, 0),
-    #             "E-cadherin domains II and III | Cα, Cβ": (116, 77, 1),
-    #             "Human prion protein | Cα, Cβ": (138, 103, 0),
-    #             "Superoxide dismutase | C′, Cα, Cβ": (112, 101, 0),
-    #             "Superoxide dismutase | Cα, Cβ": (111, 101, 0),
-    #             "Calmodulin/M13 | Cα, C′": (97, 37, 0),
-    #             "Profilin | Cα, Cβ": (130, 132, 2),
-    #             "E. coli EmrE | C′, Cα, Cβ": (61, 35, 0),
-    #             "Human ubiquitin | Cα, Cβ": (72, 72, 0),
-    #             "Human ubiquitin | Cα only": (32, 9, 0),
-    #             "Z domain | Cα, Cβ, Hα†": (65, 65, 0),
-    #             "Z domain | Cα, Cβ‡": (57, 34, 0),
-    #             "Tir110 | C′, Cα, Cβ§": (91, 80, 0),
-    #         },
-    #         "II": {
-    #             "Malate synthase G | C′, Cα, Cβ": (652, 639, 0),
-    #             "Malate synthase G | Cα, Cβ*": (639, 584, 2),
-    #             "Maltose binding protein | Cα, Cβ": (333, 324, 0),
-    #             "Rous Sarcoma Virus capsid | C′, Cα, Cβ": (218, 207, 0),
-    #             "Human carbonic anhydrase I | C′, Cα, Cβ": (242, 237, 0),
-    #             "N-terminal domain of enzyme I (EIN) | Cα, Cβ": (246, 246, 0),
-    #             "E-cadherin domains II and III | Cα, Cβ": (134, 102, 0),
-    #             "Human prion protein | Cα, Cβ": (155, 127, 0),
-    #             "Superoxide dismutase | C′, Cα, Cβ": (112, 104, 0),
-    #             "Superoxide dismutase | Cα, Cβ": (112, 104, 0),
-    #             "Calmodulin/M13 | Cα, C′": (144, 142, 0),
-    #             "Profilin | Cα, Cβ": (132, 132, 0),
-    #             "E. coli EmrE | C′, Cα, Cβ": (70, 58, 0),
-    #             "Human ubiquitin | Cα, Cβ": (72, 72, 0),
-    #             "Human ubiquitin | Cα only": (58, 18, 0),
-    #             "Z domain | Cα, Cβ, Hα†": None,
-    #             "Z domain | Cα, Cβ‡": None,
-    #             "Tir110 | C′, Cα, Cβ§": None,
-    #         },
-    #         "III": {
-    #             "Malate synthase G | C′, Cα, Cβ": (651, 623, 0),
-    #             "Malate synthase G | Cα, Cβ*": (622, 511, 0),
-    #             "Maltose binding protein | Cα, Cβ": (330, 313, 1),
-    #             "Rous Sarcoma Virus capsid | C′, Cα, Cβ": (218, 199, 0),
-    #             "Human carbonic anhydrase I | C′, Cα, Cβ": (242, 225, 0),
-    #             "N-terminal domain of enzyme I (EIN) | Cα, Cβ": (248, 245, 0),
-    #             "E-cadherin domains II and III | Cα, Cβ": (136, 70, 1),
-    #             "Human prion protein | Cα, Cβ": (154, 118, 0),
-    #             "Superoxide dismutase | C′, Cα, Cβ": (111, 100, 0),
-    #             "Superoxide dismutase | Cα, Cβ": (112, 103, 0),
-    #             "Calmodulin/M13 | Cα, C′": (136, 119, 0),
-    #             "Profilin | Cα, Cβ": (132, 123, 0),
-    #             "E. coli EmrE | C′, Cα, Cβ": (64, 50, 0),
-    #             "Human ubiquitin | Cα, Cβ": (72, 70, 0),
-    #             "Human ubiquitin | Cα only": (58, 9, 0),
-    #             "Z domain | Cα, Cβ, Hα†": None,
-    #             "Z domain | Cα, Cβ‡": None,
-    #             "Tir110 | C′, Cα, Cβ§": None,
-    #         },
-    #     }
-    # except: # any other error
-    #     print('Mars data set creation failed for a reason other than non prescence of podman')
+    if use_defaults:
+        out_name = 'mars-run'
+        mars_data = {
+            "I": {
+                (5471, "C′, Cα, Cβ"): (652, 639, 0),
+                (5471, "Cα, Cβ"): (500, 207, 0),
+                (4354, "Cα, Cβ"): (323, 303, 0),
+                (4384, "C′, Cα, Cβ"): (214, 205, 0),
+                (4022, "C′, Cα, Cβ"): (242, 235, 0),
+                (4106, "Cα, Cβ"): (246, 232, 0),
+                (4457, "Cα, Cβ"): (116, 77, 1),
+                (4402, "Cα, Cβ"): (138, 103, 0),
+                (4341, "C′, Cα, Cβ"): (112, 101, 0),
+                (4341, "Cα, Cβ"): (111, 101, 0),
+                (547, "Cα, C′"): (97, 37, 0),
+                (4082, "Cα, Cβ"): (130, 132, 2),
+                (4136, "C′, Cα, Cβ"): (61, 35, 0),
+                (5387, "Cα, Cβ"): (72, 72, 0),
+                (5387, "Cα only"): (32, 9, 0),
+                ("N/A", "Cα, Cβ, Hα"): (65, 65, 0),
+                ("N/A", "Cα, Cβ"): (57, 34, 0),
+                ("N/A", "C′, Cα, Cβ"): (91, 80, 0),
+            },
+            "II": {
+                (5471, "C′, Cα, Cβ"): (652, 639, 0),
+                (5471, "Cα, Cβ"): (639, 584, 2),
+                (4354, "Cα, Cβ"): (333, 324, 0),
+                (4384, "C′, Cα, Cβ"): (218, 207, 0),
+                (4022, "C′, Cα, Cβ"): (242, 237, 0),
+                (4106, "Cα, Cβ"): (246, 246, 0),
+                (4457, "Cα, Cβ"): (134, 102, 0),
+                (4402, "Cα, Cβ"): (155, 127, 0),
+                (4341, "C′, Cα, Cβ"): (112, 104, 0),
+                (4341, "Cα, Cβ"): (112, 104, 0),
+                (547, "Cα, C′"): (144, 142, 0),
+                (4082, "Cα, Cβ"): (132, 132, 0),
+                (4136, "C′, Cα, Cβ"): (70, 58, 0),
+                (5387, "Cα, Cβ"): (72, 72, 0),
+                (5387, "Cα only"): (58, 18, 0),
+                ("N/A", "Cα, Cβ, Hα"): None,
+                ("N/A", "Cα, Cβ"): None,
+                ("N/A", "C′, Cα, Cβ"): None,
+            },
+            "III": {
+                (5471, "C′, Cα, Cβ"): (651, 623, 0),
+                (5471, "Cα, Cβ"): (622, 511, 0),
+                (4354, "Cα, Cβ"): (330, 313, 1),
+                (4384, "C′, Cα, Cβ"): (218, 199, 0),
+                (4022, "C′, Cα, Cβ"): (242, 225, 0),
+                (4106, "Cα, Cβ"): (248, 245, 0),
+                (4457, "Cα, Cβ"): (136, 70, 1),
+                (4402, "Cα, Cβ"): (154, 118, 0),
+                (4341, "C′, Cα, Cβ"): (111, 100, 0),
+                (4341, "Cα, Cβ"): (112, 103, 0),
+                (547, "Cα, C′"): (136, 119, 0),
+                (4082, "Cα, Cβ"): (132, 123, 0),
+                (4136, "C′, Cα, Cβ"): (64, 50, 0),
+                (5387, "Cα, Cβ"): (72, 70, 0),
+                (5387, "Cα only"): (58, 9, 0),
+                ("N/A", "Cα, Cβ, Hα"): None,
+                ("N/A", "Cα, Cβ"): None,
+                ("N/A", "C′, Cα, Cβ"): None,
+            },
+        }
 
-    rows = []
-    for condition, results_by_bmrb in mars_data.items():
-        for bmrb_id, (assignments, reliable, errors) in results_by_bmrb.items():
-            rows.append(
-                {
-                    "protein": lookup_name(bmrb_id, BMRB_NAMES),
-                    'bmrb_id': str(bmrb_id),
-                    "chemical_shifts_used": 'all',  # Not changing in this output
+        rows = []
+
+        for condition, results_by_bmrb in mars_data.items():
+            for (bmrb_id, chemical_shifts_used), result in results_by_bmrb.items():
+                if result is None:
+                    continue
+
+                assignments, reliable, errors = result
+                rows.append({
+                    "protein": lookup_name(bmrb_id, BMRB_NAMES) if bmrb_id != "N/A" else "N/A",
+                    "bmrb_id": str(bmrb_id),
+                    "chemical_shifts_used": chemical_shifts_used,
                     "condition": str(condition),
                     "assignments": assignments,
                     "reliable_assignments": reliable,
                     "errors": errors,
-                }
-            )
+                })
+    else:
+        out_name = 'MARS-orig'
+        mars_data_files = run_mars_set(BMRB_IDS, DATA_DIR)
+        mars_data = format_mars(mars_data_files)
 
-    print(mars_data_files)
+
+
+        rows = []
+        for condition, results_by_bmrb in mars_data.items():
+            for bmrb_id, (assignments, reliable, errors) in results_by_bmrb.items():
+                rows.append(
+                    {
+                        "protein": lookup_name(bmrb_id, BMRB_NAMES),
+                        'bmrb_id': str(bmrb_id),
+                        "chemical_shifts_used": 'all',  # Not changing in this output
+                        "condition": str(condition),
+                        "assignments": assignments,
+                        "reliable_assignments": reliable,
+                        "errors": errors,
+                    }
+                )
 
     mars_results = pd.DataFrame(rows)
     mars_results[["assignments", "reliable_assignments", "errors"]] = mars_results[
         ["assignments", "reliable_assignments", "errors"]
     ].astype("Int64")
+    mars_results.attrs['name'] = out_name
 
     return mars_results
 
@@ -158,9 +176,11 @@ def parse_assignment_aa(path, reference):
                 continue
 
             if (
-                assigned_code != target_code
+                    (assigned_code != target_code
                 or assigned_name != target_name
-                or assigned_name != reference_name
+                or assigned_name != reference_name)
+                and len(fields) >= 3
+                and fields[2] == "(H)"
             ):
                 errors += 1
 
