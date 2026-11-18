@@ -12,7 +12,7 @@ from modules.results import read_reference_assignment
 def get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR, use_defaults: bool = False):
 
     if use_defaults:
-        out_name = 'mars-run'
+        out_name = 'mars-orig'
         mars_data = {
             "I": {
                 (5471, "C′, Cα, Cβ"): (652, 639, 0),
@@ -94,7 +94,7 @@ def get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR, use_defaults: bool = False):
                     "errors": errors,
                 })
     else:
-        out_name = 'MARS-orig'
+        out_name = 'MARS-run'
         mars_data_files = run_mars_set(BMRB_IDS, DATA_DIR)
         mars_data = format_mars(mars_data_files)
 
