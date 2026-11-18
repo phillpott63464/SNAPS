@@ -31,7 +31,9 @@ class SNAPSImporter:
         readers: Optional[list[FormatReader]] = None,
         config: Optional[SNAPSConfig] = None,
     ):
-        self.readers = readers if readers is not None else self._default_readers()
+        self.readers = (
+            readers if readers is not None else self._default_readers()
+        )
         self._reader_by_format = {r.format_name: r for r in self.readers}
         self._reader_by_ext = {}
         for reader in self.readers:
@@ -67,7 +69,9 @@ class SNAPSImporter:
             if reader.can_read(file_path):
                 return reader
             else:
-                self.config.logger.warning("Format hint and file contents don't match. Ignoring format hint.")
+                self.config.logger.warning(
+                    "Format hint and file contents don't match. Ignoring format hint."
+                )
 
         # # Try extension mapping
         ext = file_path.suffix.lower()
@@ -76,7 +80,9 @@ class SNAPSImporter:
             if reader.can_read(file_path):
                 return reader
             else:
-                self.config.logger.warning("File extension and file contents don't match. Ignoring file extension.")
+                self.config.logger.warning(
+                    "File extension and file contents don't match. Ignoring file extension."
+                )
 
         # Try each reader's can_read method
         for reader in self.readers:
@@ -84,72 +90,76 @@ class SNAPSImporter:
             if result:
                 return reader
 
-        raise ValueError(f"No reader found for {file_path}")
+        raise ValueError(f'No reader found for {file_path}')
 
     def clean_obs(self, obs_shift):
         obs_shift = obs_shift.loc[
-            obs_shift["Atom_type"].isin(
-                ["H", "HA", "N", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1"]
+            obs_shift['Atom_type'].isin(
+                ['H', 'HA', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1']
             ),
             :,
         ]
 
         # Convert from long to wide
         obs_shift = obs_shift.pivot(
-            index="SS_name", columns="Atom_type", values="Shift"
+            index='SS_name', columns='Atom_type', values='Shift'
         )
-        obs_shift.insert(0, "SS_name", obs_shift.index.values)
+        obs_shift.insert(0, 'SS_name', obs_shift.index.values)
 
         # the index name shouldn't match a column name!
         obs_shift.index.name = None
 
         return obs_shift
 
-    def clean_preds_no_sequence(self, preds_long: pd.DataFrame, offset: int = 0):
+    def clean_preds_no_sequence(
+        self, preds_long: pd.DataFrame, offset: int = 0
+    ):
         #### Initial processing and conversion from long to wide
         # Add sequence number offset and create residue names
-        preds_long["Res_N"] = preds_long["Res_N"] + offset
+        preds_long['Res_N'] = preds_long['Res_N'] + offset
         preds_long.insert(
             1,
-            "Res_name",
-            (preds_long["Res_N"].astype(str) + preds_long["Res_type"]),
+            'Res_name',
+            (preds_long['Res_N'].astype(str) + preds_long['Res_type']),
         )
         # Left pad with spaces to a constant length (helps with sorting)
-        preds_long["Res_name"] = preds_long["Res_name"].str.rjust(5)
+        preds_long['Res_name'] = preds_long['Res_name'].str.rjust(5)
 
         # Convert from long to wide format
-        preds = preds_long.pivot(index="Res_N", columns="Atom_type", values="Shift")
+        preds = preds_long.pivot(
+            index='Res_N', columns='Atom_type', values='Shift'
+        )
         preds.index.name = None
 
         # Add the other residue name and type back in
-        tmp = preds_long[["Res_N", "Res_type", "Res_name"]]
-        tmp = tmp.drop_duplicates(subset="Res_name")
-        tmp.index = tmp["Res_N"]
+        tmp = preds_long[['Res_N', 'Res_type', 'Res_name']]
+        tmp = tmp.drop_duplicates(subset='Res_name')
+        tmp.index = tmp['Res_N']
         tmp.index.name = None
         preds = pd.concat([tmp, preds], axis=1)
 
         #### Make consistent with seq_df (and create if it doesn't already exist)
         # TODO: Maybe this should be split off into a separate function?
         # If seq_df is missing, create it based on preds
-        seq_df = preds.copy()[["Res_N", "Res_type", "Res_name"]]
+        seq_df = preds.copy()[['Res_N', 'Res_type', 'Res_name']]
 
         # If there are any missing residue numbers, create them
-        min_N = seq_df["Res_N"].min()
-        max_N = seq_df["Res_N"].max()
+        min_N = seq_df['Res_N'].min()
+        max_N = seq_df['Res_N'].max()
         missing_residue_numbers = set(range(min_N, max_N + 1)).difference(
-            seq_df["Res_N"]
+            seq_df['Res_N']
         )
         if len(missing_residue_numbers) > 0:
             tmp = pd.DataFrame(
                 {
-                    "Res_N": sorted(missing_residue_numbers),
-                    "Res_type": "X",
-                    "Res_name": np.nan,
+                    'Res_N': sorted(missing_residue_numbers),
+                    'Res_type': 'X',
+                    'Res_name': np.nan,
                 }
             )
-            tmp["Res_name"] = tmp["Res_N"].astype(str) + tmp["Res_type"]
-            tmp["Res_name"] = tmp["Res_name"].str.rjust(5)
-            tmp.index = tmp["Res_N"]
+            tmp['Res_name'] = tmp['Res_N'].astype(str) + tmp['Res_type']
+            tmp['Res_name'] = tmp['Res_name'].str.rjust(5)
+            tmp.index = tmp['Res_N']
             tmp.index.name = None
             # seq_df = seq_df.append(tmp).sort_index()
             seq_df = pd.concat([seq_df, tmp]).sort_index()
@@ -157,30 +167,33 @@ class SNAPSImporter:
         # Add/delete residues from preds so it matches seq_df
         # Only keep predictions that are in seq_df
         tmp = len(preds.index)
-        preds = preds[preds["Res_N"].isin(seq_df["Res_N"])]
+        preds = preds[preds['Res_N'].isin(seq_df['Res_N'])]
         tmp2 = tmp - len(preds.index)
 
         # Add predictions for any residue number that is in seq_df but not preds
         tmp = pd.DataFrame(
-            data=seq_df[~seq_df["Res_N"].isin(preds["Res_N"])],
+            data=seq_df[~seq_df['Res_N'].isin(preds['Res_N'])],
             columns=preds.columns,
         )
         # preds = preds.append(tmp)
         preds = pd.concat([preds, tmp])
 
         # If Res_name is inconsistent between seq_df and preds, make a compromise
-        preds.index = preds["Res_N"]
+        preds.index = preds['Res_N']
         preds = preds.sort_index()
-        seq_df.index = seq_df["Res_N"]
+        seq_df.index = seq_df['Res_N']
         seq_df = seq_df.sort_index()
-        mask = preds["Res_name"] != seq_df["Res_name"]
+        mask = preds['Res_name'] != seq_df['Res_name']
 
         if any(mask):
             ambiguous_res_names = (
-                seq_df.loc[mask, "Res_name"] + "(" + preds.loc[mask, "Res_type"] + "?)"
+                seq_df.loc[mask, 'Res_name']
+                + '('
+                + preds.loc[mask, 'Res_type']
+                + '?)'
             )
-            preds.loc[mask, "Res_name"] = ambiguous_res_names
-            seq_df.loc[mask, "Res_name"] = ambiguous_res_names
+            preds.loc[mask, 'Res_name'] = ambiguous_res_names
+            seq_df.loc[mask, 'Res_name'] = ambiguous_res_names
             # Note we don't update the Res_type in preds, because this is potentially
             # used for correcting the chemical shift
 
@@ -188,16 +201,16 @@ class SNAPSImporter:
             # TODO: test this
             self.config.logger.warning(
                 (
-                    "There were inconsistencies between the provided sequence "
-                    "file and the predicted shifts. The following residues had "
-                    "inconsistent amino acid types: %s"
+                    'There were inconsistencies between the provided sequence '
+                    'file and the predicted shifts. The following residues had '
+                    'inconsistent amino acid types: %s'
                 )
-                % ", ".join(ambiguous_res_names)
+                % ', '.join(ambiguous_res_names)
             )
 
         #        preds.index = preds["Res_name"]
         #        preds.index.name = None
-        seq_df.index = seq_df["Res_name"]
+        seq_df.index = seq_df['Res_name']
         seq_df.index.name = None
 
         #### Add the chemical shift info back in
@@ -205,33 +218,39 @@ class SNAPSImporter:
         # Make columns for the i-1 predicted shifts of C, CA and CB
         preds_m1 = preds[
             sorted(
-                {"C", "CA", "CB", "Res_type", "Res_name"}.intersection(preds.columns)
+                {'C', 'CA', 'CB', 'Res_type', 'Res_name'}.intersection(
+                    preds.columns
+                )
             )
         ].copy()
         preds_m1.index = preds_m1.index + 1
-        preds_m1.columns = preds_m1.columns + "_m1"
-        preds = pd.merge(preds, preds_m1, how="left", left_index=True, right_index=True)
+        preds_m1.columns = preds_m1.columns + '_m1'
+        preds = pd.merge(
+            preds, preds_m1, how='left', left_index=True, right_index=True
+        )
 
         # Make column for the i+1 Res_name
-        preds_p1 = preds[["Res_name"]].copy()
+        preds_p1 = preds[['Res_name']].copy()
         preds_p1.index = preds_p1.index - 1
-        preds_p1.columns = ["Res_name_p1"]
-        preds = pd.merge(preds, preds_p1, how="left", left_index=True, right_index=True)
+        preds_p1.columns = ['Res_name_p1']
+        preds = pd.merge(
+            preds, preds_p1, how='left', left_index=True, right_index=True
+        )
 
         # Set index to Res_name
-        preds.index = preds["Res_name"]
+        preds.index = preds['Res_name']
         preds.index.name = None
 
         # Restrict to only certain atom types
-        atom_set = {"H", "N", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1", "HA"}
+        atom_set = {'H', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1', 'HA'}
         preds = preds[
             [
-                "Res_name",
-                "Res_N",
-                "Res_type",
-                "Res_name_m1",
-                "Res_name_p1",
-                "Res_type_m1",
+                'Res_name',
+                'Res_N',
+                'Res_type',
+                'Res_name_m1',
+                'Res_name_p1',
+                'Res_type_m1',
             ]
             + sorted(atom_set.intersection(preds.columns))
         ]
@@ -246,8 +265,8 @@ class SNAPSImporter:
         pred_format: Optional[str] = None,
         obs_frame: Optional[str] = None,
         pred_frame: Optional[str] = None,
-        obs_chain: str = "A",
-        pred_chain: str = "A",
+        obs_chain: str = 'A',
+        pred_chain: str = 'A',
         aa_restraints_file: Optional[Path] = None,
         aa_restraints_frame: Optional[str] = None,
     ) -> ShiftData:
@@ -257,8 +276,12 @@ class SNAPSImporter:
         obs_reader = self._get_reader(obs_file, obs_format)
         pred_reader = self._get_reader(pred_file, pred_format)
 
-        self.config.logger.info(f"Observed shifts reader={obs_reader.format_name}")
-        self.config.logger.info(f"Predicted shifts reader={pred_reader.format_name}")
+        self.config.logger.info(
+            f'Observed shifts reader={obs_reader.format_name}'
+        )
+        self.config.logger.info(
+            f'Predicted shifts reader={pred_reader.format_name}'
+        )
 
         # Import observed shifts
         if isinstance(obs_reader, NEFReader):
@@ -279,36 +302,40 @@ class SNAPSImporter:
         obs_shifts = self.clean_obs(obs_shifts)
 
         if (
-            self.config.strategy == "triplet"
+            self.config.strategy == 'triplet'
             and not self.config.SS_num
-            and not any(str(col).endswith("_m1") for col in obs_shifts.columns)
+            and not any(str(col).endswith('_m1') for col in obs_shifts.columns)
         ):
             self.config.logger.warning(
-                "Triplet strategy requires SS_num to be True to generate sequential links, "
-                "or for sequential links to be provided. Overriding provided value. "
-                "If this is not the behaviour you expected, please panic."
+                'Triplet strategy requires SS_num to be True to generate sequential links, '
+                'or for sequential links to be provided. Overriding provided value. '
+                'If this is not the behaviour you expected, please panic.'
             )
             # TODO: rewrite this error message before it's actually important
             self.config.SS_num = True
 
         if self.config.SS_num == True:
-            obs_shifts["Res_N"] = (
-                obs_shifts["SS_name"].str.extract(r"(\d+)").astype(int)
+            obs_shifts['Res_N'] = (
+                obs_shifts['SS_name'].str.extract(r'(\d+)').astype(int)
             )
 
-            obs_shifts.index = obs_shifts["Res_N"]
+            obs_shifts.index = obs_shifts['Res_N']
             obs_m1 = obs_shifts[
-                list({"C", "CA", "CB"}.intersection(obs_shifts.columns))
+                list({'C', 'CA', 'CB'}.intersection(obs_shifts.columns))
             ]
             obs_m1.index = obs_m1.index + 1
-            obs_m1.columns = obs_m1.columns + "_m1"
+            obs_m1.columns = obs_m1.columns + '_m1'
             obs_shifts = pd.merge(
-                obs_shifts, obs_m1, how="left", left_index=True, right_index=True
+                obs_shifts,
+                obs_m1,
+                how='left',
+                left_index=True,
+                right_index=True,
             )
-            obs_shifts = obs_shifts.drop(columns="Res_N")
+            obs_shifts = obs_shifts.drop(columns='Res_N')
 
             # Set index back to SS_name
-            obs_shifts.index = obs_shifts["SS_name"]
+            obs_shifts.index = obs_shifts['SS_name']
             obs_shifts.index.name = None
 
         # Import sequence
@@ -339,16 +366,16 @@ class SNAPSImporter:
             sequence=sequence,
             # aa_restraints=aa_restraints,
             metadata={
-                "obs_file": str(obs_file),
-                "pred_file": str(pred_file),
-                "obs_format": obs_reader.format_name,
-                "pred_format": pred_reader.format_name,
-                "obs_frame": obs_frame,
-                "pred_frame": pred_frame,
+                'obs_file': str(obs_file),
+                'pred_file': str(pred_file),
+                'obs_format': obs_reader.format_name,
+                'pred_format': pred_reader.format_name,
+                'obs_frame': obs_frame,
+                'pred_frame': pred_frame,
             },
         )
 
-    def import_sequence(self, filename, seq_numbering=1, filetype="text"):
+    def import_sequence(self, filename, seq_numbering=1, filetype='text'):
         """Imports the protein sequence
 
         The sequence information is used to fill in any gaps if prediction
@@ -365,76 +392,78 @@ class SNAPSImporter:
         """
 
         # Parse the sequence
-        if filetype == "fasta" or Path(filename).suffix.lower() in {
-            ".fasta",
-            ".fa",
-            ".faa",
+        if filetype == 'fasta' or Path(filename).suffix.lower() in {
+            '.fasta',
+            '.fa',
+            '.faa',
         }:
-            fasta_records = SeqIO.parse(open(filename), "fasta")
+            fasta_records = SeqIO.parse(open(filename), 'fasta')
             record1 = next(fasta_records)
             seq_list = list(str(record1.seq))
-        elif filetype == "text":
-            with open(filename, "r") as file:
-                seq_list = list("".join(file.read().split()))
+        elif filetype == 'text':
+            with open(filename, 'r') as file:
+                seq_list = list(''.join(file.read().split()))
 
         # Parse the sequence numbering information and make a list of residue numbers
         if type(seq_numbering) == int:
             res_N_start = seq_numbering
             res_N_list = list(range(res_N_start, res_N_start + len(seq_list)))
         else:
-            tmp = seq_numbering.split(",")
+            tmp = seq_numbering.split(',')
             if len(tmp) == 1:  # If id was "123" or "123-456"
-                tmp2 = tmp[0].split(":")
+                tmp2 = tmp[0].split(':')
                 if len(tmp2) == 1:  # If id was "123"
                     res_N_start = int(tmp2[0])
-                    res_N_list = list(range(res_N_start, res_N_start + len(seq_list)))
+                    res_N_list = list(
+                        range(res_N_start, res_N_start + len(seq_list))
+                    )
                 else:  # If id was "123-456"
                     start, end = tmp2
                     res_N_list = list(range(int(start), int(end) + 1))
             else:  # If id was "123-200,300-456"
                 res_N_list = []
                 for x in tmp:
-                    start, end = x.split(":")
+                    start, end = x.split(':')
                     res_N_list += list(range(int(start), int(end) + 1))
 
         # Check res_N_list and seq_list are the same length, and correct if not
         if len(res_N_list) > len(seq_list):
             res_N_list = res_N_list[0 : len(seq_list)]
             self.config.logger.warning(
-                "The residue range provided is longer than the"
-                + " length of the sequence, so has been truncated"
+                'The residue range provided is longer than the'
+                + ' length of the sequence, so has been truncated'
             )
         elif len(res_N_list) < len(seq_list):
             extra_needed = len(seq_list) - len(res_N_list)
             last_N = res_N_list[-1]
             res_N_list += list(range(last_N, last_N + extra_needed))
             self.config.logger.warning(
-                "The residue range provided is shorter than the"
-                + " length of the sequence, so has been extended"
+                'The residue range provided is shorter than the'
+                + ' length of the sequence, so has been extended'
             )
 
         # Make a dataframe
         seq_df = pd.DataFrame(
             {
-                "Seq_N": list(range(1, 1 + len(res_N_list))),
-                "Res_N": res_N_list,
-                "Res_type": seq_list,
+                'Seq_N': list(range(1, 1 + len(res_N_list))),
+                'Res_N': res_N_list,
+                'Res_type': seq_list,
             }
         )
         # Seq_N numbers the residues starting from 1.
-        seq_df["Res_name"] = seq_df["Res_N"].astype(str) + seq_df["Res_type"]
-        seq_df["Res_name"] = seq_df["Res_name"].str.rjust(5)
+        seq_df['Res_name'] = seq_df['Res_N'].astype(str) + seq_df['Res_type']
+        seq_df['Res_name'] = seq_df['Res_name'].str.rjust(5)
         # Pad Res_name to constant length
 
         # Add columns for i-1 and i+1 residue names
-        seq_df["Res_name_m1"] = seq_df["Res_name"].shift(1)
-        seq_df["Res_name_p1"] = seq_df["Res_name"].shift(-1)
+        seq_df['Res_name_m1'] = seq_df['Res_name'].shift(1)
+        seq_df['Res_name_p1'] = seq_df['Res_name'].shift(-1)
 
-        seq_df.index = seq_df["Res_name"]
+        seq_df.index = seq_df['Res_name']
         seq_df.index.name = None
 
         self.config.logger.info(
-            "Finished importing a sequence of length %d" % len(seq_df.index)
+            'Finished importing a sequence of length %d' % len(seq_df.index)
         )
 
         return seq_df
@@ -450,7 +479,9 @@ class SNAPSImporter:
         sequence = seq_df.Res_type.sum()
         pred_sequence = preds.Res_type.dropna().sum()
         aligner = Align.PairwiseAligner()
-        aligner.substitution_matrix = Align.substitution_matrices.load("BLOSUM62")
+        aligner.substitution_matrix = Align.substitution_matrices.load(
+            'BLOSUM62'
+        )
         alignment = aligner.align(sequence, pred_sequence)[0]
 
         # Create a dataframe mapping preds onto sequence
@@ -476,40 +507,44 @@ class SNAPSImporter:
         ]  # Index the predictions with their position in sequence
         preds = preds.rename(
             columns={
-                "Res_N": "Pred_N",
-                "Res_name": "Pred_name",
-                "Res_type": "Pred_type",
+                'Res_N': 'Pred_N',
+                'Res_name': 'Pred_name',
+                'Res_type': 'Pred_type',
             }
         )
         aligned_preds = pd.concat((seq_df, preds), axis=1)
 
         # If glycine HA is missing, replace it with average of HA2 and HA3
-        if {"HA2", "HA3"}.issubset(aligned_preds.columns):
-            if "HA" not in aligned_preds.columns:
-                aligned_preds["HA"] = float("nan")
+        if {'HA2', 'HA3'}.issubset(aligned_preds.columns):
+            if 'HA' not in aligned_preds.columns:
+                aligned_preds['HA'] = float('nan')
 
-            mask = aligned_preds["HA"].isna()
-            aligned_preds.loc[mask, "HA"] = (
-                aligned_preds.loc[mask, "HA2"] + aligned_preds.loc[mask, "HA3"]
+            mask = aligned_preds['HA'].isna()
+            aligned_preds.loc[mask, 'HA'] = (
+                aligned_preds.loc[mask, 'HA2'] + aligned_preds.loc[mask, 'HA3']
             ) / 2
 
         # Remove atoms that are not used?
         cols_to_keep = [
-            "Seq_N",
-            "Res_N",
-            "Res_type",
-            "Res_name",
-            "Res_name_m1",
-            "Res_name_p1",
-            "Pred_N",
-            "Pred_type",
-            "Pred_name",
+            'Seq_N',
+            'Res_N',
+            'Res_type',
+            'Res_name',
+            'Res_name_m1',
+            'Res_name_p1',
+            'Pred_N',
+            'Pred_type',
+            'Pred_name',
         ]
-        atom_list = list(self.config.atom_set.intersection(aligned_preds.columns))
+        atom_list = list(
+            self.config.atom_set.intersection(aligned_preds.columns)
+        )
         aligned_preds = aligned_preds.loc[:, cols_to_keep + atom_list]
 
         # Remove predictions where residue type is inconsistent
-        inconsistent_res_type = aligned_preds.Res_type != aligned_preds.Pred_type
+        inconsistent_res_type = (
+            aligned_preds.Res_type != aligned_preds.Pred_type
+        )
         aligned_preds.loc[inconsistent_res_type, atom_list] = np.nan
 
         # Add columns for i-1 and i+1 atoms
@@ -518,54 +553,60 @@ class SNAPSImporter:
         preds_m1 = aligned_preds[
             list(
                 {
-                    "C",
-                    "CA",
-                    "CB",
-                    "N",
-                    "Res_type",
-                    "Res_name",
-                    "Res_name_p1",
+                    'C',
+                    'CA',
+                    'CB',
+                    'N',
+                    'Res_type',
+                    'Res_name',
+                    'Res_name_p1',
                 }.intersection(aligned_preds.columns)
             )
         ].copy()
-        preds_m1.index = preds_m1.Res_name_p1  # Note _p1, because we need to transfer the chemical shift to the i+1 residue!
+        preds_m1.index = (
+            preds_m1.Res_name_p1
+        )  # Note _p1, because we need to transfer the chemical shift to the i+1 residue!
         aligned_preds = pd.merge(
             aligned_preds,
-            preds_m1[["C", "CA", "CB", "N"]],
-            how="left",
+            preds_m1[['C', 'CA', 'CB', 'N']],
+            how='left',
             left_index=True,
             right_index=True,
-            suffixes=["", "_m1"],
+            suffixes=['', '_m1'],
         )
 
         preds_p1 = aligned_preds[
             list(
-                {"N", "Res_type", "Res_name", "Res_name_m1"}.intersection(
+                {'N', 'Res_type', 'Res_name', 'Res_name_m1'}.intersection(
                     aligned_preds.columns
                 )
             )
         ].copy()
-        preds_p1.index = preds_p1.Res_name_m1  # Note _m1, because we need to transfer the chemical shift to the i-1 residue!
+        preds_p1.index = (
+            preds_p1.Res_name_m1
+        )  # Note _m1, because we need to transfer the chemical shift to the i-1 residue!
         aligned_preds = pd.merge(
             aligned_preds,
-            preds_p1[["N"]],
-            how="left",
+            preds_p1[['N']],
+            how='left',
             left_index=True,
             right_index=True,
-            suffixes=["", "_p1"],
+            suffixes=['', '_p1'],
         )
 
         # Output info to log
         self.config.logger.info(
-            "Aligned %d predicted residues to sequence"
+            'Aligned %d predicted residues to sequence'
             % ((~aligned_preds.Pred_name.isna()).sum())
         )
-        self.config.logger.info("\n" + str(alignment))
+        self.config.logger.info('\n' + str(alignment))
 
         self.aligned_preds = aligned_preds
         return aligned_preds
 
-    def clean_preds_with_sequence(self, preds_long: pd.DataFrame, offset: int = 0):
+    def clean_preds_with_sequence(
+        self, preds_long: pd.DataFrame, offset: int = 0
+    ):
         """Import predicted chemical shifts from a ShiftX2 results file.
         Note that this function does not transfer predictions for i-1 atoms -
         that is done by map_preds_to_sequence()
@@ -582,19 +623,23 @@ class SNAPSImporter:
         #### Import the raw data
         #### Initial processing and conversion from long to wide
         # Convert from long to wide format
-        preds = preds_long.pivot(index="Res_N", columns="Atom_type", values="Shift")
+        preds = preds_long.pivot(
+            index='Res_N', columns='Atom_type', values='Shift'
+        )
         preds.index.name = None
 
         # Add residue type back into wide table
-        tmp = preds_long[["Res_N", "Res_type"]]
-        tmp = tmp.drop_duplicates(subset="Res_N")
-        tmp.index = tmp["Res_N"]
+        tmp = preds_long[['Res_N', 'Res_type']]
+        tmp = tmp.drop_duplicates(subset='Res_N')
+        tmp.index = tmp['Res_N']
         tmp.index.name = None
         preds = pd.concat([tmp, preds], axis=1)
 
         # Apply sequence offset and create Res_name column
-        preds["Res_N"] = preds["Res_N"] + offset
-        preds.insert(1, "Res_name", preds["Res_N"].astype(str) + preds["Res_type"])
-        preds["Res_name"] = preds["Res_name"].str.rjust(5)
+        preds['Res_N'] = preds['Res_N'] + offset
+        preds.insert(
+            1, 'Res_name', preds['Res_N'].astype(str) + preds['Res_type']
+        )
+        preds['Res_name'] = preds['Res_name'].str.rjust(5)
 
         return preds

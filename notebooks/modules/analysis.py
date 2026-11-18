@@ -1,6 +1,7 @@
 """Comparison statistics and figures for the SNAPS/MARS notebook."""
 
 from __future__ import annotations
+
 import re
 from collections import Counter
 from typing import Optional
@@ -8,51 +9,51 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
-from scipy import stats
 from Bio import SeqIO
+from scipy import stats
 
 from modules.results import calculate_residue_mismatches
+
 
 def compare_results(
     results_1_orig: pd.DataFrame, results_2_orig: pd.DataFrame
 ) -> pd.DataFrame:
-    numeric = ["assignments", "reliable_assignments", "errors"]
+    numeric = ['assignments', 'reliable_assignments', 'errors']
     results_1, results_2 = results_1_orig.copy(), results_2_orig.copy()
     name_1 = results_1.attrs['name']
     name_2 = results_2.attrs['name']
     for frame in (results_1, results_2):
-        frame["key"] = frame["protein"].str.strip().str.lower()
-        frame[numeric] = frame[numeric].apply(pd.to_numeric, errors="coerce")
-    results_1["condition"] = results_1["condition"].astype(str).str.strip()
-    results_2["condition"] = results_2["condition"].astype(str).str.strip()
+        frame['key'] = frame['protein'].str.strip().str.lower()
+        frame[numeric] = frame[numeric].apply(pd.to_numeric, errors='coerce')
+    results_1['condition'] = results_1['condition'].astype(str).str.strip()
+    results_2['condition'] = results_2['condition'].astype(str).str.strip()
     # discard every condition in results_2 but the best one
     # results_2 = results_2[results_2["condition"] == "II"].dropna(subset=numeric)
-    results_2 = results_2.sort_values("reliable_assignments", ascending=False).drop_duplicates(
-        subset="key", keep="first"
-    )
+    results_2 = results_2.sort_values(
+        'reliable_assignments', ascending=False
+    ).drop_duplicates(subset='key', keep='first')
     results_2 = results_2.dropna(subset=numeric)
 
     def summarise(frame, tool, by):
         aggregations = {
-            "protein": ("protein", "first"),
-            "n_assign": ("assignments", "max"),
-            "reliable": ("reliable_assignments", "mean"),
-            "errors": ("errors", "mean"),
-            "n_runs": ("errors", "size"),
+            'protein': ('protein', 'first'),
+            'n_assign': ('assignments', 'max'),
+            'reliable': ('reliable_assignments', 'mean'),
+            'errors': ('errors', 'mean'),
+            'n_runs': ('errors', 'size'),
         }
-        if "fasta_file" in frame.columns:
-            aggregations["fasta_file"] = ("fasta_file", "first")
+        if 'fasta_file' in frame.columns:
+            aggregations['fasta_file'] = ('fasta_file', 'first')
 
         grouped = frame.groupby(by).agg(**aggregations)
-        grouped["correct"] = grouped["n_assign"] - grouped["errors"]
-        return grouped.add_suffix(f"_{tool}")
+        grouped['correct'] = grouped['n_assign'] - grouped['errors']
+        return grouped.add_suffix(f'_{tool}')
 
-    summary_1 = summarise(results_1, name_1, ["key", "condition"]).reset_index(
-        level="condition"
+    summary_1 = summarise(results_1, name_1, ['key', 'condition']).reset_index(
+        level='condition'
     )
-    summary_2 = summarise(results_2, name_2, ["key"])
-    compared = summary_1.join(summary_2, how="inner").reset_index()
+    summary_2 = summarise(results_2, name_2, ['key'])
+    compared = summary_1.join(summary_2, how='inner').reset_index()
     # Original total length assumption - assume it's the maximum of whichever one is longest
     # compared["N"] = compared[[f"n_assign_{name_1}", f"n_assign_{name_2}"]].max(axis=1)
     # Instead now we'll read the sequence length from results_x['fasta_file'] using biopython
@@ -61,31 +62,41 @@ def compare_results(
     def sequence_length(path):
         if pd.isna(path):
             return np.nan
-        return len(next(SeqIO.parse(path, "fasta")).seq)
+        return len(next(SeqIO.parse(path, 'fasta')).seq)
 
     for tool in (name_1, name_2):
-        fasta_col = f"fasta_file_{tool}"
-        n_assign_col = f"n_assign_{tool}"
+        fasta_col = f'fasta_file_{tool}'
+        n_assign_col = f'n_assign_{tool}'
         if fasta_col in compared.columns:
             fasta_lengths = compared[fasta_col].map(sequence_length)
-            compared[f"total_{tool}"] = fasta_lengths.fillna(compared[n_assign_col])
+            compared[f'total_{tool}'] = fasta_lengths.fillna(
+                compared[n_assign_col]
+            )
         else:
-            compared[f"total_{tool}"] = compared[n_assign_col]
+            compared[f'total_{tool}'] = compared[n_assign_col]
 
-    compared["N"] = compared[[f"total_{name_1}", f"total_{name_2}"]].max(axis=1)
+    compared['N'] = compared[[f'total_{name_1}', f'total_{name_2}']].max(
+        axis=1
+    )
 
     for tool in (name_1, name_2):
-        compared[f"correct_frac_{tool}"] = compared[f"correct_{tool}"] / compared["N"]
-        compared[f"reliable_frac_{tool}"] = compared[f"reliable_{tool}"] / compared["N"]
-        compared[f"err_rate_{tool}"] = (
-            compared[f"errors_{tool}"] / compared[f"reliable_{tool}"]
+        compared[f'correct_frac_{tool}'] = (
+            compared[f'correct_{tool}'] / compared['N']
         )
-    compared["diff"] = compared[f"correct_frac_{name_1}"] - compared[f"correct_frac_{name_2}"]
+        compared[f'reliable_frac_{tool}'] = (
+            compared[f'reliable_{tool}'] / compared['N']
+        )
+        compared[f'err_rate_{tool}'] = (
+            compared[f'errors_{tool}'] / compared[f'reliable_{tool}']
+        )
+    compared['diff'] = (
+        compared[f'correct_frac_{name_1}'] - compared[f'correct_frac_{name_2}']
+    )
 
     def fisher(row):
-        total = int(row["N"])
-        correct_1 = round(row[f"correct_{name_1}"])
-        correct_2 = round(row[f"correct_{name_2}"])
+        total = int(row['N'])
+        correct_1 = round(row[f'correct_{name_1}'])
+        correct_2 = round(row[f'correct_{name_2}'])
 
         return stats.fisher_exact(
             [
@@ -94,7 +105,7 @@ def compare_results(
             ]
         )[1]
 
-    compared["p_fisher"] = compared.apply(fisher, axis=1)
+    compared['p_fisher'] = compared.apply(fisher, axis=1)
     compared.attrs['name_1'] = name_1
     compared.attrs['name_2'] = name_2
     return compared
@@ -103,19 +114,19 @@ def compare_results(
 def plot_comparisons(compared: pd.DataFrame) -> dict:
     import matplotlib.pyplot as plt
 
-    name_1 = compared.attrs["name_1"]
-    name_2 = compared.attrs["name_2"]
+    name_1 = compared.attrs['name_1']
+    name_2 = compared.attrs['name_2']
 
     # Keep a stable color assignment by comparison order.
-    colors = {name_1: "#1f77b4", name_2: "#d95f02"}
-    limit = np.abs(compared["diff"]).max() * 1.1
+    colors = {name_1: '#1f77b4', name_2: '#d95f02'}
+    limit = np.abs(compared['diff']).max() * 1.1
     rng = np.random.default_rng(0)
     plots = {}
 
-    for condition in sorted(compared["condition"].unique()):
+    for condition in sorted(compared['condition'].unique()):
         plot = (
-            compared[compared["condition"] == condition]
-            .sort_values("diff")
+            compared[compared['condition'] == condition]
+            .sort_values('diff')
             .reset_index(drop=True)
         )
         y = np.arange(len(plot))
@@ -123,26 +134,26 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
             1,
             3,
             figsize=(18, max(5, 0.45 * len(plot) + 2)),
-            gridspec_kw={"width_ratios": [1.4, 1, 1.1]},
+            gridspec_kw={'width_ratios': [1.4, 1, 1.1]},
         )
         fig.suptitle(
-            f"{name_1} condition: {condition} vs {name_2}", fontsize=14, y=1.02
+            f'{name_1} condition: {condition} vs {name_2}', fontsize=14, y=1.02
         )
 
-        correct_frac_1 = f"correct_frac_{name_1}"
-        correct_frac_2 = f"correct_frac_{name_2}"
-        reliable_frac_1 = f"reliable_frac_{name_1}"
-        reliable_frac_2 = f"reliable_frac_{name_2}"
-        err_rate_1 = f"err_rate_{name_1}"
-        err_rate_2 = f"err_rate_{name_2}"
-        protein_col = f"protein_{name_1}"
+        correct_frac_1 = f'correct_frac_{name_1}'
+        correct_frac_2 = f'correct_frac_{name_2}'
+        reliable_frac_1 = f'reliable_frac_{name_1}'
+        reliable_frac_2 = f'reliable_frac_{name_2}'
+        err_rate_1 = f'err_rate_{name_1}'
+        err_rate_2 = f'err_rate_{name_2}'
+        protein_col = f'protein_{name_1}'
 
         ax = axes[0]
         ax.hlines(
             y,
             plot[correct_frac_2],
             plot[correct_frac_1],
-            color="grey",
+            color='grey',
             alpha=0.5,
         )
         ax.scatter(
@@ -159,39 +170,39 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
             s=60,
             label=name_2,
         )
-        for yi, p_value in zip(y, plot["p_fisher"]):
+        for yi, p_value in zip(y, plot['p_fisher']):
             star = (
-                "***"
+                '***'
                 if p_value < 0.001
-                else "**"
+                else '**'
                 if p_value < 0.01
-                else "*"
+                else '*'
                 if p_value < 0.05
-                else ""
+                else ''
             )
             if star:
-                ax.text(1.02, yi, star, va="center", ha="left")
+                ax.text(1.02, yi, star, va='center', ha='left')
         ax.set(
             yticks=y,
             yticklabels=plot[protein_col],
             xlim=(0, 1.08),
-            xlabel="Correct assignments / total residues",
-            title="A. Correct fraction per protein\n(* = Fisher p<0.05, approximate)",
+            xlabel='Correct assignments / total residues',
+            title='A. Correct fraction per protein\n(* = Fisher p<0.05, approximate)',
         )
-        ax.legend(loc="lower right")
-        ax.grid(axis="x", alpha=0.3)
+        ax.legend(loc='lower right')
+        ax.grid(axis='x', alpha=0.3)
 
         ax = axes[1]
         ax.barh(
             y,
-            plot["diff"],
+            plot['diff'],
             color=[
                 colors[name_1] if value > 0 else colors[name_2]
-                for value in plot["diff"]
+                for value in plot['diff']
             ],
             alpha=0.85,
         )
-        differences = plot["diff"].to_numpy()
+        differences = plot['diff'].to_numpy()
         bootstrap = rng.choice(
             differences, size=(10000, len(differences)), replace=True
         ).mean(axis=1)
@@ -199,26 +210,26 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
         ax.axvspan(
             lo,
             hi,
-            color="grey",
+            color='grey',
             alpha=0.2,
-            label=f"Bootstrap 95% CI\n({lo:.2f} to {hi:.2f})",
+            label=f'Bootstrap 95% CI\n({lo:.2f} to {hi:.2f})',
         )
-        ax.axvline(0, color="k", lw=0.8)
+        ax.axvline(0, color='k', lw=0.8)
         ax.axvline(
             differences.mean(),
-            color="k",
-            ls="--",
-            label=f"Mean diff = {differences.mean():.2f}",
+            color='k',
+            ls='--',
+            label=f'Mean diff = {differences.mean():.2f}',
         )
         ax.set(
             yticks=y,
             yticklabels=[],
             xlim=(-limit, limit),
-            xlabel=f"{name_1} - {name_2} (correct fraction)",
-            title=f"B. Difference (>0: {name_1} better)",
+            xlabel=f'{name_1} - {name_2} (correct fraction)',
+            title=f'B. Difference (>0: {name_1} better)',
         )
-        ax.legend(loc="lower right", fontsize=8)
-        ax.grid(axis="x", alpha=0.3)
+        ax.legend(loc='lower right', fontsize=8)
+        ax.grid(axis='x', alpha=0.3)
 
         ax = axes[2]
         for tool, reliable_col, err_col, offset in (
@@ -238,7 +249,7 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
                     row[protein_col],
                     (row[reliable_col], row[err_col]),
                     xytext=offset,
-                    textcoords="offset points",
+                    textcoords='offset points',
                     fontsize=7,
                     color=colors[tool],
                 )
@@ -247,14 +258,14 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
             ax.plot(
                 [row[reliable_frac_1], row[reliable_frac_2]],
                 [row[err_rate_1], row[err_rate_2]],
-                color="grey",
+                color='grey',
                 alpha=0.3,
             )
 
         ax.set(
-            xlabel="Reliable assignments / total residues",
-            ylabel="Errors / reliable assignments",
-            title="C. Completeness vs error rate\n(lower right is best)",
+            xlabel='Reliable assignments / total residues',
+            ylabel='Errors / reliable assignments',
+            title='C. Completeness vs error rate\n(lower right is best)',
         )
         ax.legend()
         ax.grid(alpha=0.3)
@@ -267,26 +278,26 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
 
 def analyse_mismatches(mismatches):
     amino_acids = [
-        "ALA",
-        "ARG",
-        "ASN",
-        "ASP",
-        "CYS",
-        "GLN",
-        "GLU",
-        "GLY",
-        "HIS",
-        "ILE",
-        "LEU",
-        "LYS",
-        "MET",
-        "PHE",
-        "PRO",
-        "SER",
-        "THR",
-        "TRP",
-        "TYR",
-        "VAL",
+        'ALA',
+        'ARG',
+        'ASN',
+        'ASP',
+        'CYS',
+        'GLN',
+        'GLU',
+        'GLY',
+        'HIS',
+        'ILE',
+        'LEU',
+        'LYS',
+        'MET',
+        'PHE',
+        'PRO',
+        'SER',
+        'THR',
+        'TRP',
+        'TYR',
+        'VAL',
     ]
     amino_acid_set = set(amino_acids)
     figures = {}
@@ -295,7 +306,12 @@ def analyse_mismatches(mismatches):
         if not counts:
             ax.set_title(title)
             ax.text(
-                0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes
+                0.5,
+                0.5,
+                'No data',
+                ha='center',
+                va='center',
+                transform=ax.transAxes,
             )
             return
 
@@ -309,11 +325,11 @@ def analyse_mismatches(mismatches):
         labels, values = zip(*items)
         labels = [str(label) for label in labels]
 
-        ax.bar(labels, values, color="#4C78A8")
+        ax.bar(labels, values, color='#4C78A8')
         ax.set_title(title)
-        ax.set_ylabel("Count")
-        ax.tick_params(axis="x", labelrotation=45)
-        ax.grid(axis="y", alpha=0.25)
+        ax.set_ylabel('Count')
+        ax.tick_params(axis='x', labelrotation=45)
+        ax.grid(axis='y', alpha=0.25)
         ax.set_axisbelow(True)
 
     for condition_name, proteins in mismatches.items():
@@ -330,85 +346,91 @@ def analyse_mismatches(mismatches):
 
         for df in proteins.values():
             print(df)
-            sequence_length = df.attrs["protein_length"]
+            sequence_length = df.attrs['protein_length']
 
             err_residue.update(
-                name for name in df["residue_name"].dropna() if name in amino_acid_set
+                name
+                for name in df['residue_name'].dropna()
+                if name in amino_acid_set
             )
             real_residue.update(
                 name
-                for name in df["reference_residue_name"].dropna()
+                for name in df['reference_residue_name'].dropna()
                 if name in amino_acid_set
             )
 
             for residue, reference in zip(
-                df["residue_name"], df["reference_residue_name"]
+                df['residue_name'], df['reference_residue_name']
             ):
                 if residue in amino_acid_set and reference in amino_acid_set:
                     real_err_res_pair[(residue, reference)] += 1
 
-            res = df["residue_number"].dropna()
-            ref = df["reference_number"].dropna()
+            res = df['residue_number'].dropna()
+            ref = df['reference_number'].dropna()
 
             res_position_pct.extend(res / sequence_length * 100)
             reference_position_pct.extend(ref / sequence_length * 100)
 
-            numbers = df[["residue_number", "reference_number"]].dropna()
+            numbers = df[['residue_number', 'reference_number']].dropna()
             distance_gap_pct.extend(
-                abs(numbers["residue_number"] - numbers["reference_number"])
+                abs(numbers['residue_number'] - numbers['reference_number'])
                 / sequence_length
                 * 100
             )
 
         fig, axes = plt.subplots(2, 3, figsize=(17, 10))
-        fig.suptitle(f"Mismatch analysis: {condition_name}", fontsize=16)
+        fig.suptitle(f'Mismatch analysis: {condition_name}', fontsize=16)
 
-        plot_counts(axes[0, 0], err_residue, "Mismatch residue")
-        plot_counts(axes[0, 1], real_residue, "Reference residue")
+        plot_counts(axes[0, 0], err_residue, 'Mismatch residue')
+        plot_counts(axes[0, 1], real_residue, 'Reference residue')
 
         pair_matrix = np.zeros((len(amino_acids), len(amino_acids)))
         aa_index = {aa: i for i, aa in enumerate(amino_acids)}
         for (residue, reference), count in real_err_res_pair.items():
             pair_matrix[aa_index[residue], aa_index[reference]] = count
 
-        image = axes[0, 2].imshow(pair_matrix, cmap="Blues", aspect="auto")
-        axes[0, 2].set_title("Mismatch vs. reference residue")
-        axes[0, 2].set_xlabel("Reference residue")
-        axes[0, 2].set_ylabel("Mismatch residue")
+        image = axes[0, 2].imshow(pair_matrix, cmap='Blues', aspect='auto')
+        axes[0, 2].set_title('Mismatch vs. reference residue')
+        axes[0, 2].set_xlabel('Reference residue')
+        axes[0, 2].set_ylabel('Mismatch residue')
         axes[0, 2].set_xticks(
             range(len(amino_acids)), amino_acids, rotation=90, fontsize=7
         )
         axes[0, 2].set_yticks(range(len(amino_acids)), amino_acids, fontsize=7)
-        fig.colorbar(image, ax=axes[0, 2], label="Count")
+        fig.colorbar(image, ax=axes[0, 2], label='Count')
 
         axes[1, 0].hist(
             res_position_pct,
             bins=np.arange(0, 110, 10),
-            color="#4C78A8",
-            edgecolor="white",
+            color='#4C78A8',
+            edgecolor='white',
         )
         axes[1, 0].set(
-            title="Mismatch position in protein", xlabel="Position (%)", ylabel="Count"
+            title='Mismatch position in protein',
+            xlabel='Position (%)',
+            ylabel='Count',
         )
 
         axes[1, 1].hist(
             reference_position_pct,
             bins=np.arange(0, 110, 10),
-            color="#4C78A8",
-            edgecolor="white",
+            color='#4C78A8',
+            edgecolor='white',
         )
         axes[1, 1].set(
-            title="Reference position in protein", xlabel="Position (%)", ylabel="Count"
+            title='Reference position in protein',
+            xlabel='Position (%)',
+            ylabel='Count',
         )
 
         gap_bins = np.arange(0, 110, 10)
         axes[1, 2].hist(
-            distance_gap_pct, bins=gap_bins, color="#4C78A8", edgecolor="white"
+            distance_gap_pct, bins=gap_bins, color='#4C78A8', edgecolor='white'
         )
         axes[1, 2].set(
-            title="Residue − reference distance (% of protein length)",
-            xlabel="Signed distance (%)",
-            ylabel="Count",
+            title='Residue − reference distance (% of protein length)',
+            xlabel='Signed distance (%)',
+            ylabel='Count',
         )
 
         fig.tight_layout(rect=(0, 0, 1, 0.96))
@@ -416,14 +438,17 @@ def analyse_mismatches(mismatches):
 
     return figures
 
+
 def analyse_rci(all_files: dict, BMRB_NAMES: Optional[dict] = None):
     by_bmrb = _analyse_rci(all_files)
 
-    conditions = sorted({
-        condition
-        for protein_conditions in by_bmrb.values()
-        for condition in protein_conditions
-    })
+    conditions = sorted(
+        {
+            condition
+            for protein_conditions in by_bmrb.values()
+            for condition in protein_conditions
+        }
+    )
 
     rci_analysis = {
         condition: {
@@ -434,8 +459,8 @@ def analyse_rci(all_files: dict, BMRB_NAMES: Optional[dict] = None):
         for condition in conditions
     }
 
-    secondary_structures = ("H", "E", "C")
-    colors = {"H": "tab:blue", "E": "tab:orange", "C": "tab:green"}
+    secondary_structures = ('H', 'E', 'C')
+    colors = {'H': 'tab:blue', 'E': 'tab:orange', 'C': 'tab:green'}
     figures = {}
 
     for condition, proteins in rci_analysis.items():
@@ -450,7 +475,7 @@ def analyse_rci(all_files: dict, BMRB_NAMES: Optional[dict] = None):
         fig, (ax_individual, ax_collated) = plt.subplots(
             1, 2, figsize=(14, 5), constrained_layout=True
         )
-        fig.suptitle(f"RCI mismatch proportions: {condition}")
+        fig.suptitle(f'RCI mismatch proportions: {condition}')
 
         # Per-protein grouped bars
         for i, ss in enumerate(secondary_structures):
@@ -463,13 +488,13 @@ def analyse_rci(all_files: dict, BMRB_NAMES: Optional[dict] = None):
                 color=colors[ss],
             )
 
-        ax_individual.set_title("By protein")
-        ax_individual.set_xlabel("Protein name")
-        ax_individual.set_ylabel("Mismatch proportion")
+        ax_individual.set_title('By protein')
+        ax_individual.set_xlabel('Protein name')
+        ax_individual.set_ylabel('Mismatch proportion')
         ax_individual.set_xticks(x)
-        ax_individual.set_xticklabels(bmrb_names, rotation=45, ha="right")
+        ax_individual.set_xticklabels(bmrb_names, rotation=45, ha='right')
         ax_individual.set_ylim(0, 1)
-        ax_individual.legend(title="Secondary structure")
+        ax_individual.legend(title='Secondary structure')
 
         # Across-protein mean with standard deviation
         means = []
@@ -492,9 +517,9 @@ def analyse_rci(all_files: dict, BMRB_NAMES: Optional[dict] = None):
             capsize=5,
             color=[colors[ss] for ss in secondary_structures],
         )
-        ax_collated.set_title("Across proteins")
-        ax_collated.set_xlabel("Secondary structure")
-        ax_collated.set_ylabel("Mean mismatch proportion ± SD")
+        ax_collated.set_title('Across proteins')
+        ax_collated.set_xlabel('Secondary structure')
+        ax_collated.set_ylabel('Mean mismatch proportion ± SD')
         ax_collated.set_xticks(ss_x)
         ax_collated.set_xticklabels(secondary_structures)
         ax_collated.set_ylim(0, 1)
@@ -502,6 +527,7 @@ def analyse_rci(all_files: dict, BMRB_NAMES: Optional[dict] = None):
         figures[condition] = fig
 
     return figures
+
 
 def _analyse_rci(all_files: dict) -> dict:
     """
@@ -534,30 +560,30 @@ def _analyse_rci(all_files: dict) -> dict:
         output[bmrb_id] = {}
 
         for condition, files in protein.items():
-            psipred = read_psipred(files["psipred_file"])
+            psipred = read_psipred(files['psipred_file'])
             protein_length = len(psipred)
             mismatches = calculate_residue_mismatches(
-                files["result_file"],
-                files["nef_file"],
+                files['result_file'],
+                files['nef_file'],
                 flank=0,
             )
 
             # Convert the mismatch reference positions to a set for fast lookup.
-            mismatch_positions = mismatches["reference_number"]
+            mismatch_positions = mismatches['reference_number']
 
-            counts = {"H": 0, "E": 0, "C": 0}
-            total_counts = {"H": 0, "E": 0, "C": 0}
+            counts = {'H': 0, 'E': 0, 'C': 0}
+            total_counts = {'H': 0, 'E': 0, 'C': 0}
 
             for residue in psipred:
-                ss = residue["secondary_structure"]
+                ss = residue['secondary_structure']
                 total_counts[ss] += 1
-                if residue["reference_number"] in mismatch_positions:
+                if residue['reference_number'] in mismatch_positions:
                     counts[ss] += 1
 
             proportions = {}
             for x, y in counts.items():
-                if counts[x] > 0 and total_counts[x] > 0:
-                    proportions[x] = counts[x] / total_counts[x]
+                if y > 0 and total_counts[x] > 0:
+                    proportions[x] = y / total_counts[x]
                 else:
                     proportions[x] = 0.0
 
@@ -565,6 +591,7 @@ def _analyse_rci(all_files: dict) -> dict:
                 output[bmrb_id][condition] = proportions
 
     return output
+
 
 def read_psipred(file_path: str) -> list[dict]:
     """Read a PSIPRED HFORMAT file into one record per sequence position."""
@@ -578,37 +605,41 @@ def read_psipred(file_path: str) -> list[dict]:
             return
 
         if confidence is None or prediction is None or sequence is None:
-            raise ValueError(f"Incomplete PSIPRED block in {file_path}")
+            raise ValueError(f'Incomplete PSIPRED block in {file_path}')
 
         if not (len(confidence) == len(prediction) == len(sequence)):
             raise ValueError(
-                f"PSIPRED block lengths differ in {file_path}: "
-                f"Conf={len(confidence)}, Pred={len(prediction)}, AA={len(sequence)}"
+                f'PSIPRED block lengths differ in {file_path}: '
+                f'Conf={len(confidence)}, Pred={len(prediction)}, AA={len(sequence)}'
             )
 
         start = len(records) + 1
-        for offset, (conf, ss, aa) in enumerate(zip(confidence, prediction, sequence)):
-            records.append({
-                "reference_number": start + offset,
-                "residue_name": aa,
-                "secondary_structure": ss,
-                "confidence": int(conf),
-            })
+        for offset, (conf, ss, aa) in enumerate(
+            zip(confidence, prediction, sequence)
+        ):
+            records.append(
+                {
+                    'reference_number': start + offset,
+                    'residue_name': aa,
+                    'secondary_structure': ss,
+                    'confidence': int(conf),
+                }
+            )
 
         confidence = prediction = sequence = None
 
-    with open(file_path, encoding="utf-8") as handle:
+    with open(file_path, encoding='utf-8') as handle:
         for line in handle:
-            match = re.match(r"^\s*(Conf|Pred|AA):\s*(\S+)", line)
+            match = re.match(r'^\s*(Conf|Pred|AA):\s*(\S+)', line)
             if not match:
                 continue
 
             label, value = match.groups()
-            if label == "Conf":
+            if label == 'Conf':
                 # A new Conf line starts the next block.
                 flush_block()
                 confidence = value
-            elif label == "Pred":
+            elif label == 'Pred':
                 prediction = value
             else:
                 sequence = value

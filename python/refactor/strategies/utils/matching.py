@@ -35,7 +35,7 @@ def find_best_assignment(
     row_name = score_matrix.index.name
     col_name = score_matrix.columns.name
 
-    config.logger.info("Started linear assignment")
+    config.logger.info('Started linear assignment')
 
     score_matrix = score_matrix.copy()
 
@@ -48,22 +48,22 @@ def find_best_assignment(
         score_matrix = score_matrix.mask(exc_mask, other=penalty)
 
     if inc is not None:
-        conflicts = inc[row_name].duplicated(keep=False) | inc[col_name].duplicated(
-            keep=False
-        )
+        conflicts = inc[row_name].duplicated(keep=False) | inc[
+            col_name
+        ].duplicated(keep=False)
         if conflicts.any():
             config.logger.warning(
-                "Warning: entries in inc conflict with one another - dropping conflicts"
+                'Warning: entries in inc conflict with one another - dropping conflicts'
             )
             inc = inc.loc[~conflicts]
 
         if exc is not None:
-            exc_in_inc = exc[row_name].isin(inc[row_name]) | exc[col_name].isin(
-                inc[col_name]
-            )
+            exc_in_inc = exc[row_name].isin(inc[row_name]) | exc[
+                col_name
+            ].isin(inc[col_name])
             if exc_in_inc.any():
                 config.logger.warning(
-                    "Some values in exc are also found in inc, so are redundant."
+                    'Some values in exc are also found in inc, so are redundant.'
                 )
                 exc = exc.loc[~exc_in_inc, :]
 
@@ -71,7 +71,7 @@ def find_best_assignment(
             columns=inc[col_name]
         )
         config.logger.info(
-            "%d assignments were fixed, %d remain to be assigned"
+            '%d assignments were fixed, %d remain to be assigned'
             % (len(inc), len(score_matrix_reduced.index))
         )
     else:
@@ -81,7 +81,9 @@ def find_best_assignment(
         rows_are_dummy = set(score_matrix_reduced.index).issubset(dummy_rows)
         cols_are_dummy = set(score_matrix_reduced.columns).issubset(dummy_cols)
         if rows_are_dummy or cols_are_dummy:
-            config.logger.debug("Score matrix includes only dummy rows/columns")
+            config.logger.debug(
+                'Score matrix includes only dummy rows/columns'
+            )
             return None
 
     if exc is not None:
@@ -101,7 +103,9 @@ def find_best_assignment(
             else:
                 score_matrix_reduced.loc[row, col] = penalty
 
-        config.logger.info("Penalised %d excluded row,column pairs" % len(exc.index))
+        config.logger.info(
+            'Penalised %d excluded row,column pairs' % len(exc.index)
+        )
 
     if maximise:
         row_ind, col_ind = linear_sum_assignment(-1 * score_matrix_reduced)
@@ -109,11 +113,11 @@ def find_best_assignment(
         row_ind, col_ind = linear_sum_assignment(score_matrix_reduced)
 
     # Preserve the refactor's deterministic tie-break for non-triplet strategies.
-    if config.strategy != "triplet":
+    if config.strategy != 'triplet':
         dummy_column_indices = {
             index
             for index, column in enumerate(score_matrix_reduced.columns)
-            if str(column).strip().startswith("DR_")
+            if str(column).strip().startswith('DR_')
         }
         assignments = dict(zip(row_ind, col_ind))
 
@@ -122,7 +126,10 @@ def find_best_assignment(
                 continue
 
             for real_row, real_column in assignments.items():
-                if real_row <= dummy_row or real_column in dummy_column_indices:
+                if (
+                    real_row <= dummy_row
+                    or real_column in dummy_column_indices
+                ):
                     continue
 
                 current = (

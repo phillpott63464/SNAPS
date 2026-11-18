@@ -8,7 +8,8 @@ import pandas as pd
 
 
 class AnalyzerType:
-    def analyze(self, config: SNAPSConfig) -> pd.DataFrame: ...
+    def analyze(self, config: SNAPSConfig) -> pd.DataFrame:
+        ...
 
 
 class AnalysisPipeline:
@@ -24,15 +25,19 @@ class AnalysisPipeline:
 
         self.analyzers = analyzers
 
-    def run(self, assignment: AssignmentResult, data: ShiftData) -> AnalysisResult:
+    def run(
+        self, assignment: AssignmentResult, data: ShiftData
+    ) -> AnalysisResult:
         for analyzer in self.analyzers:
             analyzer.analyze(assignment, data)
 
 
-class ConsistencyAnalyzer(AnalyzerType): ...
+class ConsistencyAnalyzer(AnalyzerType):
+    ...
 
 
-class QualityAnalyzer(AnalyzerType): ...
+class QualityAnalyzer(AnalyzerType):
+    ...
 
 
 from __future__ import annotations

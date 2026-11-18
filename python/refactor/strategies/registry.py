@@ -26,8 +26,10 @@ class StrategyRegistry:
     def get(cls, name: str) -> type[AssignmentStrategy]:
         """Get strategy class by name"""
         if name not in cls._strategies:
-            available = ", ".join(cls._strategies.keys())
-            raise ValueError(f"Unknown strategy: {name}. Available: {available}")
+            available = ', '.join(cls._strategies.keys())
+            raise ValueError(
+                f'Unknown strategy: {name}. Available: {available}'
+            )
         return cls._strategies[name]
 
     @classmethod

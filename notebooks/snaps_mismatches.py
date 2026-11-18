@@ -1,7 +1,7 @@
 import marimo
 
-__generated_with = "0.25.2"
-app = marimo.App(width="medium")
+__generated_with = '0.25.2'
+app = marimo.App(width='medium')
 
 
 @app.cell
@@ -13,35 +13,48 @@ def _():
 
 @app.cell
 def _():
-    import pandas as pd
     from pathlib import Path
 
-    from modules.analysis import compare_results, plot_comparisons, analyse_mismatches
+    from modules.analysis import analyse_mismatches
     from modules.bmrb import run_test_set
-    from modules.results import assignment_table, all_mismatches
+    from modules.results import all_mismatches
+
     # from modules.pdb import colour_mars_set
     return Path, all_mismatches, analyse_mismatches, run_test_set
 
 
 @app.cell
 def _(Path):
-    BMRB_IDS = [ 5471, 4354, 4384, 4022, 4106, 4457, 4402, 4341, 547, 4082, 4136, 5387 ]
+    BMRB_IDS = [
+        5471,
+        4354,
+        4384,
+        4022,
+        4106,
+        4457,
+        4402,
+        4341,
+        547,
+        4082,
+        4136,
+        5387,
+    ]
     BMRB_NAMES = {
-        5471: "Malate synthase G",
-        4354: "Maltose binding protein",
-        4384: "Rous Sarcoma Virus capsid",
-        4022: "Human carbonic anhydrase I",
-        4106: "N-terminal domain of enzyme I (EIN)",
-        4457: "E-cadherin domains II and III",
-        4402: "Human prion protein",
-        4341: "Superoxide dismutase",
-        547: "Calmodulin/M13",
-        4082: "Profilin",
-        4136: "E. coli EmrE",
-        5387: "Human ubiquitin",
+        5471: 'Malate synthase G',
+        4354: 'Maltose binding protein',
+        4384: 'Rous Sarcoma Virus capsid',
+        4022: 'Human carbonic anhydrase I',
+        4106: 'N-terminal domain of enzyme I (EIN)',
+        4457: 'E-cadherin domains II and III',
+        4402: 'Human prion protein',
+        4341: 'Superoxide dismutase',
+        547: 'Calmodulin/M13',
+        4082: 'Profilin',
+        4136: 'E. coli EmrE',
+        5387: 'Human ubiquitin',
     }
-    DATA_DIR = Path(__file__).resolve().parent / "mars_test_set"
-    OUTPUT_DIR = Path(__file__).resolve().parent / "mars_test_result"
+    DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
+    OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
     return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
 
 
@@ -54,7 +67,9 @@ def _(
     analyse_mismatches,
     run_test_set,
 ):
-    snaps_test_files = run_test_set(bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR)
+    snaps_test_files = run_test_set(
+        bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
+    )
     mismatches = all_mismatches(snaps_test_files, DATA_DIR, OUTPUT_DIR)
     mismatch_figs = analyse_mismatches(mismatches)
     return mismatch_figs, mismatches
@@ -62,7 +77,8 @@ def _(
 
 @app.cell(hide_code=True)
 def _(mismatch_figs, mo):
-    mo.md(rf"""
+    mo.md(
+        rf"""
     ## Test Mismatches
 
     What residues go wrong, and where in the protein do they go wrong?
@@ -85,8 +101,8 @@ def _(mismatch_figs, mo):
 
     ### Triplet Strategy
     {mo.as_html(mismatch_figs['triplet'])}
-    """)
-    return
+    """
+    )
 
 
 @app.cell
@@ -106,32 +122,32 @@ def _(BMRB_NAMES, mismatches, mo):
                 else:
                     protein_tables.extend(
                         [
-                            mo.md(f"#### {protein} · {len(df)} rows"),
+                            mo.md(f'#### {protein} · {len(df)} rows'),
                             mo.ui.table(df),
                         ]
                     )
 
             content = []
             if no_error_proteins:
-                names = ", ".join(no_error_proteins)
-                content.append(mo.md(f"**{names} had no errors.**"))
+                names = ', '.join(no_error_proteins)
+                content.append(mo.md(f'**{names} had no errors.**'))
 
             content.extend(protein_tables)
 
             condition_blocks.append(
                 mo.vstack(
                     [
-                        mo.md(f"## {condition}"),
-                        mo.vstack(content) if content else mo.md("No results."),
+                        mo.md(f'## {condition}'),
+                        mo.vstack(content)
+                        if content
+                        else mo.md('No results.'),
                     ]
                 )
             )
         return mo.vstack(condition_blocks)
 
-
     _()
-    return
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run()

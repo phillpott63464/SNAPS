@@ -2,23 +2,25 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
-from refactor.strategies.utils.misc import df_lookup
 from scipy.optimize import linear_sum_assignment
 from scipy.stats import multivariate_normal, norm
 
 from refactor.data_formats import AssignmentResult, ShiftData
 from refactor.strategies.base import AssignmentStrategy
 from refactor.strategies.registry import StrategyRegistry
+from refactor.strategies.utils.misc import df_lookup
 
 
-@StrategyRegistry.register("triplet")
+@StrategyRegistry.register('triplet')
 class TripletStrategy(AssignmentStrategy):
     """Iterative triplet-informed assignment using sequential links."""
 
     def assign(self, data: ShiftData) -> AssignmentResult:
         self.validate_data(data.obs_shifts, data.pred_shifts, data.sequence)
         # Algorith from snaps.py
-        obs, preds = self.preprocess_obs_preds(data.obs_shifts, data.pred_shifts)
+        obs, preds = self.preprocess_obs_preds(
+            data.obs_shifts, data.pred_shifts
+        )
         prob_matrix = self.calc_prob_matrix(
             obs=obs, preds=preds, sequence=data.sequence
         )
@@ -38,7 +40,10 @@ class TripletStrategy(AssignmentStrategy):
         triplet_assign_df, triplet_matching = self.assign_from_preds(
             obs, preds, triplet_log_prob_matrix
         )
-        triplet_assign_df, triplet_allowed_links_matrix = self.add_consistency_info(
+        (
+            triplet_assign_df,
+            triplet_allowed_links_matrix,
+        ) = self.add_consistency_info(
             assign_df=triplet_assign_df,
             obs=obs,
             preds=preds,
@@ -54,22 +59,27 @@ class TripletStrategy(AssignmentStrategy):
             triplet_prob_matrix = self.calc_triplet_prob_matrix(
                 prob_matrix=triplet_prob_list[i],
                 allowed_links_matrix=triplet_allowed_links_list[i],
-                normalise_by="SS",
+                normalise_by='SS',
             )
             # Test of probability normalisation
             for _ in range(20):
                 triplet_prob_matrix = triplet_prob_matrix.div(
-                    triplet_prob_matrix.sum(axis=0), axis="columns"
+                    triplet_prob_matrix.sum(axis=0), axis='columns'
                 )
                 triplet_prob_matrix = triplet_prob_matrix.div(
-                    triplet_prob_matrix.sum(axis=1), axis="rows"
+                    triplet_prob_matrix.sum(axis=1), axis='rows'
                 )
 
-            triplet_log_prob_matrix = self.calc_log_prob_matrix(triplet_prob_matrix)
+            triplet_log_prob_matrix = self.calc_log_prob_matrix(
+                triplet_prob_matrix
+            )
             triplet_assign_df, triplet_matching = self.assign_from_preds(
                 obs=obs, preds=preds, log_prob_matrix=triplet_log_prob_matrix
             )
-            triplet_assign_df, triplet_allowed_links_matrix = self.add_consistency_info(
+            (
+                triplet_assign_df,
+                triplet_allowed_links_matrix,
+            ) = self.add_consistency_info(
                 assign_df=triplet_assign_df,
                 obs=obs,
                 preds=preds,
@@ -88,17 +98,23 @@ class TripletStrategy(AssignmentStrategy):
             assign_df=triplet_assign_df_list[-1],
             assign_dfs=triplet_assign_df_list,
             # mismatch_matrix=mismatch_matrix,
-            confidence=assign_df[["SS_name", "Res_name", "Confidence"]]
-            if "Confidence" in assign_df
+            confidence=assign_df[['SS_name', 'Res_name', 'Confidence']]
+            if 'Confidence' in assign_df
             else None,
             metadata={
-                "strategy": "triplet",
-                "config": self.config,
+                'strategy': 'triplet',
+                'config': self.config,
             },
         )
 
     def assign_from_preds(
-        self, obs, preds, log_prob_matrix, set_assign_df=False, inc=None, exc=None
+        self,
+        obs,
+        preds,
+        log_prob_matrix,
+        set_assign_df=False,
+        inc=None,
+        exc=None,
     ):
         """Assign the observed spin systems using predicted shifts only
 
@@ -109,12 +125,12 @@ class TripletStrategy(AssignmentStrategy):
         exc: a DataFrame of (row, col) pairs which may not be part of the assignment.
         """
         log_prob_matrix = log_prob_matrix.copy()
-        log_prob_matrix.index.name = "SS_name"
-        log_prob_matrix.columns.name = "Res_name"
+        log_prob_matrix.index.name = 'SS_name'
+        log_prob_matrix.columns.name = 'Res_name'
         matching = self.find_best_assignment(
             log_prob_matrix, maximise=True, inc=inc, exc=exc
         )
-        if not hasattr(self, "_assignment_log_prob_matrix"):
+        if not hasattr(self, '_assignment_log_prob_matrix'):
             self._assignment_log_prob_matrix = log_prob_matrix.copy()
         assign_df = self.make_assign_df(
             obs=obs,
@@ -124,7 +140,7 @@ class TripletStrategy(AssignmentStrategy):
         )
 
         self.config.logger.info(
-            "Finished calculating best assignment based on predictions"
+            'Finished calculating best assignment based on predictions'
         )
         return (assign_df, matching)
 
@@ -143,19 +159,19 @@ class TripletStrategy(AssignmentStrategy):
             tmp, allowed_links_matrix = self.check_matching_consistency(
                 assign_df, obs, preds, threshold
             )
-            assign_df = assign_df.merge(tmp, how="left")
-            self.config.logger.info("Finished checking assignment consistency")
+            assign_df = assign_df.merge(tmp, how='left')
+            self.config.logger.info('Finished checking assignment consistency')
         else:
             # You can't do a comparison without sequential atoms
-            assign_df["Max_mismatch_m1"] = np.nan
-            assign_df["Max_mismatch_p1"] = np.nan
-            assign_df["Num_good_links_m1"] = 0
-            assign_df["Num_good_links_p1"] = 0
-            assign_df["Confidence"] = "Undefined"
+            assign_df['Max_mismatch_m1'] = np.nan
+            assign_df['Max_mismatch_p1'] = np.nan
+            assign_df['Num_good_links_m1'] = 0
+            assign_df['Num_good_links_p1'] = 0
+            assign_df['Confidence'] = 'Undefined'
 
             self.config.logger.warning(
                 "Couldn't calculate assignment confidence: "
-                + "need sequential atom information"
+                + 'need sequential atom information'
             )
             allowed_links_matrix = None
 
@@ -166,8 +182,8 @@ class TripletStrategy(AssignmentStrategy):
 
         Acceptable pairs are (C, C_m1), (CA, C_Am1), (CB,C_Bm1)"""
 
-        i_atoms = pd.Series(["C", "CA", "CB"])
-        i_m1_atoms = pd.Series(["C_m1", "CA_m1", "CB_m1"])
+        i_atoms = pd.Series(['C', 'CA', 'CB'])
+        i_m1_atoms = pd.Series(['C_m1', 'CA_m1', 'CB_m1'])
         seq_atoms = i_atoms.isin(atom_list) & i_m1_atoms.isin(atom_list)
 
         return seq_atoms.any()
@@ -184,140 +200,174 @@ class TripletStrategy(AssignmentStrategy):
         threshold: the maximum allowed mismatch for a good sequential link
         """
         # Create mismatch matrix if it doesn't already exist
-        mismatch_matrix, consistent_links_matrix, allowed_links_matrix = (
-            self.calc_mismatch_matrix(obs)
-        )
+        (
+            mismatch_matrix,
+            consistent_links_matrix,
+            allowed_links_matrix,
+        ) = self.calc_mismatch_matrix(obs)
 
         # Add Res_name_m1 and Res_name_p1 columns to matching DataFrame
         matching = matching.copy()
-        matching.index = matching["Res_name"]
+        matching.index = matching['Res_name']
         matching.index.name = None
 
-        tmp = pd.concat([matching, preds[["Res_name_m1", "Res_name_p1"]]], axis=1)
+        tmp = pd.concat(
+            [matching, preds[['Res_name_m1', 'Res_name_p1']]], axis=1
+        )
 
         # Add a SS_name_m1 and SS_name_p1 columns
         tmp = tmp.merge(
-            matching[["SS_name"]],
-            how="left",
-            left_on="Res_name_m1",
+            matching[['SS_name']],
+            how='left',
+            left_on='Res_name_m1',
             right_index=True,
-            suffixes=("", "_m1"),
+            suffixes=('', '_m1'),
         )
         tmp = tmp.merge(
-            matching[["SS_name"]],
-            how="left",
-            left_on="Res_name_p1",
+            matching[['SS_name']],
+            how='left',
+            left_on='Res_name_p1',
             right_index=True,
-            suffixes=("", "_p1"),
+            suffixes=('', '_p1'),
         )
 
         # Filter out rows with NaN's in SS_name_m1/p1
-        tmp_m1 = tmp.dropna(subset=["SS_name_m1"])
-        tmp_p1 = tmp.dropna(subset=["SS_name_p1"])
+        tmp_m1 = tmp.dropna(subset=['SS_name_m1'])
+        tmp_p1 = tmp.dropna(subset=['SS_name_p1'])
 
         # Get the mismatches
-        tmp["Max_mismatch_m1"] = pd.Series(
-            list(df_lookup(mismatch_matrix, tmp_m1["SS_name_m1"], tmp_m1["SS_name"])),
+        tmp['Max_mismatch_m1'] = pd.Series(
+            list(
+                df_lookup(
+                    mismatch_matrix, tmp_m1['SS_name_m1'], tmp_m1['SS_name']
+                )
+            ),
             index=tmp_m1.index,
         )
-        tmp["Max_mismatch_p1"] = pd.Series(
-            list(df_lookup(mismatch_matrix, tmp_p1["SS_name"], tmp_p1["SS_name_p1"])),
+        tmp['Max_mismatch_p1'] = pd.Series(
+            list(
+                df_lookup(
+                    mismatch_matrix, tmp_p1['SS_name'], tmp_p1['SS_name_p1']
+                )
+            ),
             index=tmp_p1.index,
         )
-        tmp["Max_mismatch"] = tmp[["Max_mismatch_m1", "Max_mismatch_p1"]].max(axis=1)
+        tmp['Max_mismatch'] = tmp[['Max_mismatch_m1', 'Max_mismatch_p1']].max(
+            axis=1
+        )
 
-        tmp["Num_good_links_m1"] = pd.Series(
+        tmp['Num_good_links_m1'] = pd.Series(
             list(
                 df_lookup(
-                    consistent_links_matrix, tmp_m1["SS_name_m1"], tmp_m1["SS_name"]
+                    consistent_links_matrix,
+                    tmp_m1['SS_name_m1'],
+                    tmp_m1['SS_name'],
                 )
             ),
             index=tmp_m1.index,
         )
-        tmp["Num_good_links_p1"] = pd.Series(
+        tmp['Num_good_links_p1'] = pd.Series(
             list(
                 df_lookup(
-                    consistent_links_matrix, tmp_p1["SS_name"], tmp_p1["SS_name_p1"]
+                    consistent_links_matrix,
+                    tmp_p1['SS_name'],
+                    tmp_p1['SS_name_p1'],
                 )
             ),
             index=tmp_p1.index,
         )
-        tmp["Num_good_links_m1"] = tmp["Num_good_links_m1"].fillna(0)
-        tmp["Num_good_links_p1"] = tmp["Num_good_links_p1"].fillna(0)
-        tmp["Num_good_links"] = tmp["Num_good_links_m1"] + tmp["Num_good_links_p1"]
+        tmp['Num_good_links_m1'] = tmp['Num_good_links_m1'].fillna(0)
+        tmp['Num_good_links_p1'] = tmp['Num_good_links_p1'].fillna(0)
+        tmp['Num_good_links'] = (
+            tmp['Num_good_links_m1'] + tmp['Num_good_links_p1']
+        )
 
         # Add an assignment confidence column
-        tmp["Conf_m1"] = "N"
-        tmp.loc[tmp["Num_good_links_m1"] > 0, "Conf_m1"] = "W"
-        tmp.loc[tmp["Num_good_links_m1"] > 1, "Conf_m1"] = "S"
-        tmp.loc[tmp["Max_mismatch_m1"] > threshold, "Conf_m1"] = "X"
+        tmp['Conf_m1'] = 'N'
+        tmp.loc[tmp['Num_good_links_m1'] > 0, 'Conf_m1'] = 'W'
+        tmp.loc[tmp['Num_good_links_m1'] > 1, 'Conf_m1'] = 'S'
+        tmp.loc[tmp['Max_mismatch_m1'] > threshold, 'Conf_m1'] = 'X'
 
-        tmp["Conf_p1"] = "N"
-        tmp.loc[tmp["Num_good_links_p1"] > 0, "Conf_p1"] = "W"
-        tmp.loc[tmp["Num_good_links_p1"] > 1, "Conf_p1"] = "S"
-        tmp.loc[tmp["Max_mismatch_p1"] > threshold, "Conf_p1"] = "X"
+        tmp['Conf_p1'] = 'N'
+        tmp.loc[tmp['Num_good_links_p1'] > 0, 'Conf_p1'] = 'W'
+        tmp.loc[tmp['Num_good_links_p1'] > 1, 'Conf_p1'] = 'S'
+        tmp.loc[tmp['Max_mismatch_p1'] > threshold, 'Conf_p1'] = 'X'
 
-        tmp["Conf2"] = tmp["Conf_m1"] + tmp["Conf_p1"]
+        tmp['Conf2'] = tmp['Conf_m1'] + tmp['Conf_p1']
         # Reorder letters eg WS -> SW
-        tmp["Conf2"] = tmp["Conf2"].replace(
-            ["WS", "NS", "XS", "NW", "XW", "XN"], ["SW", "SN", "SX", "WN", "WX", "NX"]
+        tmp['Conf2'] = tmp['Conf2'].replace(
+            ['WS', 'NS', 'XS', 'NW', 'XW', 'XN'],
+            ['SW', 'SN', 'SX', 'WN', 'WX', 'NX'],
         )
 
-        tmp["Confidence"] = tmp["Conf2"]
-        tmp["Confidence"] = tmp["Confidence"].replace(["SS", "SW", "SN", "WW"], "High")
-        tmp["Confidence"] = tmp["Confidence"].replace(["SX", "WN"], "Medium")
-        tmp["Confidence"] = tmp["Confidence"].replace("WX", "Low")
-        tmp["Confidence"] = tmp["Confidence"].replace(["NX", "XX"], "Unreliable")
-        tmp["Confidence"] = tmp["Confidence"].replace("NN", "Undefined")
+        tmp['Confidence'] = tmp['Conf2']
+        tmp['Confidence'] = tmp['Confidence'].replace(
+            ['SS', 'SW', 'SN', 'WW'], 'High'
+        )
+        tmp['Confidence'] = tmp['Confidence'].replace(['SX', 'WN'], 'Medium')
+        tmp['Confidence'] = tmp['Confidence'].replace('WX', 'Low')
+        tmp['Confidence'] = tmp['Confidence'].replace(
+            ['NX', 'XX'], 'Unreliable'
+        )
+        tmp['Confidence'] = tmp['Confidence'].replace('NN', 'Undefined')
 
         # Summarise confidence of results
-        summary_str = ", ".join(
+        summary_str = ', '.join(
             [
-                str(count) + " " + conf
-                for conf, count in tmp["Confidence"]
+                str(count) + ' ' + conf
+                for conf, count in tmp['Confidence']
                 .value_counts()
                 .sort_values(ascending=False)
                 .items()
             ]
         )
-        self.config.logger.info("Calculated assignment confidence: " + summary_str)
+        self.config.logger.info(
+            'Calculated assignment confidence: ' + summary_str
+        )
 
         return (
             tmp.loc[
                 :,
                 [
-                    "SS_name",
-                    "Res_name",
-                    "Max_mismatch_m1",
-                    "Max_mismatch_p1",
-                    "Max_mismatch",
-                    "Num_good_links_m1",
-                    "Num_good_links_p1",
-                    "Num_good_links",
-                    "Confidence",
+                    'SS_name',
+                    'Res_name',
+                    'Max_mismatch_m1',
+                    'Max_mismatch_p1',
+                    'Max_mismatch',
+                    'Num_good_links_m1',
+                    'Num_good_links_p1',
+                    'Num_good_links',
+                    'Confidence',
                 ],
             ],
             allowed_links_matrix,
         )
 
     def calc_prob_matrix(self, obs, preds, sequence):
-        prob_matrix = self._calc_prob_matrix(obs=obs, preds=preds, normalise_by="SS")
+        prob_matrix = self._calc_prob_matrix(
+            obs=obs, preds=preds, normalise_by='SS'
+        )
 
         if self.config.use_generic_predictions:
             generic_preds = self.create_generic_predictions(
                 preds=preds, sequence=sequence
             )
             generic_prob_matrix = self.calc_generic_prob_matrix(
-                obs=obs, preds=preds, generic_preds=generic_preds, sequence=sequence
+                obs=obs,
+                preds=preds,
+                generic_preds=generic_preds,
+                sequence=sequence,
             )
             # breakpoint()
             prob_matrix *= generic_prob_matrix
-            prob_matrix = prob_matrix.div(prob_matrix.sum(axis=1), axis="rows")
+            prob_matrix = prob_matrix.div(prob_matrix.sum(axis=1), axis='rows')
 
         # Test of probability normalisation
         for i in range(20):
-            prob_matrix = prob_matrix.div(prob_matrix.sum(axis=0), axis="columns")
-            prob_matrix = prob_matrix.div(prob_matrix.sum(axis=1), axis="rows")
+            prob_matrix = prob_matrix.div(
+                prob_matrix.sum(axis=0), axis='columns'
+            )
+            prob_matrix = prob_matrix.div(prob_matrix.sum(axis=1), axis='rows')
 
         return prob_matrix
 
@@ -356,8 +406,8 @@ class TripletStrategy(AssignmentStrategy):
         preds = preds.copy()
         atoms = sorted(self.config.atom_set.intersection(obs.columns))
         prob_matrix = pd.DataFrame(1.0, index=obs.index, columns=preds.index)
-        prob_matrix.index.name = "SS_name"
-        prob_matrix.columns.name = "Res_name"
+        prob_matrix.index.name = 'SS_name'
+        prob_matrix.columns.name = 'Res_name'
         if delta_correlation == None:
             delta_correlation = self.config.delta_correlation
         atom_sd = self.config.atom_sd
@@ -369,13 +419,15 @@ class TripletStrategy(AssignmentStrategy):
             # Note: this also sorts the atom types in d_mean and c_cov into the
             # same order as the 'atoms' list defined above.
             d_mean = pd.read_csv(
-                self.config.delta_correlation_mean_file, header=None, index_col=0
+                self.config.delta_correlation_mean_file,
+                header=None,
+                index_col=0,
             ).loc[atoms, 1]
             d_cov = pd.read_csv(
                 self.config.delta_correlation_cov_file, index_col=0
             ).loc[atoms, atoms]
             self.config.logger.info(
-                "Imported delta_correlation info from %s and %s"
+                'Imported delta_correlation info from %s and %s'
                 % (
                     self.config.delta_correlation_mean_file,
                     self.config.delta_correlation_cov_file,
@@ -395,7 +447,9 @@ class TripletStrategy(AssignmentStrategy):
             # That way, all calculations take advantage of vectorisation.
             # Much faster than using loops.
             obs_atom = pd.DataFrame(
-                obs[atom].repeat(len(obs.index)).values.reshape([len(obs.index), -1]),
+                obs[atom]
+                .repeat(len(obs.index))
+                .values.reshape([len(obs.index), -1]),
                 index=obs.index,
                 columns=preds.index,
             )
@@ -427,20 +481,23 @@ class TripletStrategy(AssignmentStrategy):
                 else:
                     # If atom is from a neighbouring residue, choose the appropriate atom type.
                     atom2 = atom
-                    if atom2 == "C_m1":
-                        atom2 = "C"
-                    if atom2 == "CA_m1":
-                        atom2 = "CA"
-                    if atom2 == "CB_m1":
-                        atom2 = "CB"
-                    if atom2 in ["N_m1", "N_p1"]:
-                        atom2 = "N"
+                    if atom2 == 'C_m1':
+                        atom2 = 'C'
+                    if atom2 == 'CA_m1':
+                        atom2 = 'CA'
+                    if atom2 == 'CB_m1':
+                        atom2 = 'CB'
+                    if atom2 in ['N_m1', 'N_p1']:
+                        atom2 = 'N'
 
-                    prob_atom = pd.DataFrame(1.0, index=obs.index, columns=preds.index)
+                    prob_atom = pd.DataFrame(
+                        1.0, index=obs.index, columns=preds.index
+                    )
                     for res in atom_res_sd.index:
                         mask = preds.Res_type == res
                         tmp = norm.pdf(
-                            delta_atom.loc[:, mask], scale=atom_res_sd.loc[res, atom2]
+                            delta_atom.loc[:, mask],
+                            scale=atom_res_sd.loc[res, atom2],
                         )
                         prob_atom.loc[:, mask] = pd.DataFrame(
                             tmp, index=obs.index, columns=preds.index[mask]
@@ -449,7 +506,9 @@ class TripletStrategy(AssignmentStrategy):
                 prob_matrix = prob_matrix * prob_atom
 
         if delta_correlation:
-            self.config.logger.info("Accounting for correlated prediction errors")
+            self.config.logger.info(
+                'Accounting for correlated prediction errors'
+            )
 
             # Combine the delta matrixes from each atom type into a single 3D matrix
             delta_mat = np.array(delta_list)
@@ -464,15 +523,15 @@ class TripletStrategy(AssignmentStrategy):
             )
 
         # Penalise matches to glycine residues if SS has a CB
-        if "CB" in obs.columns:
-            glycines = preds[preds.Res_type == "G"].Res_name
+        if 'CB' in obs.columns:
+            glycines = preds[preds.Res_type == 'G'].Res_name
             obs_CB = obs[~obs.CB.isna()].SS_name
             for g in glycines:
                 prob_matrix.loc[obs_CB, g] = (
                     prob_matrix.loc[obs_CB, g] * glycine_CB_penalty
                 )
 
-            glycines_m1 = preds[preds.Res_type == "G"].Res_name
+            glycines_m1 = preds[preds.Res_type == 'G'].Res_name
             obs_CB_m1 = obs[~obs.CB_m1.isna()].SS_name
             for g in glycines_m1:
                 prob_matrix.loc[obs_CB_m1, g] = (
@@ -480,7 +539,7 @@ class TripletStrategy(AssignmentStrategy):
                 )
 
         # Pair up the proline dummy spin systems with the appropriate residue
-        prolines = preds[preds.Res_type == "P"].Res_name
+        prolines = preds[preds.Res_type == 'P'].Res_name
         prob_matrix.loc[:, prolines] = 1e-100
         prob_matrix.loc[prolines, :] = 1e-100
         for x in prolines:
@@ -491,13 +550,15 @@ class TripletStrategy(AssignmentStrategy):
         prob_matrix[prob_matrix == 0] = 1e-100
 
         # Do the normalisation, if needed
-        if normalise_by == "Res":
-            prob_matrix = prob_matrix.div(prob_matrix.sum(axis=0), axis="columns")
-        elif normalise_by == "SS":
-            prob_matrix = prob_matrix.div(prob_matrix.sum(axis=1), axis="rows")
+        if normalise_by == 'Res':
+            prob_matrix = prob_matrix.div(
+                prob_matrix.sum(axis=0), axis='columns'
+            )
+        elif normalise_by == 'SS':
+            prob_matrix = prob_matrix.div(prob_matrix.sum(axis=1), axis='rows')
 
         self.config.logger.info(
-            "Calculated probability matrix (%dx%d)",
+            'Calculated probability matrix (%dx%d)',
             prob_matrix.shape[0],
             prob_matrix.shape[1],
         )
@@ -515,18 +576,20 @@ class TripletStrategy(AssignmentStrategy):
         generic_preds = generic_preds.loc[:, sequence.columns]
 
         # Import the average shifts for each residue type
-        residue_shifts = pd.read_csv(self.config.generic_shift_file, index_col=0)
+        residue_shifts = pd.read_csv(
+            self.config.generic_shift_file, index_col=0
+        )
 
         # Create the generic shift predictions
-        atom_list = ["H", "N", "C", "CA", "CB", "HA"]
+        atom_list = ['H', 'N', 'C', 'CA', 'CB', 'HA']
         for atom in atom_list:
             generic_preds[atom] = np.nan
 
         for res in residue_shifts.index:
             for atom in atom_list:
-                generic_preds.loc[generic_preds.Res_type == res, atom] = (
-                    residue_shifts.loc[res, atom]
-                )
+                generic_preds.loc[
+                    generic_preds.Res_type == res, atom
+                ] = residue_shifts.loc[res, atom]
 
         # Create the i-1 and i+1 columns
         generic_preds.index = generic_preds.Res_name
@@ -534,41 +597,45 @@ class TripletStrategy(AssignmentStrategy):
         preds_m1 = generic_preds[
             list(
                 {
-                    "C",
-                    "CA",
-                    "CB",
-                    "N",
-                    "Res_type",
-                    "Res_name",
-                    "Res_name_p1",
+                    'C',
+                    'CA',
+                    'CB',
+                    'N',
+                    'Res_type',
+                    'Res_name',
+                    'Res_name_p1',
                 }.intersection(generic_preds.columns)
             )
         ].copy()
-        preds_m1.index = preds_m1.Res_name_p1  # Note _p1, because we need to transfer the chemical shift to the i+1 residue!
+        preds_m1.index = (
+            preds_m1.Res_name_p1
+        )  # Note _p1, because we need to transfer the chemical shift to the i+1 residue!
         generic_preds = pd.merge(
             generic_preds,
-            preds_m1[["C", "CA", "CB", "N"]],
-            how="left",
+            preds_m1[['C', 'CA', 'CB', 'N']],
+            how='left',
             left_index=True,
             right_index=True,
-            suffixes=["", "_m1"],
+            suffixes=['', '_m1'],
         )
 
         preds_p1 = generic_preds[
             list(
-                {"N", "Res_type", "Res_name", "Res_name_m1"}.intersection(
+                {'N', 'Res_type', 'Res_name', 'Res_name_m1'}.intersection(
                     generic_preds.columns
                 )
             )
         ].copy()
-        preds_p1.index = preds_p1.Res_name_m1  # Note _m1, because we need to transfer the chemical shift to the i-1 residue!
+        preds_p1.index = (
+            preds_p1.Res_name_m1
+        )  # Note _m1, because we need to transfer the chemical shift to the i-1 residue!
         generic_preds = pd.merge(
             generic_preds,
-            preds_p1[["N"]],
-            how="left",
+            preds_p1[['N']],
+            how='left',
             left_index=True,
             right_index=True,
-            suffixes=["", "_p1"],
+            suffixes=['', '_p1'],
         )
 
         # Restrict to atom types in preds
@@ -609,7 +676,9 @@ class TripletStrategy(AssignmentStrategy):
             # breakpoint()
 
         # Import average generic shifts and standard deviations
-        generic_stdev = pd.read_csv(self.config.generic_shift_stdev_file, index_col=0)
+        generic_stdev = pd.read_csv(
+            self.config.generic_shift_stdev_file, index_col=0
+        )
 
         # Calculate the probability matrix
         generic_prob_matrix = self._calc_prob_matrix(
@@ -621,13 +690,13 @@ class TripletStrategy(AssignmentStrategy):
         )
 
         # Do the normalisation, if needed
-        if normalise_by == "Res":
+        if normalise_by == 'Res':
             generic_prob_matrix = generic_prob_matrix.div(
-                generic_prob_matrix.sum(axis=0), axis="columns"
+                generic_prob_matrix.sum(axis=0), axis='columns'
             )
-        elif normalise_by == "SS":
+        elif normalise_by == 'SS':
             generic_prob_matrix = generic_prob_matrix.div(
-                generic_prob_matrix.sum(axis=1), axis="rows"
+                generic_prob_matrix.sum(axis=1), axis='rows'
             )
 
         return generic_prob_matrix
@@ -642,7 +711,9 @@ class TripletStrategy(AssignmentStrategy):
         A DataFrame containing the log probabilities
         """
         # Remove any zeroes, by setting them to the minimum value in the matrix
-        replacement_value = min(prob_matrix[prob_matrix > 0].min().min(), 1e-200)
+        replacement_value = min(
+            prob_matrix[prob_matrix > 0].min().min(), 1e-200
+        )
         prob_matrix[prob_matrix == 0] = replacement_value
 
         log_prob_matrix = np.log10(prob_matrix)
@@ -661,23 +732,25 @@ class TripletStrategy(AssignmentStrategy):
         threshold = self.config.seq_link_threshold
 
         # First check if there are any sequential atoms
-        carbons = pd.Series(["C", "CA", "CB"])
-        carbons_m1 = carbons + "_m1"
-        seq_atoms = carbons[carbons.isin(obs.columns) & carbons_m1.isin(obs.columns)]
+        carbons = pd.Series(['C', 'CA', 'CB'])
+        carbons_m1 = carbons + '_m1'
+        seq_atoms = carbons[
+            carbons.isin(obs.columns) & carbons_m1.isin(obs.columns)
+        ]
 
         if seq_atoms.size == 0:
             # You can't make a mismatch matrix
             self.config.logger.warning(
-                "No sequential links in data - mismatch matrix not calculated."
+                'No sequential links in data - mismatch matrix not calculated.'
             )
             return (None, None, None)
         else:
             # Start with empty mismatch and consistent_links matrixes
             mismatch_matrix = pd.DataFrame(
-                0, index=obs["SS_name"], columns=obs["SS_name"]
+                0, index=obs['SS_name'], columns=obs['SS_name']
             )
-            mismatch_matrix.columns.name = "i"
-            mismatch_matrix.index.name = "i_m1"
+            mismatch_matrix.columns.name = 'i'
+            mismatch_matrix.index.name = 'i_m1'
 
             consistent_links_matrix = mismatch_matrix.copy()
 
@@ -691,7 +764,7 @@ class TripletStrategy(AssignmentStrategy):
                     .values.reshape([len(obs.index), -1])
                 )
                 i_m1_atom = (
-                    obs[atom + "_m1"]
+                    obs[atom + '_m1']
                     .repeat(len(obs.index))
                     .values.reshape([len(obs.index), -1])
                     .transpose()
@@ -699,10 +772,10 @@ class TripletStrategy(AssignmentStrategy):
 
                 mismatch_atom = pd.DataFrame(i_atom - i_m1_atom)
 
-                mismatch_atom.columns = obs["SS_name"]
-                mismatch_atom.columns.name = "i"
-                mismatch_atom.index = obs["SS_name"]
-                mismatch_atom.index.name = "i_m1"
+                mismatch_atom.columns = obs['SS_name']
+                mismatch_atom.columns.name = 'i'
+                mismatch_atom.index = obs['SS_name']
+                mismatch_atom.index.name = 'i_m1'
 
                 consistent_links_atom = abs(mismatch_atom) < threshold
 
@@ -723,12 +796,16 @@ class TripletStrategy(AssignmentStrategy):
                 allowed_links_matrix.loc[i, i] = 0  # Set diagonal to zero
 
             self.config.logger.info(
-                "Calculated mismatch and consistent_links matrixes (%dx%d)",
+                'Calculated mismatch and consistent_links matrixes (%dx%d)',
                 mismatch_matrix.shape[0],
                 mismatch_matrix.shape[1],
             )
 
-            return (mismatch_matrix, consistent_links_matrix, allowed_links_matrix)
+            return (
+                mismatch_matrix,
+                consistent_links_matrix,
+                allowed_links_matrix,
+            )
 
     def calc_triplet_prob_matrix(
         self, prob_matrix, allowed_links_matrix, normalise_by=None
@@ -747,16 +824,16 @@ class TripletStrategy(AssignmentStrategy):
 
         # Calculate the triplet probability matrix
         triplet_prob_matrix = left_matrix * prob_matrix * right_matrix
-        triplet_prob_matrix.index.name = "SS_name"
+        triplet_prob_matrix.index.name = 'SS_name'
 
         # Do the normalisation, if needed
-        if normalise_by == "Res":
+        if normalise_by == 'Res':
             triplet_prob_matrix = triplet_prob_matrix.div(
-                triplet_prob_matrix.sum(axis=0), axis="columns"
+                triplet_prob_matrix.sum(axis=0), axis='columns'
             )
-        elif normalise_by == "SS":
+        elif normalise_by == 'SS':
             triplet_prob_matrix = triplet_prob_matrix.div(
-                triplet_prob_matrix.sum(axis=1), axis="rows"
+                triplet_prob_matrix.sum(axis=1), axis='rows'
             )
 
         return triplet_prob_matrix
@@ -768,60 +845,74 @@ class TripletStrategy(AssignmentStrategy):
         Matching may have additional columns, which will also be kept.
         """
         obs = obs.copy()
-        obs.index.name = "name"  # Needed to avoid error when merging dataframes.
+        obs.index.name = (
+            'name'  # Needed to avoid error when merging dataframes.
+        )
         preds = preds.copy()
         log_prob_matrix = log_prob_matrix.copy()
         valid_atoms = list(self.config.atom_set)
-        extra_cols = set(matching.columns).difference({"SS_name", "Res_name"})
+        extra_cols = set(matching.columns).difference({'SS_name', 'Res_name'})
 
-        if not {"SS_name", "Res_name"}.issubset(matching.columns):
+        if not {'SS_name', 'Res_name'}.issubset(matching.columns):
             self.config.logger.warning(
-                "Cannot make assignment dataframe, as matching"
-                + " dataframe does not have the correct columns"
+                'Cannot make assignment dataframe, as matching'
+                + ' dataframe does not have the correct columns'
             )
 
         assign_df = pd.merge(
             matching,
             preds.loc[
-                :, ["Res_N", "Res_type", "Res_name", "Pred_N", "Pred_name", "Dummy_res"]
+                :,
+                [
+                    'Res_N',
+                    'Res_type',
+                    'Res_name',
+                    'Pred_N',
+                    'Pred_name',
+                    'Dummy_res',
+                ],
             ],
-            on="Res_name",
-            how="left",
+            on='Res_name',
+            how='left',
         )
         assign_df = assign_df[
             [
-                "Res_name",
-                "Res_N",
-                "Res_type",
-                "SS_name",
-                "Pred_N",
-                "Pred_name",
-                "Dummy_res",
+                'Res_name',
+                'Res_N',
+                'Res_type',
+                'SS_name',
+                'Pred_N',
+                'Pred_name',
+                'Dummy_res',
             ]
             + list(extra_cols)
         ]
         assign_df = pd.merge(
             assign_df,
-            obs.loc[:, obs.columns.isin(["SS_name", "Dummy_SS"] + valid_atoms)],
-            on="SS_name",
-            how="left",
+            obs.loc[
+                :, obs.columns.isin(['SS_name', 'Dummy_SS'] + valid_atoms)
+            ],
+            on='SS_name',
+            how='left',
         )
         assign_df = pd.merge(
             assign_df,
-            preds.loc[:, preds.columns.isin(valid_atoms + ["Res_name"])],
-            on="Res_name",
-            suffixes=("", "_pred"),
-            how="left",
+            preds.loc[:, preds.columns.isin(valid_atoms + ['Res_name'])],
+            on='Res_name',
+            suffixes=('', '_pred'),
+            how='left',
         )
 
-        assign_df.index = assign_df.SS_name  # Needed to match Log_prob to correct row.
-        assign_df.index.names = ["index"]
-        assign_df["Log_prob"] = df_lookup(
-            log_prob_matrix, assign_df["SS_name"], assign_df["Res_name"]
+        assign_df.index = (
+            assign_df.SS_name
+        )  # Needed to match Log_prob to correct row.
+        assign_df.index.names = ['index']
+        assign_df['Log_prob'] = df_lookup(
+            log_prob_matrix, assign_df['SS_name'], assign_df['Res_name']
         )
         # Careful above not to get rows/columns confused
 
-        assign_df = assign_df.sort_values(by="Res_N")
+        assign_df = assign_df.sort_values(by='Res_N')
 
         return assign_df
 
@@ -859,7 +950,7 @@ class TripletStrategy(AssignmentStrategy):
         row_name = score_matrix.index.name
         col_name = score_matrix.columns.name
 
-        self.config.logger.debug("Started linear assignment")
+        self.config.logger.debug('Started linear assignment')
 
         if maximise:
             penalty = -2 * score_matrix.abs().max().max()
@@ -870,24 +961,24 @@ class TripletStrategy(AssignmentStrategy):
 
         if inc is not None:
             # Check for conflicting entries in inc
-            conflicts = inc[row_name].duplicated(keep=False) | inc[col_name].duplicated(
-                keep=False
-            )
+            conflicts = inc[row_name].duplicated(keep=False) | inc[
+                col_name
+            ].duplicated(keep=False)
             if any(conflicts):
                 self.config.logger.warning(
-                    "Warning: entries in inc conflict with one another - dropping conflicts"
+                    'Warning: entries in inc conflict with one another - dropping conflicts'
                 )
                 inc = inc[~conflicts]
 
             if exc is not None:
                 # Check constraints are consistent
                 # Get rid of any entries in exc which share a Res or SS with inc
-                exc_in_inc = exc[row_name].isin(inc[row_name]) | exc[col_name].isin(
-                    inc[col_name]
-                )
+                exc_in_inc = exc[row_name].isin(inc[row_name]) | exc[
+                    col_name
+                ].isin(inc[col_name])
                 if any(exc_in_inc):
                     self.config.logger.warning(
-                        "Some values in exc are also found in inc, so are redundant."
+                        'Some values in exc are also found in inc, so are redundant.'
                     )
                     exc = exc.loc[~exc_in_inc, :]
 
@@ -898,7 +989,7 @@ class TripletStrategy(AssignmentStrategy):
                 columns=inc[col_name]
             )
             self.config.logger.debug(
-                "%d assignments were fixed, %d remain to be assigned"
+                '%d assignments were fixed, %d remain to be assigned'
                 % (len(inc), len(score_matrix_reduced.index))
             )
         else:
@@ -909,11 +1000,15 @@ class TripletStrategy(AssignmentStrategy):
         if return_none_all_dummy:
             if dummy_rows is not None:
                 if set(score_matrix_reduced.index).issubset(dummy_rows):
-                    self.config.logger.debug("Score matrix includes only dummy rows")
+                    self.config.logger.debug(
+                        'Score matrix includes only dummy rows'
+                    )
                     return None
             if dummy_cols is not None:
                 if set(score_matrix_reduced.columns).issubset(dummy_cols):
-                    self.config.logger.debug("Score matrix includes only dummy columns")
+                    self.config.logger.debug(
+                        'Score matrix includes only dummy columns'
+                    )
                     return None
 
         if exc is not None:
@@ -926,7 +1021,9 @@ class TripletStrategy(AssignmentStrategy):
             for (
                 i,
                 r,
-            ) in exc.iterrows():  # iterates over (index, row as pd.Series) tuples
+            ) in (
+                exc.iterrows()
+            ):  # iterates over (index, row as pd.Series) tuples
                 # If one side of an exclude pair is a dummy row or column,
                 # exclude *all* dummy rows and columns
                 if r[col_name] in dummy_cols:
@@ -934,10 +1031,12 @@ class TripletStrategy(AssignmentStrategy):
                 elif r[row_name] in dummy_rows:
                     score_matrix_reduced.loc[dummy_rows, r[col_name]] = penalty
                 else:
-                    score_matrix_reduced.loc[r[row_name], r[col_name]] = penalty
+                    score_matrix_reduced.loc[
+                        r[row_name], r[col_name]
+                    ] = penalty
 
             self.config.logger.debug(
-                "Penalised %d excluded row,column pairs" % len(exc.index)
+                'Penalised %d excluded row,column pairs' % len(exc.index)
             )
 
         if maximise:
@@ -956,22 +1055,27 @@ class TripletStrategy(AssignmentStrategy):
         )
 
         if inc is not None:
-            matching = pd.concat([inc, matching_reduced]).sort_values("Res_name")
+            matching = pd.concat([inc, matching_reduced]).sort_values(
+                'Res_name'
+            )
             return matching.reset_index(drop=True)
         else:
-            matching_reduced = matching_reduced.sort_values("Res_name")
+            matching_reduced = matching_reduced.sort_values('Res_name')
             return matching_reduced.reset_index(drop=True)
 
     def preprocess_obs_preds(self, obs, preds):
         obs, preds = super().preprocess_obs_preds(obs, preds)
         # Remove N_m1 and N_p1, not sure why they're there in the old one and not this one but they're not good
-        preds = preds.drop(["N_m1", "N_p1"], axis=1)
+        preds = preds.drop(['N_m1', 'N_p1'], axis=1)
         return obs, preds
 
     def validate_data(
-        self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: Optional[pd.DataFrame]
+        self,
+        obs: pd.DataFrame,
+        preds: pd.DataFrame,
+        sequence: Optional[pd.DataFrame],
     ) -> None:
         if sequence is None:
             raise ValueError(
-                "Triplet strategy requires sequence, please add a sequence using --sequence_file, use a nef file that contains a sequence, or use a different strategy"
+                'Triplet strategy requires sequence, please add a sequence using --sequence_file, use a nef file that contains a sequence, or use a different strategy'
             )

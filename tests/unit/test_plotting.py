@@ -1,15 +1,14 @@
-import pytest
 import pandas as pd
-
+from refactor.data_formats import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import build_config
 from refactor.SNAPSoutput import SNAPSOutput
-from refactor.data_formats import AssignmentResult, ShiftData
 
 """
 Not certain about these tests, testing whether the outputs exist isn't a perfectly
 reasonable test. But idk how I'd test the internals of the plot and I don't know if 
 bokeh is deterministic so I guess this is the best option?
 """
+
 
 def _models(value):
     if isinstance(value, dict):
@@ -58,7 +57,10 @@ def test_hsqc_returns_plot_json_with_expected_title_and_labels():
 
     assert output['target_id'] is None
     assert any(
-        item.get('attributes', {}).get('title', {}).get('attributes', {}).get('text')
+        item.get('attributes', {})
+        .get('title', {})
+        .get('attributes', {})
+        .get('text')
         == 'HSQC'
         for item in _models(output['doc']['roots'])
         if item.get('name') == 'Figure'

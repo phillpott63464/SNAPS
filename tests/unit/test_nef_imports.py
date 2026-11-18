@@ -1,13 +1,12 @@
 from pathlib import Path
+
 import pandas as pd
 import pytest
 from numpy import nan as NaN
 from pandas.testing import assert_frame_equal
 from pynmrstar import Entry
-
 from SNAPS_assigner import SNAPS_assigner
 from SNAPS_importer import SNAPS_importer, SnapsImportException
-
 
 TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 
@@ -116,7 +115,7 @@ def test_headings_aa_info():
 
     assert 'Unexpected column name(s) [AAA]' in str(e.value)
     assert 'expected column names are:' in str(e.value)
-    for name in 'Type SS_name AA'.split():
+    for name in ['Type', 'SS_name', 'AA']:
         assert name in str(e.value)
 
 
@@ -183,9 +182,9 @@ def test_offset_data():
 
 @pytest.mark.skip('unknown errors')
 def test_matrix_data():
-    obs = pd.read_csv(TEST_DATA / 'test_obs.txt', sep='\s+')
-    log = pd.read_csv(TEST_DATA / 'test_log.txt', sep='\s+')
-    preds = pd.read_csv(TEST_DATA / 'test_preds.txt', sep='\s+')
+    obs = pd.read_csv(TEST_DATA / 'test_obs.txt', sep=r'\s+')
+    log = pd.read_csv(TEST_DATA / 'test_log.txt', sep=r'\s+')
+    preds = pd.read_csv(TEST_DATA / 'test_preds.txt', sep=r'\s+')
 
     print('ibs', obs)
     print('log', log)
@@ -238,6 +237,7 @@ EXPECTED_IN = pd.DataFrame(
     columns=EXPECTED_COLUMNS,
 )
 EXPECTED_IN.columns.names = ['Atom_type']
+
 
 def test_import_aa_type_info_nef():
     importer = SNAPS_importer()

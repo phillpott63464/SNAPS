@@ -9,13 +9,13 @@ import yaml
 from pydantic import BaseModel, Field
 
 from refactor.default_csv import (
-    _delta_correlation_cov_file,
     _delta_correlation_cov_corrected_file,
+    _delta_correlation_cov_file,
     _delta_correlation_mean_corrected_file,
     _delta_correlation_mean_file,
-    _pred_correction_file,
     _generic_shift_file,
     _generic_shift_stdev_file,
+    _pred_correction_file,
 )
 
 
@@ -23,81 +23,93 @@ class SNAPSConfig(BaseModel):
     """Configuration model with validation"""
 
     # Input and output
-    obs_file: Optional[Path] = Field(default=None, description="Observed shifts file")
-    pred_file: Optional[Path] = Field(default=None, description="Predicted shifts file")
+    obs_file: Optional[Path] = Field(
+        default=None, description='Observed shifts file'
+    )
+    pred_file: Optional[Path] = Field(
+        default=None, description='Predicted shifts file'
+    )
     sequence_file: Optional[Path] = Field(
         default=None,
-        description="Sequence file in fasta format (sequences can also be stored in observed nef files)",
+        description='Sequence file in fasta format (sequences can also be stored in observed nef files)',
     )
     obs_format: Optional[str] = Field(
-        default=None, description="Observed shifts format"
+        default=None, description='Observed shifts format'
     )
     pred_format: Optional[str] = Field(
-        default=None, description="Predicted shifts format"
+        default=None, description='Predicted shifts format'
     )
-    obs_frame: Optional[str] = Field(default=None, description="Observed shifts frame")
+    obs_frame: Optional[str] = Field(
+        default=None, description='Observed shifts frame'
+    )
     pred_frame: Optional[str] = Field(
-        default=None, description="Predicted shifts frame"
+        default=None, description='Predicted shifts frame'
     )
-    obs_chain: str = Field(default="A", description="Observed chain identifier")
-    pred_chain: str = Field(default="A", description="Predicted chain identifier")
+    obs_chain: str = Field(
+        default='A', description='Observed chain identifier'
+    )
+    pred_chain: str = Field(
+        default='A', description='Predicted chain identifier'
+    )
     aa_restraints_file: Optional[Path] = Field(
-        default=None, description="Amino acid restraints file"
+        default=None, description='Amino acid restraints file'
     )
     aa_restraints_frame: Optional[str] = Field(
-        default=None, description="Amino acid restraints frame"
+        default=None, description='Amino acid restraints frame'
     )
     output_file: Optional[Path] = Field(
-        default=None, description="Assignment output file"
+        default=None, description='Assignment output file'
     )
-    output_type: str = Field(default="snaps", description="Assignment output format")
+    output_type: str = Field(
+        default='snaps', description='Assignment output format'
+    )
     shift_output_file: Optional[Path] = Field(
-        default=None, description="Chemical shift output file"
+        default=None, description='Chemical shift output file'
     )
     shift_output_type: Optional[str] = Field(
-        default=None, description="Chemical shift output format"
+        default=None, description='Chemical shift output format'
     )
     shift_output_confidence: Optional[str] = Field(
-        default=None, description="Chemical shift output confidence"
+        default=None, description='Chemical shift output confidence'
     )
-    log_file: Optional[Path] = Field(default=None, description="Log file")
+    log_file: Optional[Path] = Field(default=None, description='Log file')
     hsqc_plot_file: Optional[Path] = Field(
-        default=None, description="File for a labelled HSQC plot (.html)"
+        default=None, description='File for a labelled HSQC plot (.html)'
     )
     strip_plot_file: Optional[Path] = Field(
-        default=None, description="File for a labelled strip plot (.html)"
+        default=None, description='File for a labelled strip plot (.html)'
     )
 
     logger: logging.Logger = Field(
-        default_factory=lambda: logging.getLogger("snaps"),
+        default_factory=lambda: logging.getLogger('snaps'),
         exclude=True,
-        description="Logger used by the assignment pipeline",
+        description='Logger used by the assignment pipeline',
     )
 
     # Enables pydantic to hold a logger, otherwise it complains
     model_config = {
-        "arbitrary_types_allowed": True,
+        'arbitrary_types_allowed': True,
     }
 
     # Atom settings
     atom_set: Set[str] = Field(
-        default={"H", "N", "HA", "CA", "CB", "C", "C_m1", "CA_m1", "CB_m1"},
-        description="Atom types to use in assignment",
+        default={'H', 'N', 'HA', 'CA', 'CB', 'C', 'C_m1', 'CA_m1', 'CB_m1'},
+        description='Atom types to use in assignment',
     )
     atom_sd: Dict[str, float] = Field(
         default={
-            "H": 0.1726,
-            "N": 1.1169,
-            "HA": 0.1231,
-            "CA": 0.4412,
-            "CB": 0.5163,
-            "C": 0.5256,
+            'H': 0.1726,
+            'N': 1.1169,
+            'HA': 0.1231,
+            'CA': 0.4412,
+            'CB': 0.5163,
+            'C': 0.5256,
         },
-        description="Standard deviations for each atom type",
+        description='Standard deviations for each atom type',
     )
     supported_atom_types: Set[str] = Field(
-        default={"H", "N", "C", "CA", "CB", "C_m1", "CA_m1", "CB_m1", "HA"},
-        description="Atom columns accepted during preprocessing",
+        default={'H', 'N', 'C', 'CA', 'CB', 'C_m1', 'CA_m1', 'CB_m1', 'HA'},
+        description='Atom columns accepted during preprocessing',
     )
 
     # Assignment settings
@@ -105,101 +117,115 @@ class SNAPSConfig(BaseModel):
         default=0.01,
         gt=0.0,
         le=1.0,
-        description="Probability assigned to a missing shift",
+        description='Probability assigned to a missing shift',
     )
     shift_scale_factor: float = Field(
         default=1.0,
         gt=0.0,
-        description="Scale factor applied to atom standard deviations",
+        description='Scale factor applied to atom standard deviations',
     )
     pred_offset: int = Field(
-        default=0, description="Offset applied to predicted residue numbers"
+        default=0, description='Offset applied to predicted residue numbers'
     )
     maximise_assignments: bool = Field(
         default=True,
-        description="Maximise assignment scores rather than minimise them",
+        description='Maximise assignment scores rather than minimise them',
     )
     dummy_predicted_prefix: str = Field(
-        default="DR_",
+        default='DR_',
         min_length=1,
-        description="Prefix used for dummy predicted residues",
+        description='Prefix used for dummy predicted residues',
     )
     dummy_observed_prefix: str = Field(
-        default="DSS_",
+        default='DSS_',
         min_length=1,
-        description="Prefix used for dummy observed spin systems",
+        description='Prefix used for dummy observed spin systems',
     )
     seq_link_threshold: float = Field(
         default=0.2,
         ge=0.0,
         le=1.0,
-        description="Carbon shift threshold for sequential links",
+        description='Carbon shift threshold for sequential links',
     )
     iterate_until_consistent: bool = Field(
         default=True,
-        description="Iterate assignments until sequentially consistent",
+        description='Iterate assignments until sequentially consistent',
     )
     use_ss_class_info: bool = Field(
-        default=False, description="Use amino acid class restraints"
+        default=False, description='Use amino acid class restraints'
     )
     delta_correlation: bool = Field(
         default=True,
-        description="Account for correlations in prediction errors",
+        description='Account for correlations in prediction errors',
     )
     pred_correction: bool = Field(
-        default=False, description="Use prediction correction"
+        default=False, description='Use prediction correction'
     )
     pred_correction_file: str = Field(
-        default_factory=lambda: _pred_correction_file(Path(tempfile.mkdtemp())),
-        description="File containing parameters for linear correction to predicted shifts",
+        default_factory=lambda: _pred_correction_file(
+            Path(tempfile.mkdtemp())
+        ),
+        description='File containing parameters for linear correction to predicted shifts',
     )
     delta_correlation_mean_corrected_file: str = Field(
-        default_factory=lambda: _delta_correlation_mean_corrected_file(Path(tempfile.mkdtemp())),
-        description="File containing mean prediction errors for corrected predictions",
+        default_factory=lambda: _delta_correlation_mean_corrected_file(
+            Path(tempfile.mkdtemp())
+        ),
+        description='File containing mean prediction errors for corrected predictions',
     )
     delta_correlation_cov_corrected_file: str = Field(
-        default_factory=lambda: _delta_correlation_cov_corrected_file(Path(tempfile.mkdtemp())),
-        description="File containing prediction-error covariances for corrected predictions",
+        default_factory=lambda: _delta_correlation_cov_corrected_file(
+            Path(tempfile.mkdtemp())
+        ),
+        description='File containing prediction-error covariances for corrected predictions',
     )
     delta_correlation_mean_file: str = Field(
-        default_factory=lambda: _delta_correlation_mean_file(Path(tempfile.mkdtemp())),
-        description="File containing mean prediction errors",
+        default_factory=lambda: _delta_correlation_mean_file(
+            Path(tempfile.mkdtemp())
+        ),
+        description='File containing mean prediction errors',
     )
     delta_correlation_cov_file: str = Field(
-        default_factory=lambda: _delta_correlation_cov_file(Path(tempfile.mkdtemp())),
-        description="File containing prediction-error covariances",
+        default_factory=lambda: _delta_correlation_cov_file(
+            Path(tempfile.mkdtemp())
+        ),
+        description='File containing prediction-error covariances',
     )
     triplet_prob_iterations: int = Field(
-        default=5, description="Number of times to iterate on the triplet algorithm."
+        default=5,
+        description='Number of times to iterate on the triplet algorithm.',
     )
     use_generic_predictions: bool = Field(
         default=True,
-        description="If True, missing predictions are replaced with an average value for that residue type",
+        description='If True, missing predictions are replaced with an average value for that residue type',
     )
     generic_shift_file: str = Field(
         default_factory=lambda: _generic_shift_file(Path(tempfile.mkdtemp())),
-        description="File containing expected average chemical shift for each atom/residue pair",
+        description='File containing expected average chemical shift for each atom/residue pair',
     )
     generic_shift_stdev_file: str = Field(
-        default_factory=lambda: _generic_shift_stdev_file(Path(tempfile.mkdtemp())),
-        description="File containing expected standard deviation in chemical shift for each atom/residue pair",
+        default_factory=lambda: _generic_shift_stdev_file(
+            Path(tempfile.mkdtemp())
+        ),
+        description='File containing expected standard deviation in chemical shift for each atom/residue pair',
     )
     alt_assignments: int = Field(
         default=0,
-        description="Number of alternative assignments to generate",
+        description='Number of alternative assignments to generate',
     )
     glycine_CB_penalty: float = Field(
         default=10e-10,
-        description="How much to penalise the probability that an observation corresponds to a glycine if it has a CB chemical shift",
+        description='How much to penalise the probability that an observation corresponds to a glycine if it has a CB chemical shift',
     )
     SS_num: bool = Field(
-        default=False, description="Should create _m1 fields? Required True for triplet"
+        default=False,
+        description='Should create _m1 fields? Required True for triplet',
     )
 
     # Strategy
-    strategy: Literal["direct", "iterative", "triplet"] = Field(
-        default="direct",
-        description="Assignment strategy: iterative, direct, triplet",
+    strategy: Literal['direct', 'iterative', 'triplet'] = Field(
+        default='direct',
+        description='Assignment strategy: iterative, direct, triplet',
     )
 
     @classmethod
@@ -208,13 +234,23 @@ class SNAPSConfig(BaseModel):
         tmp_path = tmp_path or Path(tempfile.mkdtemp())
         return cls.model_validate(
             {
-                "pred_correction_file": _pred_correction_file(tmp_path),
-                "delta_correlation_mean_corrected_file": _delta_correlation_mean_corrected_file(tmp_path),
-                "delta_correlation_cov_corrected_file": _delta_correlation_cov_corrected_file(tmp_path),
-                "delta_correlation_mean_file": _delta_correlation_mean_file(tmp_path),
-                "delta_correlation_cov_file": _delta_correlation_cov_file(tmp_path),
-                "generic_shift_file": _generic_shift_file(tmp_path),
-                "generic_shift_stdev_file": _generic_shift_stdev_file(tmp_path),
+                'pred_correction_file': _pred_correction_file(tmp_path),
+                'delta_correlation_mean_corrected_file': _delta_correlation_mean_corrected_file(
+                    tmp_path
+                ),
+                'delta_correlation_cov_corrected_file': _delta_correlation_cov_corrected_file(
+                    tmp_path
+                ),
+                'delta_correlation_mean_file': _delta_correlation_mean_file(
+                    tmp_path
+                ),
+                'delta_correlation_cov_file': _delta_correlation_cov_file(
+                    tmp_path
+                ),
+                'generic_shift_file': _generic_shift_file(tmp_path),
+                'generic_shift_stdev_file': _generic_shift_stdev_file(
+                    tmp_path
+                ),
             }
         )
 
@@ -226,22 +262,22 @@ class SNAPSConfig(BaseModel):
         # Resource paths explicitly written relative to the config file should
         # remain usable when the pipeline is invoked from another directory.
         path_fields = (
-            "pred_correction_file",
-            "delta_correlation_mean_corrected_file",
-            "delta_correlation_cov_corrected_file",
-            "delta_correlation_mean_file",
-            "delta_correlation_cov_file",
+            'pred_correction_file',
+            'delta_correlation_mean_corrected_file',
+            'delta_correlation_cov_corrected_file',
+            'delta_correlation_mean_file',
+            'delta_correlation_cov_file',
         )
         for field in path_fields:
             value = data.get(field)
-            if isinstance(value, str) and value.startswith("./"):
+            if isinstance(value, str) and value.startswith('./'):
                 data[field] = str(config_path.parent / value[2:])
         return cls.model_validate(data)
 
     def merge(self, overrides: dict) -> SNAPSConfig:
         """Merge with overrides, overrides take priority"""
         merged = self.model_dump()
-        merged["logger"] = self.logger
+        merged['logger'] = self.logger
         merged.update({k: v for k, v in overrides.items() if v is not None})
         return SNAPSConfig.model_validate(merged)
 
@@ -270,11 +306,11 @@ def build_config(
 
     if config.log_file is not None:
         config.logger.setLevel(logging.DEBUG)
-        log_handler = logging.FileHandler(config.log_file, mode="w")
+        log_handler = logging.FileHandler(config.log_file, mode='w')
         log_handler.setLevel(logging.DEBUG)
         log_handler.setFormatter(
             logging.Formatter(
-                "%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S"
+                '%(asctime)s %(levelname)s %(message)s', datefmt='%H:%M:%S'
             )
         )
         config.logger.addHandler(log_handler)

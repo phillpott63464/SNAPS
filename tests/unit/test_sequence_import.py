@@ -1,22 +1,27 @@
+from pathlib import Path
+
+import pandas as pd
 import pytest
 from refactor.SNAPSconfig import build_config
 from refactor.SNAPSimporter import SNAPSImporter
-from pathlib import Path
-import pandas as pd
 
 TEST_DATA = Path(__file__).resolve().parents[1] / 'test_data'
 from textwrap import dedent
 
+
 @pytest.fixture
 def sequence_file(tmp_path):
-   data = dedent("""
+    data = dedent(
+        """
 > starts 235 
 GPAM TDYIQLLSEI AKEQGFNITY LDIDELSANG QYQCRAELST SPITVCHGSG ISCGNAQSDA AHNALQYLKI IAERK
-   """).strip()
-   with open(tmp_path / 'fasta.fasta', 'w') as f:
-       f.write(data)
+   """
+    ).strip()
+    with open(tmp_path / 'fasta.fasta', 'w') as f:
+        f.write(data)
 
-   return tmp_path / 'fasta.fasta'
+    return tmp_path / 'fasta.fasta'
+
 
 def test_sequence_import(sequence_file):
     cli_overrides = {
@@ -41,32 +46,32 @@ def test_sequence_import(sequence_file):
     )
 
     expected_sequence = (
-        "GPAM TDYIQLLSEI AKEQGFNITY LDIDELSANG "
-        "QYQCRAELST SPITVCHGSG ISCGNAQSDA "
-        "AHNALQYLKI IAERK"
-    ).replace(" ", "")
+        'GPAM TDYIQLLSEI AKEQGFNITY LDIDELSANG '
+        'QYQCRAELST SPITVCHGSG ISCGNAQSDA '
+        'AHNALQYLKI IAERK'
+    ).replace(' ', '')
 
-    assert "".join(data.sequence["Res_type"]) == expected_sequence
+    assert ''.join(data.sequence['Res_type']) == expected_sequence
 
     assert len(data.sequence) == len(expected_sequence)
 
-    assert data.sequence["Seq_N"].tolist() == list(
+    assert data.sequence['Seq_N'].tolist() == list(
         range(1, len(expected_sequence) + 1)
     )
 
-    assert data.sequence["Res_N"].tolist() == list(
+    assert data.sequence['Res_N'].tolist() == list(
         range(1, len(expected_sequence) + 1)
     )
 
-    assert data.sequence["Res_type"].tolist() == list(expected_sequence)
+    assert data.sequence['Res_type'].tolist() == list(expected_sequence)
 
-    assert data.sequence["Res_name_m1"].iloc[1] == (
-        data.sequence["Res_name"].iloc[0]
+    assert data.sequence['Res_name_m1'].iloc[1] == (
+        data.sequence['Res_name'].iloc[0]
     )
 
-    assert data.sequence["Res_name_p1"].iloc[0] == (
-        data.sequence["Res_name"].iloc[1]
+    assert data.sequence['Res_name_p1'].iloc[0] == (
+        data.sequence['Res_name'].iloc[1]
     )
 
-    assert pd.isna(data.sequence["Res_name_m1"].iloc[0])
-    assert pd.isna(data.sequence["Res_name_p1"].iloc[-1])
+    assert pd.isna(data.sequence['Res_name_m1'].iloc[0])
+    assert pd.isna(data.sequence['Res_name_p1'].iloc[-1])

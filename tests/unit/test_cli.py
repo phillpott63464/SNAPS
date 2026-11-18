@@ -1,10 +1,8 @@
 from pathlib import Path
 
 import pytest
-from typer.testing import CliRunner
-
 from refactor import SNAPS
-
+from typer.testing import CliRunner
 
 runner = CliRunner()
 

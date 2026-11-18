@@ -1,7 +1,8 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
 from modules.importer_functions import import_observed_shifts
-from pathlib import Path
 
 TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 

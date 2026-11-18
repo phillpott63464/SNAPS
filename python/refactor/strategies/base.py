@@ -5,14 +5,19 @@ import pandas as pd
 
 from refactor.data_formats import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
-from refactor.strategies.utils import consistency, matching, preprocessing, probability
+from refactor.strategies.utils import (
+    consistency,
+    matching,
+    preprocessing,
+    probability,
+)
 from refactor.strategies.utils.output import make_assign_df
 
 
 class AssignmentStrategy(ABC):
     """Base class for assignment strategies."""
 
-    name: str = ""
+    name: str = ''
     config: Optional[SNAPSConfig] = None
 
     def __init__(self, config: Optional[Union[SNAPSConfig, dict]] = None):
@@ -51,7 +56,9 @@ class AssignmentStrategy(ABC):
 
     def preprocess_obs_preds(self, obs: pd.DataFrame, preds: pd.DataFrame):
         """Delegate to the shared assignment utility."""
-        return preprocessing.preprocess_obs_preds(self.config, obs=obs, preds=preds)
+        return preprocessing.preprocess_obs_preds(
+            self.config, obs=obs, preds=preds
+        )
 
     def calc_log_prob_matrix(
         self,
@@ -59,10 +66,15 @@ class AssignmentStrategy(ABC):
         preds: pd.DataFrame,
     ) -> pd.DataFrame:
         """Delegate to the shared assignment utility."""
-        return probability.calc_log_prob_matrix(self.config, obs=obs, preds=preds)
+        return probability.calc_log_prob_matrix(
+            self.config, obs=obs, preds=preds
+        )
 
     def validate_data(
-        self, obs: pd.DataFrame, preds: pd.DataFrame, sequence: Optional[pd.DataFrame]
+        self,
+        obs: pd.DataFrame,
+        preds: pd.DataFrame,
+        sequence: Optional[pd.DataFrame],
     ) -> None:
         # Overwrite in every strategy: return none, fail if not good.
         pass

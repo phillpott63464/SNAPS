@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def df_lookup(df, row_labels, col_labels, index='rows'):
     """Look up a series of locations in a data frame df, with the row and
     column indicies given by row_labels and col_labels. This replaces the

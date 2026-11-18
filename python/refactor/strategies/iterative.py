@@ -7,14 +7,16 @@ from refactor.strategies.registry import StrategyRegistry
 from refactor.strategies.utils.iterative import _iterate_until_consistent
 
 
-@StrategyRegistry.register("iterative")
+@StrategyRegistry.register('iterative')
 class IterativeStrategy(AssignmentStrategy):
     """Iterative refinement of direct assignment."""
 
     def assign(self, data: ShiftData) -> AssignmentResult:
         direct = DirectStrategy(config=self.config)
         obs, preds, original_log_prob = direct.prepare(data)
-        initial_result = direct.assign_from_matrix(obs, preds, original_log_prob)
+        initial_result = direct.assign_from_matrix(
+            obs, preds, original_log_prob
+        )
         return self._iterate_until_consistent(
             obs=obs,
             preds=preds,

@@ -1,16 +1,16 @@
-from refactor.SNAPSconfig import build_config, SNAPSConfig
 from pathlib import Path
 
 import pytest
-
+from refactor.SNAPSconfig import build_config
 
 PROJECT_ROOT = Path(__file__).parents[2]
 
 
 def assert_csv_contents_match(actual_file: str, expected_filename: str):
-    assert Path(actual_file).read_bytes() == (
-        PROJECT_ROOT / 'config' / expected_filename
-    ).read_bytes()
+    assert (
+        Path(actual_file).read_bytes()
+        == (PROJECT_ROOT / 'config' / expected_filename).read_bytes()
+    )
 
 
 @pytest.fixture
@@ -116,7 +116,9 @@ def test_default():
     assert config.use_ss_class_info == False
     assert config.delta_correlation == True
     assert config.pred_correction == False
-    assert_csv_contents_match(config.pred_correction_file, 'lin_model_shiftx2.csv')
+    assert_csv_contents_match(
+        config.pred_correction_file, 'lin_model_shiftx2.csv'
+    )
     assert_csv_contents_match(
         config.delta_correlation_mean_corrected_file, 'dd_mean.csv'
     )
@@ -125,7 +127,9 @@ def test_default():
     )
     assert_csv_contents_match(config.delta_correlation_mean_file, 'd_mean.csv')
     assert_csv_contents_match(config.delta_correlation_cov_file, 'd_cov.csv')
-    assert_csv_contents_match(config.generic_shift_file, 'residue_shift_mean.csv')
+    assert_csv_contents_match(
+        config.generic_shift_file, 'residue_shift_mean.csv'
+    )
     assert_csv_contents_match(
         config.generic_shift_stdev_file, 'residue_shift_stdev.csv'
     )

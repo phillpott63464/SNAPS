@@ -3,17 +3,17 @@ Regression testing the old one to the new one to make sure that
 the expected outputs are the same
 """
 
-from refactor.SNAPSimporter import SNAPSImporter
-from refactor.SNAPSconfig import build_config
+import logging
+from pathlib import Path
+
+import pytest
+from modules.assigner_functions import import_predicted_shifts
 from modules.importer_functions import (
     import_observed_shifts,
-)   # original function (stateless version)
-from modules.assigner_functions import import_predicted_shifts
-import pytest
-import pandas as pd
-from pathlib import Path
+)  # original function (stateless version)
 from pandas.testing import assert_frame_equal
-import logging
+from refactor.SNAPSconfig import build_config
+from refactor.SNAPSimporter import SNAPSImporter
 
 TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 
@@ -83,7 +83,9 @@ def test_SNAPSimporterExtensionMapping(logger):
     )
 
     expected_preds, _ = import_predicted_shifts(
-        filename=str(TEST_DATA / 'shiftx2.cs'), filetype='shiftx2', logger=logger
+        filename=str(TEST_DATA / 'shiftx2.cs'),
+        filetype='shiftx2',
+        logger=logger,
     )
     expected_obs = import_observed_shifts(
         filename=str(TEST_DATA / 'P3a_L273R.nef'), filetype='nef'

@@ -39,7 +39,8 @@ def calc_log_prob_matrix(
         # Import parameters for correcting the shifts
         lm_pars = pd.read_csv(config.pred_correction_file, index_col=0)
         config.logger.info(
-            "Imported pred_correction info from %s" % config.pred_correction_file
+            'Imported pred_correction info from %s'
+            % config.pred_correction_file
         )
 
     if config.delta_correlation:
@@ -57,7 +58,7 @@ def calc_log_prob_matrix(
                 index_col=0,
             ).loc[atoms, atoms]
             config.logger.info(
-                "Imported delta_correlation info from %s and %s"
+                'Imported delta_correlation info from %s and %s'
                 % (
                     config.delta_correlation_mean_corrected_file,
                     config.delta_correlation_cov_corrected_file,
@@ -69,11 +70,11 @@ def calc_log_prob_matrix(
                 header=None,
                 index_col=0,
             ).loc[atoms, 1]
-            d_cov = pd.read_csv(config.delta_correlation_cov_file, index_col=0).loc[
-                atoms, atoms
-            ]
+            d_cov = pd.read_csv(
+                config.delta_correlation_cov_file, index_col=0
+            ).loc[atoms, atoms]
             config.logger.info(
-                "Imported delta_correlation info from %s and %s"
+                'Imported delta_correlation info from %s and %s'
                 % (
                     config.delta_correlation_mean_file,
                     config.delta_correlation_cov_file,
@@ -85,8 +86,8 @@ def calc_log_prob_matrix(
         delta_list = []
 
     log_prob_matrix = pd.DataFrame(0, index=obs.index, columns=preds.index)
-    log_prob_matrix.index.name = "SS_name"
-    log_prob_matrix.columns.name = "Res_name"
+    log_prob_matrix.index.name = 'SS_name'
+    log_prob_matrix.columns.name = 'Res_name'
 
     for atom in atoms:
         # The most efficient way I've found to do the calculation is to
@@ -95,7 +96,9 @@ def calc_log_prob_matrix(
         # That way, all calculations take advantage of vectorisation.
         # Much faster than using loops.
         obs_atom = pd.DataFrame(
-            obs[atom].repeat(len(obs.index)).values.reshape([len(obs.index), -1]),
+            obs[atom]
+            .repeat(len(obs.index))
+            .values.reshape([len(obs.index), -1]),
             index=obs.index,
             columns=preds.index,
         )
@@ -111,27 +114,29 @@ def calc_log_prob_matrix(
         # If correcting the predictions, subtract a linear function of the
         # observed shift from each predicted shift
         if config.pred_correction:
-            config.logger.info("Calculating corrections to predicted shifts")
+            config.logger.info('Calculating corrections to predicted shifts')
             preds_corr_atom = preds_atom
-            for res in preds["Res_type"].dropna().unique():
-                if (atom + "_" + res) in lm_pars.index:
+            for res in preds['Res_type'].dropna().unique():
+                if (atom + '_' + res) in lm_pars.index:
                     # Find shifts of the current atom/residue combination
-                    mask = (lm_pars["Atom_type"] == atom) & (lm_pars["Res_type"] == res)
+                    mask = (lm_pars['Atom_type'] == atom) & (
+                        lm_pars['Res_type'] == res
+                    )
 
                     # Look up model parameters
-                    grad = lm_pars.loc[mask, "Grad"].tolist()[0]
-                    offset = lm_pars.loc[mask, "Offset"].tolist()[0]
+                    grad = lm_pars.loc[mask, 'Grad'].tolist()[0]
+                    offset = lm_pars.loc[mask, 'Offset'].tolist()[0]
 
                     # Make the correction
-                    if atom in ("C_m1", "CA_m1", "CB_m1"):
-                        mask = preds["Res_type_m1"] == res
+                    if atom in ('C_m1', 'CA_m1', 'CB_m1'):
+                        mask = preds['Res_type_m1'] == res
                         preds_corr_atom.loc[:, mask] = (
                             preds_atom.loc[:, mask]
                             - grad * obs_atom.loc[:, mask]
                             - offset
                         )
                     else:
-                        mask = preds["Res_type"] == res
+                        mask = preds['Res_type'] == res
                         preds_corr_atom.loc[:, mask] = (
                             preds_atom.loc[:, mask]
                             - grad * obs_atom.loc[:, mask]
@@ -168,7 +173,7 @@ def calc_log_prob_matrix(
             log_prob_matrix = log_prob_matrix + prob_atom
 
     if config.delta_correlation:
-        config.logger.info("Accounting for correlated prediction errors")
+        config.logger.info('Accounting for correlated prediction errors')
 
         # Combine the delta matrixes from each atom type into a single 3D matrix
         delta_mat = np.array(delta_list)
@@ -218,15 +223,17 @@ def calc_log_prob_matrix(
     #                log_prob_matrix = log_prob_matrix + SS_class_matrix
 
     # Sort out NAs and dummy residues/spin systems
-    log_prob_matrix[log_prob_matrix.isna()] = 2 * np.nanmin(log_prob_matrix.values)
-    log_prob_matrix.loc[obs["Dummy_SS"], :] = 0
-    log_prob_matrix.loc[:, preds["Dummy_res"]] = 0
+    log_prob_matrix[log_prob_matrix.isna()] = 2 * np.nanmin(
+        log_prob_matrix.values
+    )
+    log_prob_matrix.loc[obs['Dummy_SS'], :] = 0
+    log_prob_matrix.loc[:, preds['Dummy_res']] = 0
 
-    log_prob_matrix.index.name = "SS_name"
-    log_prob_matrix.columns.name = "Res_name"
+    log_prob_matrix.index.name = 'SS_name'
+    log_prob_matrix.columns.name = 'Res_name'
 
     config.logger.info(
-        "Calculated log probability matrix (%dx%d)",
+        'Calculated log probability matrix (%dx%d)',
         log_prob_matrix.shape[0],
         log_prob_matrix.shape[1],
     )
@@ -252,16 +259,16 @@ def calc_triplet_prob_matrix(
 
     # Calculate the triplet probability matrix
     triplet_prob_matrix = left_matrix * prob_matrix * right_matrix
-    triplet_prob_matrix.index.name = "SS_name"
+    triplet_prob_matrix.index.name = 'SS_name'
 
     # Do the normalisation, if needed
-    if normalise_by == "Res":
+    if normalise_by == 'Res':
         triplet_prob_matrix = triplet_prob_matrix.div(
-            triplet_prob_matrix.sum(axis=0), axis="columns"
+            triplet_prob_matrix.sum(axis=0), axis='columns'
         )
-    elif normalise_by == "SS":
+    elif normalise_by == 'SS':
         triplet_prob_matrix = triplet_prob_matrix.div(
-            triplet_prob_matrix.sum(axis=1), axis="rows"
+            triplet_prob_matrix.sum(axis=1), axis='rows'
         )
 
     return triplet_prob_matrix

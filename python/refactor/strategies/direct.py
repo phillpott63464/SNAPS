@@ -5,14 +5,18 @@ from refactor.strategies.base import AssignmentStrategy
 from refactor.strategies.registry import StrategyRegistry
 
 
-@StrategyRegistry.register("direct")
+@StrategyRegistry.register('direct')
 class DirectStrategy(AssignmentStrategy):
     def prepare(self, data: ShiftData):
         """Prepare input data and calculate the unmodified score matrix."""
-        obs, preds = self.preprocess_obs_preds(data.obs_shifts, data.pred_shifts)
+        obs, preds = self.preprocess_obs_preds(
+            data.obs_shifts, data.pred_shifts
+        )
         return obs, preds, self.calc_log_prob_matrix(obs, preds)
 
-    def assign(self, data: ShiftData, set_assign_df: bool = True) -> AssignmentResult:
+    def assign(
+        self, data: ShiftData, set_assign_df: bool = True
+    ) -> AssignmentResult:
         """Perform direct assignment from raw shift data."""
         obs, preds, log_prob = self.prepare(data)
         return self.assign_from_matrix(obs, preds, log_prob)
@@ -59,11 +63,11 @@ class DirectStrategy(AssignmentStrategy):
             log_prob_matrix=log_prob,
             assign_df=assign_df,
             mismatch_matrix=mismatch_matrix,
-            confidence=assign_df[["SS_name", "Res_name", "Confidence"]]
-            if "Confidence" in assign_df
+            confidence=assign_df[['SS_name', 'Res_name', 'Confidence']]
+            if 'Confidence' in assign_df
             else None,
             metadata={
-                "strategy": "direct",
-                "config": self.config,
+                'strategy': 'direct',
+                'config': self.config,
             },
         )

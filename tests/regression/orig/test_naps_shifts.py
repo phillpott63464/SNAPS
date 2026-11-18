@@ -6,13 +6,12 @@ However, outputting is broken with sequential links so this is as far as I can t
 
 from pathlib import Path
 
-from pandas.testing import assert_frame_equal
-
 from modules.importer_functions import import_observed_shifts
+from pandas.testing import assert_frame_equal
 from refactor.SNAPSimporter import SNAPSImporter
 
-
 TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
+
 
 def test_naps_shift_list_contains_sequential_backbone_shifts():
     observed = import_observed_shifts(TEST_DATA / 'naps_shifts.txt', 'snaps')

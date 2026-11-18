@@ -3,25 +3,22 @@
 # On previous operations being done in order on self.preds constantly
 # This'll then make it easier to add custom dataclasses for data transfer in a legible way
 import logging
+from pathlib import Path
 
-
-import logging
-import pytest
 import pandas as pd
-from bokeh.sampledata.mtb import obiszow_mtb_xcm
+import pytest
 from modules.assigner_functions import (
-    import_predicted_shifts,
-    prepare_obs_preds,
-    calc_log_prob_matrix,
-    find_best_assignment,
-    make_assign_df,
-    calc_mismatch_matrix,
     add_consistency_info,
+    calc_log_prob_matrix,
+    calc_mismatch_matrix,
+    find_best_assignment,
+    import_predicted_shifts,
+    make_assign_df,
+    prepare_obs_preds,
 )
 from modules.importer_functions import import_observed_shifts
-from refactor.SNAPSimporter import SNAPSImporter
-from pathlib import Path
 from pandas.testing import assert_frame_equal
+from refactor.SNAPSimporter import SNAPSImporter
 
 TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 

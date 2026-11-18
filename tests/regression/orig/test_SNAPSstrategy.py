@@ -1,30 +1,28 @@
-from refactor.strategies.direct import DirectStrategy
-from refactor.strategies.iterative import IterativeStrategy
+import logging
+from pathlib import Path
 
+import numpy as np
+import pandas as pd
+import pytest
+from modules.assigner_functions import (
+    add_consistency_info,
+    calc_log_prob_matrix,
+    calc_mismatch_matrix,
+    find_best_assignment,
+    import_predicted_shifts,
+    make_assign_df,
+    prepare_obs_preds,
+)
+from modules.importer_functions import import_observed_shifts
+from pandas.testing import assert_frame_equal
+from refactor.data_formats import ShiftData
+from refactor.SNAPSconfig import build_config
+from refactor.SNAPSimporter import SNAPSImporter
 from refactor.SNAPSstrategy import (
     create_strategy,
 )
-from refactor.SNAPSimporter import SNAPSImporter
-from refactor.data_formats import ShiftData
-from SNAPS_assigner import SNAPS_assigner
-from modules.assigner_functions import (
-    prepare_obs_preds,
-    calc_log_prob_matrix,
-    find_best_assignment,
-    make_assign_df,
-    import_predicted_shifts,
-    add_consistency_info,
-    calc_mismatch_matrix,
-)
-from modules.importer_functions import import_observed_shifts
-from refactor.SNAPSconfig import build_config
-import pytest
-import numpy as np
-import pandas as pd
-from pathlib import Path
-from pandas.testing import assert_frame_equal
-import logging
 from scipy.stats import norm
+from SNAPS_assigner import SNAPS_assigner
 
 TEST_DATA = Path(__file__).resolve().parents[2] / 'test_data'
 
@@ -350,14 +348,13 @@ def test_make_assign_df_logs_invalid_matching_warning(unit_strategy, caplog):
 
     with caplog.at_level(
         logging.WARNING, logger=unit_strategy.config.logger.name
-    ):
-        with pytest.raises(KeyError):
-            unit_strategy.make_assign_df(
-                obs=obs,
-                preds=preds,
-                log_prob_matrix=log_prob_matrix,
-                matching=pd.DataFrame({'invalid': ['value']}),
-            )
+    ), pytest.raises(KeyError):
+        unit_strategy.make_assign_df(
+            obs=obs,
+            preds=preds,
+            log_prob_matrix=log_prob_matrix,
+            matching=pd.DataFrame({'invalid': ['value']}),
+        )
 
     assert (
         'Cannot make assignment dataframe, as matching dataframe does not have '
@@ -676,10 +673,10 @@ def test_SNAPstrategy_make_assign_df(pred_file, obs_file, logger):
     # Updated - basically, since log prob never worked in the first place, don't make sure it's identical. Otherwise pytest will
     # Complain that the new dataframe has values that aren't NaN, which is what we want.
     assert_frame_equal(
-        assign_df.drop(columns=["Log_prob"]),
-        expected.drop(columns=["Log_prob"]),
+        assign_df.drop(columns=['Log_prob']),
+        expected.drop(columns=['Log_prob']),
     )
-    assert pd.api.types.is_float_dtype(assign_df["Log_prob"])
+    assert pd.api.types.is_float_dtype(assign_df['Log_prob'])
 
 
 @pytest.mark.parametrize(
@@ -747,10 +744,10 @@ def test_SNAPstragety_direct(
     assigned = strategy.assign(data=imported)
 
     assert_frame_equal(
-        assigned.assign_df.drop(columns=["Log_prob"]),
-        assign_df.drop(columns=["Log_prob"]),
+        assigned.assign_df.drop(columns=['Log_prob']),
+        assign_df.drop(columns=['Log_prob']),
     )
-    assert pd.api.types.is_float_dtype(assigned.assign_df["Log_prob"])
+    assert pd.api.types.is_float_dtype(assigned.assign_df['Log_prob'])
 
     assert_frame_equal(assigned.assignments, matching)
     assert_frame_equal(assigned.log_prob_matrix, log_prob_matrix)

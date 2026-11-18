@@ -14,16 +14,18 @@ class ShiftData:
     obs_shifts: pd.DataFrame  # Observed shifts (i, i-1)
     pred_shifts: pd.DataFrame  # Predicted shifts (i, i-1)
     sequence: Optional[pd.DataFrame] = None  # Protein sequence
-    aa_restraints: Optional[pd.DataFrame] = (
-        None  # Amino acid type restraints # This is currently unimplemented as it was unimplemented in the original SNAPS
-    )
+    aa_restraints: Optional[
+        pd.DataFrame
+    ] = None  # Amino acid type restraints # This is currently unimplemented as it was unimplemented in the original SNAPS
     unlabel_restraints: Optional[pd.DataFrame] = None  # Unlabelling info
-    metadata: dict[str, Any] = field(default_factory=dict)  # Sources, timestamps
+    metadata: dict[str, Any] = field(
+        default_factory=dict
+    )  # Sources, timestamps
 
     def __post_init__(self):
         """Add timestamp if not present"""
-        if "import_timestamp" not in self.metadata:
-            self.metadata["import_timestamp"] = datetime.now().isoformat()
+        if 'import_timestamp' not in self.metadata:
+            self.metadata['import_timestamp'] = datetime.now().isoformat()
 
 
 @dataclass
@@ -32,9 +34,9 @@ class AssignmentResult:
 
     assignments: pd.DataFrame  # Main assignment table
     assign_df: pd.DataFrame  # Assignment dataframe as originally implemented in SNAPS
-    assign_dfs: Optional[list[pd.DataFrame]] = (
-        None  # Dataframes for iterative strategies
-    )
+    assign_dfs: Optional[
+        list[pd.DataFrame]
+    ] = None  # Dataframes for iterative strategies
     log_prob_matrix: Optional[pd.DataFrame] = None
     mismatch_matrix: Optional[pd.DataFrame] = None
     confidence: Optional[pd.DataFrame] = None
@@ -43,8 +45,8 @@ class AssignmentResult:
     def to_dict(self) -> dict[str, Any]:
         """Serialize for JSON (web service)"""
         return {
-            "assignments": self.assignments.to_dict(orient="records"),
-            "metadata": self.metadata,
+            'assignments': self.assignments.to_dict(orient='records'),
+            'metadata': self.metadata,
         }
 
 
@@ -59,7 +61,7 @@ class AnalysisResult:
     def summary(self) -> dict[str, Any]:
         """Generate summary statistics"""
         return {
-            "total_assignments": len(self.enriched_assignments),
-            "consistency": self.consistency_metrics,
-            "quality": self.quality_metrics,
+            'total_assignments': len(self.enriched_assignments),
+            'consistency': self.consistency_metrics,
+            'quality': self.quality_metrics,
         }

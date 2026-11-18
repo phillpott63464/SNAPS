@@ -3,17 +3,14 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-from pandas.testing import assert_frame_equal
-
 import pytest
-
+from pandas.testing import assert_frame_equal
 from refactor.SNAPS import run_pipeline
 from refactor.SNAPSconfig import build_config
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-REAL_DATA = PROJECT_ROOT / "data" / "P3a_L273R"
+REAL_DATA = PROJECT_ROOT / 'data' / 'P3a_L273R'
 
-import shutil
 
 @pytest.fixture
 def config_file(tmp_path):
@@ -70,19 +67,31 @@ def test_alex_determinism(tmp_path, config_file):
     results = []
 
     for run in range(2):
-        output_dir = tmp_path / f"alex_run_{run}"
+        output_dir = tmp_path / f'alex_run_{run}'
 
         subprocess.run(
             [
                 sys.executable,
-                str(PROJECT_ROOT / "python" / "alex-dev" / "python" / "SNAPS.py"),
-                str(REAL_DATA / "naps_shifts.txt"), # Only data with i - 1
-                str(REAL_DATA / "P3a_L273R_sparta.tab"), # SHIFTX2 DOES NOT HAVE NECESSARY SHIFTS
+                str(
+                    PROJECT_ROOT
+                    / 'python'
+                    / 'alex-dev'
+                    / 'python'
+                    / 'SNAPS.py'
+                ),
+                str(REAL_DATA / 'naps_shifts.txt'),  # Only data with i - 1
+                str(
+                    REAL_DATA / 'P3a_L273R_sparta.tab'
+                ),  # SHIFTX2 DOES NOT HAVE NECESSARY SHIFTS
                 str(output_dir),
-                "--shift_type", "snaps",
-                "--pred_type", "sparta+",
-                "--seq_file", str(REAL_DATA / "P3a_L273R_clean.fasta"),
-                "-c", str(config_file),
+                '--shift_type',
+                'snaps',
+                '--pred_type',
+                'sparta+',
+                '--seq_file',
+                str(REAL_DATA / 'P3a_L273R_clean.fasta'),
+                '-c',
+                str(config_file),
             ],
             cwd=PROJECT_ROOT,
             check=True,
@@ -92,10 +101,10 @@ def test_alex_determinism(tmp_path, config_file):
         results.append(output_dir)
 
     for iteration in range(1, 6):
-        filename = f"triplet_assign_df_iteration_{iteration}.tsv"
+        filename = f'triplet_assign_df_iteration_{iteration}.tsv'
 
-        df1 = pd.read_csv(results[0] / filename, sep="\t")
-        df2 = pd.read_csv(results[1] / filename, sep="\t")
+        df1 = pd.read_csv(results[0] / filename, sep='\t')
+        df2 = pd.read_csv(results[1] / filename, sep='\t')
 
         assert_frame_equal(
             df1,
@@ -103,54 +112,63 @@ def test_alex_determinism(tmp_path, config_file):
             check_exact=False,
             rtol=1e-10,
             atol=1e-12,
-            obj=f"Triplet iteration {iteration}",
+            obj=f'Triplet iteration {iteration}',
         )
+
 
 def test_refactor_triplet(tmp_path, config_file):
     overrides = {
         'strategy': 'triplet',
-        'output_file': str(tmp_path / "output.txt"),
-        'obs_file': REAL_DATA / "naps_shifts.txt",
+        'output_file': str(tmp_path / 'output.txt'),
+        'obs_file': REAL_DATA / 'naps_shifts.txt',
         'pred_file': REAL_DATA / 'P3a_L273R_sparta.tab',
         'sequence_file': REAL_DATA / 'P3a_L273R.fasta',
     }
     config = build_config(config_file, cli_overrides=overrides)
     run_pipeline(config)
 
-    result = pd.read_fwf(tmp_path / "output.txt")
+    result = pd.read_fwf(tmp_path / 'output.txt')
 
-    output_dir = tmp_path / "alex_run"
+    output_dir = tmp_path / 'alex_run'
 
     subprocess.run(
         [
             sys.executable,
-            str(PROJECT_ROOT / "python" / "alex-dev" / "python" / "SNAPS.py"),
-            str(REAL_DATA / "naps_shifts.txt"),  # Only data with i - 1
-            str(REAL_DATA / "P3a_L273R_sparta.tab"),  # SHIFTX2 DOES NOT HAVE NECESSARY SHIFTS
+            str(PROJECT_ROOT / 'python' / 'alex-dev' / 'python' / 'SNAPS.py'),
+            str(REAL_DATA / 'naps_shifts.txt'),  # Only data with i - 1
+            str(
+                REAL_DATA / 'P3a_L273R_sparta.tab'
+            ),  # SHIFTX2 DOES NOT HAVE NECESSARY SHIFTS
             str(output_dir),
-            "--shift_type", "snaps",
-            "--pred_type", "sparta+",
-            "--seq_file", str(REAL_DATA / "P3a_L273R_clean.fasta"),
-            "-c", str(config_file),
+            '--shift_type',
+            'snaps',
+            '--pred_type',
+            'sparta+',
+            '--seq_file',
+            str(REAL_DATA / 'P3a_L273R_clean.fasta'),
+            '-c',
+            str(config_file),
         ],
         cwd=PROJECT_ROOT,
         check=True,
         timeout=120,
     )
 
-    expected = pd.read_csv(output_dir / 'triplet_assign_df_iteration_5.tsv', sep="\t")
+    expected = pd.read_csv(
+        output_dir / 'triplet_assign_df_iteration_5.tsv', sep='\t'
+    )
 
     # The refactor writes fixed-width identifiers and the legacy writer writes
     # tabular identifiers, so padding is not meaningful. Numeric output is
     # compared with a tight tolerance to ignore writer rounding only.
-    identifier_columns = ["Res_name", "SS_name", "Pred_name"]
+    identifier_columns = ['Res_name', 'SS_name', 'Pred_name']
     for frame in (result, expected):
         for column in identifier_columns:
             if column in frame:
-                frame[column] = frame[column].astype("string").str.strip()
+                frame[column] = frame[column].astype('string').str.strip()
 
     assert_frame_equal(
-        result.round(3), # Parity rounding
+        result.round(3),  # Parity rounding
         expected,
         check_dtype=False,
         check_exact=False,
