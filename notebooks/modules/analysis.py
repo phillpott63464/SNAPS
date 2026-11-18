@@ -1,14 +1,18 @@
 """Comparison statistics and figures for the SNAPS/MARS notebook."""
 
 from __future__ import annotations
-
+import re
 from collections import Counter
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from scipy import stats
 from Bio import SeqIO
+
+from modules.results import calculate_residue_mismatches
 
 def compare_results(
     results_1_orig: pd.DataFrame, results_2_orig: pd.DataFrame
@@ -411,3 +415,204 @@ def analyse_mismatches(mismatches):
         figures[condition_name] = fig
 
     return figures
+
+def analyse_rci(all_files: dict, BMRB_NAMES: Optional[dict] = None):
+    by_bmrb = _analyse_rci(all_files)
+
+    conditions = sorted({
+        condition
+        for protein_conditions in by_bmrb.values()
+        for condition in protein_conditions
+    })
+
+    rci_analysis = {
+        condition: {
+            bmrb_id: protein_conditions[condition]
+            for bmrb_id, protein_conditions in by_bmrb.items()
+            if condition in protein_conditions
+        }
+        for condition in conditions
+    }
+
+    secondary_structures = ("H", "E", "C")
+    colors = {"H": "tab:blue", "E": "tab:orange", "C": "tab:green"}
+    figures = {}
+
+    for condition, proteins in rci_analysis.items():
+        bmrb_ids = list(proteins)
+        if BMRB_NAMES is not None:
+            bmrb_names = list([BMRB_NAMES[x] for x in bmrb_ids])
+        else:
+            bmrb_names = bmrb_ids
+        x = np.arange(len(bmrb_ids))
+        width = 0.25
+
+        fig, (ax_individual, ax_collated) = plt.subplots(
+            1, 2, figsize=(14, 5), constrained_layout=True
+        )
+        fig.suptitle(f"RCI mismatch proportions: {condition}")
+
+        # Per-protein grouped bars
+        for i, ss in enumerate(secondary_structures):
+            values = [proteins[bmrb_id].get(ss, 0.0) for bmrb_id in bmrb_ids]
+            ax_individual.bar(
+                x + (i - 1) * width,
+                values,
+                width,
+                label=ss,
+                color=colors[ss],
+            )
+
+        ax_individual.set_title("By protein")
+        ax_individual.set_xlabel("Protein name")
+        ax_individual.set_ylabel("Mismatch proportion")
+        ax_individual.set_xticks(x)
+        ax_individual.set_xticklabels(bmrb_names, rotation=45, ha="right")
+        ax_individual.set_ylim(0, 1)
+        ax_individual.legend(title="Secondary structure")
+
+        # Across-protein mean with standard deviation
+        means = []
+        standard_deviations = []
+        for ss in secondary_structures:
+            values = np.array(
+                [proteins[bmrb_id].get(ss, 0.0) for bmrb_id in bmrb_ids],
+                dtype=float,
+            )
+            means.append(values.mean() if values.size else 0.0)
+            standard_deviations.append(
+                values.std(ddof=1) if values.size > 1 else 0.0
+            )
+
+        ss_x = np.arange(len(secondary_structures))
+        ax_collated.bar(
+            ss_x,
+            means,
+            yerr=standard_deviations,
+            capsize=5,
+            color=[colors[ss] for ss in secondary_structures],
+        )
+        ax_collated.set_title("Across proteins")
+        ax_collated.set_xlabel("Secondary structure")
+        ax_collated.set_ylabel("Mean mismatch proportion ± SD")
+        ax_collated.set_xticks(ss_x)
+        ax_collated.set_xticklabels(secondary_structures)
+        ax_collated.set_ylim(0, 1)
+
+        figures[condition] = fig
+
+    return figures
+
+def _analyse_rci(all_files: dict) -> dict:
+    """
+
+    RCI - random coil index. Psipred kinda does this?
+    (base) michiko@michiko-HP-Z4-G4-Workstation:~/repos/HP-SNAPS/notebooks/mars_test_set/4136$ cat *psipred*
+    # PSIPRED HFORMAT (PSIPRED V4.0)
+
+    Conf: 998201107899999966787843130654545789999999999999999424243999
+    Pred: CCCCCHHCHHHHHHHHHHHHHHHCCCHHHHCCCHHHHHHHHHHHHHHHHHHHHCCHHHHH
+      AA: MNPYIYLGGAILAEVIGTTLMKFSEGFTRLWPSVGTIICYCASFWLLAQTLAYIPTGIAY
+                  10        20        30        40        50        60
+
+
+    Conf: 99860789999898314323025878999999999999999998218999
+    Pred: HHHHCHHHHHHHHHHCCCCCCCCCHHHHHHHHHHHHHHHHHHHHHCCCCC
+      AA: AIWSGVGIVLISLLSWGFFGQRLDLPAIIGMMLICAGVLIINLLSRSTPH
+                  70        80        90       100       110
+
+    H = alpha helxi
+    E = beta strand
+    C = random coil
+    Conf = confidence
+
+    We need to align this to the errors, see whether most of the errors are in coils, helices, or sheets
+    """
+    output = {}
+
+    for bmrb_id, protein in all_files.items():
+        output[bmrb_id] = {}
+
+        for condition, files in protein.items():
+            psipred = read_psipred(files["psipred_file"])
+            protein_length = len(psipred)
+            mismatches = calculate_residue_mismatches(
+                files["result_file"],
+                files["nef_file"],
+                flank=0,
+            )
+
+            # Convert the mismatch reference positions to a set for fast lookup.
+            mismatch_positions = mismatches["reference_number"]
+
+            counts = {"H": 0, "E": 0, "C": 0}
+            total_counts = {"H": 0, "E": 0, "C": 0}
+
+            for residue in psipred:
+                ss = residue["secondary_structure"]
+                total_counts[ss] += 1
+                if residue["reference_number"] in mismatch_positions:
+                    counts[ss] += 1
+
+            proportions = {}
+            for x, y in counts.items():
+                if counts[x] > 0 and total_counts[x] > 0:
+                    proportions[x] = counts[x] / total_counts[x]
+                else:
+                    proportions[x] = 0.0
+
+            if sum([y for y in proportions.values()]) > 0:
+                output[bmrb_id][condition] = proportions
+
+    return output
+
+def read_psipred(file_path: str) -> list[dict]:
+    """Read a PSIPRED HFORMAT file into one record per sequence position."""
+    records = []
+    confidence = prediction = sequence = None
+
+    def flush_block():
+        nonlocal confidence, prediction, sequence
+
+        if confidence is None and prediction is None and sequence is None:
+            return
+
+        if confidence is None or prediction is None or sequence is None:
+            raise ValueError(f"Incomplete PSIPRED block in {file_path}")
+
+        if not (len(confidence) == len(prediction) == len(sequence)):
+            raise ValueError(
+                f"PSIPRED block lengths differ in {file_path}: "
+                f"Conf={len(confidence)}, Pred={len(prediction)}, AA={len(sequence)}"
+            )
+
+        start = len(records) + 1
+        for offset, (conf, ss, aa) in enumerate(zip(confidence, prediction, sequence)):
+            records.append({
+                "reference_number": start + offset,
+                "residue_name": aa,
+                "secondary_structure": ss,
+                "confidence": int(conf),
+            })
+
+        confidence = prediction = sequence = None
+
+    with open(file_path, encoding="utf-8") as handle:
+        for line in handle:
+            match = re.match(r"^\s*(Conf|Pred|AA):\s*(\S+)", line)
+            if not match:
+                continue
+
+            label, value = match.groups()
+            if label == "Conf":
+                # A new Conf line starts the next block.
+                flush_block()
+                confidence = value
+            elif label == "Pred":
+                prediction = value
+            else:
+                sequence = value
+
+        flush_block()
+
+    return records
