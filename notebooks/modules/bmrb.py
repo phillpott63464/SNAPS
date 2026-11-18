@@ -29,9 +29,10 @@ from refactor.SNAPSpipeline import run_pipeline
 
 def with_psipred_dir(func):
     @wraps(func)
-    def wrapper(bmrb_ids, DATA_DIR, psipred_dir=None, *args, **kwargs):
+    def wrapper(*args, **kwargs):
+        psipred_dir = kwargs.pop("psipred_dir", None)
         if psipred_dir is not None:
-            return func(bmrb_ids, DATA_DIR, psipred_dir=psipred_dir, *args, **kwargs)
+            return func(*args, psipred_dir=psipred_dir, **kwargs)
 
         with TemporaryDirectory() as temp_dir:
             temp_dir = Path(temp_dir)
@@ -46,10 +47,8 @@ def with_psipred_dir(func):
                 tar.extractall(temp_dir, filter="data")
 
             return func(
-                bmrb_ids,
-                DATA_DIR,
-                psipred_dir=temp_dir / "psipred",
                 *args,
+                psipred_dir=temp_dir / "psipred",
                 **kwargs,
             )
 
@@ -150,6 +149,8 @@ def _run_download_pipeline(
     if output_file.exists():
         return
 
+    # TODO: you can use nef as a library this is silly and brittle
+
     processes = []
     previous_stdout = None
     try:
@@ -237,8 +238,15 @@ def process_bmrb(
         "psipred_file": data_dir / f"{bmrb_id}_psipred.tab",
     }
     try:
-        download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files["star_file"])
-        _trim_star_to_chain_a(files["star_file"])
+        if files['star_file'].exists() == False:
+            download(f"https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3", files["star_file"]) # Could replace this with a nef pipleine
+            # nef nmrstar import project {bmrb_id} works to just download the nef file
+            # but...... doesn't trim.
+            #
+            # A B
+            # (base) michiko@michiko-HP-Z4-G4-Workstation:~/repos/NEF-Pipelines$ nef nmrstar import project 4354 --chains A | nef chains list
+
+            _trim_star_to_chain_a(files["star_file"])
         _run_download_pipeline(
             [
                 ["nef", "header"],
@@ -325,8 +333,8 @@ def process_bmrb(
     except (urllib.error.URLError, OSError, subprocess.CalledProcessError) as exc:
         print(f"Failed to process BMRB {bmrb_id}: {exc}", file=sys.stderr)
 
-
-def run_test_set(bmrb_ids: list[int], DATA_DIR: Path, OUTPUT_DIR: Path) -> dict:
+@with_psipred_dir
+def run_test_set(bmrb_ids: list[int], DATA_DIR: Path, OUTPUT_DIR: Path, psipred_dir: Optional[Path] = None) -> dict:
     """Run all configured SNAPS strategies, skipping existing result files."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -338,7 +346,7 @@ def run_test_set(bmrb_ids: list[int], DATA_DIR: Path, OUTPUT_DIR: Path) -> dict:
 
         data_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
-        files = process_bmrb(bmrb_id, data_dir)
+        files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
         base = {
             "obs_file": files["nef_file"],
             "pred_file": f"{files['shiftx2_file']}:shiftx2",
@@ -492,14 +500,14 @@ def download_psipred(
                 filename = "psipred_result"
             (result_dir / filename).write_bytes(response.content)
 
-
-def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path) -> dict:
+@with_psipred_dir
+def run_mars_set(bmrb_ids: list[int], DATA_DIR: Path, psipred_dir: Optional[Path] = None) -> dict:
     output = {}
     output["II"] = {} # Basically just defining a single condition at the moment so that everything is very simple
     for bmrb_id in bmrb_ids:
         print(f'{bmrb_id}')
         data_dir = DATA_DIR / str(bmrb_id)
-        output["II"][bmrb_id] = process_bmrb(bmrb_id, data_dir)
+        output["II"][bmrb_id] = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
         output["II"][
             bmrb_id
         ] = {
