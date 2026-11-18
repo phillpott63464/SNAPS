@@ -371,9 +371,14 @@ def process_bmrb(
 
         if files['psipred_file'].exists() == False:
             shutil.copy(files['fasta_file'], f'{psipred_dir}/{bmrb_id}.fasta')
-            subprocess.run(
-                ['runpsipred_single', f'{bmrb_id}.fasta'], cwd=psipred_dir
+            script = psipred_dir / 'runpsipred_single'
+            result = subprocess.run(
+                [str(script), f'{bmrb_id}.fasta'],
+                cwd=psipred_dir,
+                text=True,
+                capture_output=True,
             )
+
             walk_tree(psipred_dir)
             shutil.copy(
                 f'{psipred_dir}/{bmrb_id}.horiz', files['psipred_file']
