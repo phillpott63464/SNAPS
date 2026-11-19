@@ -572,18 +572,16 @@ def _analyse_rci(all_files: dict) -> dict:
             mismatch_positions = mismatches['reference_number']
 
             counts = {'H': 0, 'E': 0, 'C': 0}
-            total_counts = {'H': 0, 'E': 0, 'C': 0}
 
             for residue in psipred:
                 ss = residue['secondary_structure']
-                total_counts[ss] += 1
                 if residue['reference_number'] in mismatch_positions:
                     counts[ss] += 1
 
             proportions = {}
             for x, y in counts.items():
-                if y > 0 and total_counts[x] > 0:
-                    proportions[x] = y / total_counts[x]
+                if y > 0 and sum(counts.values()) > 0:
+                    proportions[x] = y / sum(counts.values())
                 else:
                     proportions[x] = 0.0
 
