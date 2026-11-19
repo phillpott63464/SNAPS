@@ -266,6 +266,7 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
             xlabel='Reliable assignments / total residues',
             ylabel='Errors / reliable assignments',
             title='C. Completeness vs error rate\n(lower right is best)',
+            ylim=(0.0, 1.0),
         )
         ax.legend()
         ax.grid(alpha=0.3)
