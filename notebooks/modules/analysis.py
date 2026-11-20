@@ -232,12 +232,12 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
         ax.grid(axis='x', alpha=0.3)
 
         ax = axes[2]
-        for tool, reliable_col, err_col, offset in (
-            (name_1, reliable_frac_1, err_rate_1, (5, 5)),
-            (name_2, reliable_frac_2, err_rate_2, (5, -8)),
+        for tool, correct_frac, err_col, offset in (
+            (name_1, correct_frac_1, err_rate_1, (5, 5)),
+            (name_2, correct_frac_1, err_rate_2, (5, -8)),
         ):
             ax.scatter(
-                plot[reliable_col],
+                plot[correct_frac],
                 plot[err_col],
                 color=colors[tool],
                 s=60,
@@ -247,7 +247,7 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
             for _, row in plot.iterrows():
                 ax.annotate(
                     row[protein_col],
-                    (row[reliable_col], row[err_col]),
+                    (row[correct_frac], row[err_col]),
                     xytext=offset,
                     textcoords='offset points',
                     fontsize=7,
@@ -256,17 +256,18 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
 
         for _, row in plot.iterrows():
             ax.plot(
-                [row[reliable_frac_1], row[reliable_frac_2]],
+                [row[correct_frac_1], row[correct_frac_2]],
                 [row[err_rate_1], row[err_rate_2]],
                 color='grey',
                 alpha=0.3,
             )
 
         ax.set(
-            xlabel='Reliable assignments / total residues',
-            ylabel='Errors / reliable assignments',
-            title='C. Completeness vs error rate\n(lower right is best)',
+            xlabel='Correct assignments',
+            ylabel='Errors',
+            title='C. Correctness vs error rate\n(lower right is best)',
             ylim=(0.0, 1.0),
+            xlim=(0.0, 1.0),
         )
         ax.legend()
         ax.grid(alpha=0.3)
