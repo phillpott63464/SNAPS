@@ -823,7 +823,10 @@ class TripletStrategy(AssignmentStrategy):
         right_matrix = right_matrix.shift(-1, axis=1).fillna(1)
 
         # Calculate the triplet probability matrix
-        triplet_prob_matrix = left_matrix * prob_matrix * right_matrix
+        w = self.config.sequential_weight
+        triplet_prob_matrix = (
+            left_matrix**w * prob_matrix * right_matrix**w
+        )
         triplet_prob_matrix.index.name = 'SS_name'
 
         # Do the normalisation, if needed

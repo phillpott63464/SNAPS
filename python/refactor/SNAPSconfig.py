@@ -221,6 +221,10 @@ class SNAPSConfig(BaseModel):
         default=False,
         description='Should create _m1 fields? Required True for triplet',
     )
+    sequential_weight: float = Field(
+        default=1,
+        description='How much to weight the sequential links (default is 1, to reduce influence reduce the weighting, to increase influence increase the weighting)',
+    )
 
     # Strategy
     strategy: Literal['direct', 'iterative', 'triplet'] = Field(
