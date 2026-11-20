@@ -86,22 +86,27 @@ def _(
     DATA_DIR,
     OUTPUT_DIR,
     assignment_table,
+    compare_results,
+    plot_comparisons,
     run_test_set,
     run_weighting_test,
 ):
-    weighting_test_files_10 = run_weighting_test(
+    weighting_test_files = run_weighting_test(
         bmrb_ids=BMRB_IDS,
         DATA_DIR=DATA_DIR,
         OUTPUT_DIR=OUTPUT_DIR,
-        weighting_range=range(0, 11, 1),
+        weighting_range=[x / 10 for x in range(0, 11, 1)]
+        + [x for x in range(0, 11, 1)]
+        + [x / 10 for x in range(20, 40, 1)]
+        + [x / 100 for x in range(290, 310)],
     )
 
     default_test_files = run_test_set(
         bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
     )
 
-    weighting_results_10 = assignment_table(
-        weighting_test_files_10,
+    weighting_results = assignment_table(
+        weighting_test_files,
         BMRB_NAMES,
         'weighting',
     )
@@ -111,44 +116,29 @@ def _(
     default_results = default_results[
         default_results['condition'] == 'triplet'
     ]
-    return default_results, weighting_results_10
+
+    comparison = compare_results(weighting_results, default_results)
+
+    plots = plot_comparisons(comparison)
+    return comparison, plots, weighting_results
 
 
 @app.cell
-def _(
-    compare_results,
-    default_results,
-    plot_comparisons,
-    weighting_results_10,
-):
-    comparison_10 = compare_results(weighting_results_10, default_results)
-
-    plots_10 = plot_comparisons(comparison_10)
-    return comparison_10, plots_10
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-    # Test weighting
-
-    0 - 10 step 1
-    """
-    )
+def _(mo, plots):
+    mo.vstack([mo.as_html(plot) for plot in plots.values()][:11])
 
 
 @app.cell
-def _(mo, plots_10):
-    mo.vstack([mo.as_html(plot) for plot in plots_10.values()])
+def _(mo, plots):
+    mo.vstack([mo.as_html(plot) for plot in plots.values()][10:20])
 
 
 @app.cell
-def _(comparison_10, make_weighting_graphs, mo):
+def _(comparison, make_weighting_graphs, mo):
     mo.vstack(
         [
             mo.as_html(plot)
-            for plot in make_weighting_graphs(comparison_10).values()
+            for plot in make_weighting_graphs(comparison).values()
         ]
     )
 
@@ -191,6 +181,11 @@ def _(plt):
             )
             ax.set_ylabel(f'Mean {graph} fraction')
             ax.set_title(f'{graph.capitalize()} vs. sequential link weight')
+            # Label every nth condition to avoid crowding
+            step = max(1, len(conditions) // 15)
+            ax.set_xticks(conditions[::step])
+            ax.tick_params(axis='x', rotation=45)
+
             ax.grid(True, alpha=0.3)
 
             weighting_graphs[graph] = fig
@@ -204,73 +199,30 @@ def _(
     BMRB_IDS,
     BMRB_NAMES,
     DATA_DIR,
-    OUTPUT_DIR,
-    assignment_table,
     compare_results,
-    default_results,
-    plot_comparisons,
-    run_weighting_test,
-):
-    weighting_test_files_1 = run_weighting_test(
-        bmrb_ids=BMRB_IDS,
-        DATA_DIR=DATA_DIR,
-        OUTPUT_DIR=OUTPUT_DIR,
-        weighting_range=[x / 10 for x in range(0, 11, 1)],
-    )
-    weighting_results_1 = assignment_table(
-        weighting_test_files_1,
-        BMRB_NAMES,
-        'weighting',
-    )
-    comparison_1 = compare_results(weighting_results_1, default_results)
-    plots_1 = plot_comparisons(comparison_1)
-    return comparison_1, weighting_results_1
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-    # Test weighting
-
-    0 - 1 step 0.1
-    """
-    )
-
-
-@app.cell
-def _(mo, plots_10):
-    mo.vstack([mo.as_html(plot) for plot in plots_10.values()])
-
-
-@app.cell
-def _(comparison_1, make_weighting_graphs, mo):
-    mo.vstack(
-        [
-            mo.as_html(plot)
-            for plot in make_weighting_graphs(comparison_1).values()
-        ]
-    )
-
-
-@app.cell
-def _(comparison_10):
-    comparison_10.to_clipboard()
-
-
-@app.cell
-def _(
-    BMRB_IDS,
-    BMRB_NAMES,
-    DATA_DIR,
-    compare_results,
+    comparison,
     get_mars_data,
     plot_comparisons,
-    weighting_results_1,
+    weighting_results,
 ):
     mars_results = get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR)
-    mars_comparison = compare_results(weighting_results_1, mars_results)
-    mars_plots = plot_comparisons(mars_comparison)
+    mars_comparison = compare_results(weighting_results, mars_results)
+    best_val = 1e100
+    best_condition = 'abbba'
+    for condition in mars_comparison['condition'].unique():
+        weighting_slice = comparison[
+            comparison['condition'] == condition
+        ]   # Only the condition we want
+        error = weighting_slice['err_rate_weighting'].mean()
+        if error < best_val:
+            best_condition = condition
+            best_val = error
+
+    print(best_condition)
+
+    mars_plots = plot_comparisons(
+        mars_comparison[mars_comparison['condition'] == best_condition]
+    )
     return (mars_plots,)
 
 
