@@ -607,3 +607,61 @@ def walk_tree(path: Path):
         print('  ' * depth + os.path.basename(root) + '/')
         for name in files:
             print('  ' * (depth + 1) + name)
+
+
+@with_psipred_dir
+def run_weighting_test(
+    bmrb_ids: list[int],
+    DATA_DIR: Path,
+    OUTPUT_DIR: Path,
+    psipred_dir: Optional[Path] = None,
+) -> dict:
+    """Run all configured SNAPS strategies, skipping existing result files."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output = {}
+    for bmrb_id in bmrb_ids:
+        output[bmrb_id] = {}
+        data_dir = DATA_DIR / f'{bmrb_id}'
+        output_dir = OUTPUT_DIR / f'{bmrb_id}/weighting_test'
+
+        data_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
+        base = {
+            'obs_file': files['nef_file'],
+            'pred_file': f"{files['shiftx2_file']}:shiftx2",
+            'sequence_file': files['fasta_file'],
+            'SS_num': True,
+            'output_type': 'snaps',
+            'strategy': 'triplet',
+        }
+
+        for strategy in range(00, 100, 1):
+            strategy = strategy / 10   # 0.0 - 10.0 step 0.1
+            strat_files = {
+                'result_file': output_dir
+                / f'{bmrb_id}-test-result-{strategy}.txt',
+                'hsqc_plot_file': output_dir
+                / f'{bmrb_id}-test-result-{strategy}-hsqc.html',
+                'strip_plot_file': output_dir
+                / f'{bmrb_id}-test-result-{strategy}-strip.html',
+                **files,
+            }
+            output[bmrb_id][strategy] = strat_files
+
+            if strat_files['result_file'].exists():
+                continue
+
+            config = build_config(
+                cli_overrides={
+                    'output_file': strat_files['result_file'],
+                    'hsqc_plot_file': strat_files['hsqc_plot_file'],
+                    'strip_plot_file': strat_files['strip_plot_file'],
+                    'sequential_weight': strategy,
+                    **base,
+                }
+            )
+            run_pipeline(config)
+
+    return output
