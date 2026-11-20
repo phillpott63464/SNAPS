@@ -261,10 +261,19 @@ def assignment_counts(
     evaluable = source.notna() & predicted.notna()
     errors = int(source[evaluable].ne(predicted[evaluable]).sum())
 
+    assigned = result.loc[
+        result['assigned']
+        & result['chain_code'].eq(chain)
+        & result['residue_name'].ne('PRO')
+    ].copy()
+
+    truth = assigned['spin_system'] == assigned['residue_number']
+    errors_all = int((~truth).sum())
+
     return {
         'assignments': len(assigned),
-        'reliable_assignments': len(reliable),
-        'errors': errors,
+        'reliable_assignments': len(assigned),
+        'errors': errors_all,
     }
 
 

@@ -87,7 +87,7 @@ def compare_results(
             compared[f'reliable_{tool}'] / compared['N']
         )
         compared[f'err_rate_{tool}'] = (
-            compared[f'errors_{tool}'] / compared[f'reliable_{tool}']
+            compared[f'errors_{tool}'] / compared[f'n_assign_{tool}']
         )
     compared['diff'] = (
         compared[f'correct_frac_{name_1}'] - compared[f'correct_frac_{name_2}']
