@@ -48,7 +48,7 @@ def preprocess_obs_preds(
     obs = obs.loc[:, obs_metadata + shared_atoms]
     preds = preds.loc[:, preds_metadata + shared_atoms]
 
-    print('Restricted atom types to %s' % ','.join(shared_atoms))
+    print(f'Restricted atom types to {shared_atoms}')
 
     #### Create dummy rows
     # Create columns to keep track of dummy status

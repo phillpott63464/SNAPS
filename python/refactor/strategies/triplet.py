@@ -422,9 +422,7 @@ class TripletStrategy(AssignmentStrategy):
             ).loc[atoms, atoms]
 
             self.config.logger.info(
-                'Imported delta_correlation info from %s and %s',
-                self.config.delta_correlation_mean_file,
-                self.config.delta_correlation_cov_file,
+                f'Imported delta_correlation info from {self.config.delta_correlation_mean_file} and {self.config.delta_correlation_cov_file}'
             )
 
             delta_list = []

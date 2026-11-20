@@ -39,8 +39,7 @@ def calc_log_prob_matrix(
         # Import parameters for correcting the shifts
         lm_pars = pd.read_csv(config.pred_correction_file, index_col=0)
         config.logger.info(
-            'Imported pred_correction info from %s'
-            % config.pred_correction_file
+            f'Imported pred_correction info from {config.pred_correction_file}'
         )
 
     if config.delta_correlation:
@@ -58,11 +57,7 @@ def calc_log_prob_matrix(
                 index_col=0,
             ).loc[atoms, atoms]
             config.logger.info(
-                'Imported delta_correlation info from %s and %s'
-                % (
-                    config.delta_correlation_mean_corrected_file,
-                    config.delta_correlation_cov_corrected_file,
-                )
+                f'Imported delta_correlation info from {config.delta_correlation_mean_corrected_file} and {config.delta_correlation_cov_corrected_file}'
             )
         else:
             d_mean = pd.read_csv(
@@ -74,11 +69,7 @@ def calc_log_prob_matrix(
                 config.delta_correlation_cov_file, index_col=0
             ).loc[atoms, atoms]
             config.logger.info(
-                'Imported delta_correlation info from %s and %s'
-                % (
-                    config.delta_correlation_mean_file,
-                    config.delta_correlation_cov_file,
-                )
+                f'Imported delta_correlation info from {config.delta_correlation_mean_file} and {config.delta_correlation_cov_file}'
             )
 
         # For the delta_correlation method, we need to store the prediction

@@ -200,12 +200,9 @@ class SNAPSImporter:
             # This isn't tested yet because I don't have sequence imports working yet
             # TODO: test this
             self.config.logger.warning(
-                (
-                    'There were inconsistencies between the provided sequence '
-                    'file and the predicted shifts. The following residues had '
-                    'inconsistent amino acid types: %s'
-                )
-                % ', '.join(ambiguous_res_names)
+                'There were inconsistencies between the provided sequence '
+                'file and the predicted shifts. The following residues had '
+                f'inconsistent amino acid types: {ambiguous_res_names}'
             )
 
         #        preds.index = preds["Res_name"]

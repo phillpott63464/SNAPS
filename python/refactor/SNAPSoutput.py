@@ -51,7 +51,7 @@ class FormatOutput:
         with self._open_or_stdout(config.output_file, 'w') as fp:
             print(output, file=fp)
 
-        print('Finished writing results to %s', config.output_file)
+        print(f'Finished writing results to {config.output_file}')
         #### Write chemical shift lists
         # Currently unimplemented
         # if spec.shift_output_file is not None:
@@ -69,7 +69,7 @@ class FormatOutput:
                 outfile=self.config.hsqc_plot_file,
             )
             self.config.logger.info(
-                'Wrote HSQC plot to %s', self.config.hsqc_plot_file
+                f'Wrote HSQC plot to {self.config.hsqc_plot_file}'
             )
         if self.config.strip_plot_file is not None:
             strip_plot = self.plot_strips(
@@ -80,7 +80,7 @@ class FormatOutput:
             )
             if strip_plot is not None:
                 self.config.logger.info(
-                    'Wrote strip plot to %s', self.config.strip_plot_file
+                    f'Wrote strip plot to {self.config.strip_plot_file}'
                 )
 
     @staticmethod
