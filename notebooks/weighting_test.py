@@ -92,7 +92,7 @@ def _(
         bmrb_ids=BMRB_IDS,
         DATA_DIR=DATA_DIR,
         OUTPUT_DIR=OUTPUT_DIR,
-        weighting_range=range(0, 10, 1),
+        weighting_range=range(0, 11, 1),
     )
 
     default_test_files = run_test_set(
@@ -105,7 +105,7 @@ def _(
         'weighting',
     )
     default_results = assignment_table(
-        default_test_files, BMRB_NAMES, 'default'
+        default_test_files, BMRB_NAMES, 'default (1.0)'
     )
     default_results = default_results[
         default_results['condition'] == 'triplet'
@@ -186,9 +186,11 @@ def _(plt):
             ax.scatter(conditions, averages)
             ax.plot(conditions, averages)
 
-            ax.set_xlabel('Condition')
+            ax.set_xlabel(
+                'Weighting of shifts vs sequential links (0 is no sequential links, 1 is default)'
+            )
             ax.set_ylabel(f'Mean {graph} fraction')
-            ax.set_title(f'{graph.capitalize()} vs. condition')
+            ax.set_title(f'{graph.capitalize()} vs. sequential link weight')
             ax.grid(True, alpha=0.3)
 
             weighting_graphs[graph] = fig
@@ -213,7 +215,7 @@ def _(
         bmrb_ids=BMRB_IDS,
         DATA_DIR=DATA_DIR,
         OUTPUT_DIR=OUTPUT_DIR,
-        weighting_range=[x / 10 for x in range(0, 10, 1)],
+        weighting_range=[x / 10 for x in range(0, 11, 1)],
     )
     weighting_results_1 = assignment_table(
         weighting_test_files_1,
