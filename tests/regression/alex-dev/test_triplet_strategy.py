@@ -195,7 +195,7 @@ def _refactor_trace(config):
         mismatch_matrix,
         consistent_links,
         allowed_links,
-    ) = strategy.calc_mismatch_matrix(obs)
+    ) = strategy.calc_mismatch_matrix(obs, 0.2)
     base_assign, base_matching = strategy.assign_from_preds(
         obs, preds, log_prob
     )

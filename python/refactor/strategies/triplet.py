@@ -146,7 +146,7 @@ class TripletStrategy(AssignmentStrategy):
         )
         return (assign_df, matching)
 
-    def add_consistency_info(self, assign_df, obs, preds, threshold=0.2):
+    def add_consistency_info(self, assign_df, obs, preds, threshold):
         """Find maximum mismatch and number of 'significant' mismatches for
         each residue
 
@@ -190,7 +190,9 @@ class TripletStrategy(AssignmentStrategy):
 
         return seq_atoms.any()
 
-    def check_matching_consistency(self, matching, obs, preds, threshold=0.2):
+    def check_matching_consistency(
+        self, matching, obs, preds, threshold: float
+    ):
         """Calculate mismatch scores and assignment confidence for a given matching
 
         Returns a DataFrame with Res_name, SS_name and columns containing the
@@ -206,7 +208,7 @@ class TripletStrategy(AssignmentStrategy):
             mismatch_matrix,
             consistent_links_matrix,
             allowed_links_matrix,
-        ) = self.calc_mismatch_matrix(obs)
+        ) = self.calc_mismatch_matrix(obs, threshold)
 
         # Add Res_name_m1 and Res_name_p1 columns to matching DataFrame
         matching = matching.copy()
@@ -345,6 +347,7 @@ class TripletStrategy(AssignmentStrategy):
             allowed_links_matrix,
         )
 
+    @profile
     def calc_prob_matrix(self, obs, preds, sequence):
         prob_matrix = self._calc_prob_matrix(
             obs=obs, preds=preds, normalise_by='SS'
@@ -553,6 +556,7 @@ class TripletStrategy(AssignmentStrategy):
 
         return prob_matrix
 
+    @profile
     def create_generic_predictions(self, preds, sequence):
         """Create a set of predicted shifts based only on residue type.
         These can be used where there are missing predictions from the structure.
@@ -707,7 +711,7 @@ class TripletStrategy(AssignmentStrategy):
 
         return log_prob_matrix
 
-    def calc_mismatch_matrix(self, obs):
+    def calc_mismatch_matrix(self, obs, threshold):
         """Calculate matrix of the mismatch between i and i-1 observed carbon
         shifts for all spin system pairs. Also, make matrix of number of
         consistent sequential links for all spin system pairs.
@@ -758,7 +762,7 @@ class TripletStrategy(AssignmentStrategy):
             consistent_values, index=index, columns=columns
         )
 
-        allowed_values = (mismatch_values < 0.2).astype(int)
+        allowed_values = (mismatch_values < threshold).astype(int)
         np.fill_diagonal(allowed_values, 0)
         allowed_links_matrix = pd.DataFrame(
             allowed_values, index=index, columns=columns
