@@ -106,7 +106,7 @@ def _(
     comparison = compare_results(seq_link_test_result, default_results)
 
     plots = plot_comparisons(comparison)
-    return comparison, plots
+    return comparison, default_results, plots
 
 
 @app.cell
@@ -169,6 +169,61 @@ def _(comparison, make_weighting_graphs, mo):
         [
             mo.as_html(plot)
             for plot in make_weighting_graphs(comparison).values()
+        ]
+    )
+
+
+@app.cell
+def _(
+    BMRB_IDS,
+    BMRB_NAMES,
+    DATA_DIR,
+    OUTPUT_DIR,
+    assignment_table,
+    compare_results,
+    default_results,
+    plot_comparisons,
+    run_seq_link_test,
+):
+    weighted_seq_link_test_files = run_seq_link_test(
+        bmrb_ids=BMRB_IDS,
+        DATA_DIR=DATA_DIR,
+        OUTPUT_DIR=OUTPUT_DIR,
+        seq_range=[x / 100 for x in range(1, 11, 1)]
+        + [x / 10 for x in range(1, 11, 1)],
+        weight=0,
+    )
+
+    weighted_seq_link_test_result = assignment_table(
+        weighted_seq_link_test_files,
+        BMRB_NAMES,
+        'sequential link threshold',
+    )
+
+    weighted_comparison = compare_results(
+        weighted_seq_link_test_result, default_results
+    )
+
+    weighted_plots = plot_comparisons(weighted_comparison)
+    return weighted_comparison, weighted_plots
+
+
+@app.cell
+def _(mo, weighted_plots):
+    mo.vstack([mo.as_html(plot) for plot in weighted_plots.values()][:10])
+
+
+@app.cell
+def _(mo, weighted_plots):
+    mo.vstack([mo.as_html(plot) for plot in weighted_plots.values()][10:])
+
+
+@app.cell
+def _(make_weighting_graphs, mo, weighted_comparison):
+    mo.vstack(
+        [
+            mo.as_html(plot)
+            for plot in make_weighting_graphs(weighted_comparison).values()
         ]
     )
 

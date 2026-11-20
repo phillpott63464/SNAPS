@@ -674,6 +674,7 @@ def run_seq_link_test(
     DATA_DIR: Path,
     OUTPUT_DIR: Path,
     seq_range: list[float],
+    weight: float = 1,
     psipred_dir: Optional[Path] = None,
 ) -> dict:
     """Run all configured SNAPS strategies, skipping existing result files."""
@@ -701,11 +702,11 @@ def run_seq_link_test(
             strategy = float(strategy)
             strat_files = {
                 'result_file': output_dir
-                / f'{bmrb_id}-test-result-{strategy}.txt',
+                / f'{bmrb_id}-test-result-{weight}-{strategy}.txt',
                 'hsqc_plot_file': output_dir
-                / f'{bmrb_id}-test-result-{strategy}-hsqc.html',
+                / f'{bmrb_id}-test-result-{weight}-{strategy}-hsqc.html',
                 'strip_plot_file': output_dir
-                / f'{bmrb_id}-test-result-{strategy}-strip.html',
+                / f'{bmrb_id}-test-result-{weight}-{strategy}-strip.html',
                 **files,
             }
             output[bmrb_id][strategy] = strat_files
@@ -719,6 +720,7 @@ def run_seq_link_test(
                     'hsqc_plot_file': strat_files['hsqc_plot_file'],
                     'strip_plot_file': strat_files['strip_plot_file'],
                     'seq_link_threshold': strategy,
+                    'sequential_weight': weight,
                     **base,
                 }
             )
