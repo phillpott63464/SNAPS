@@ -16,6 +16,7 @@ from refactor.strategies.utils.misc import df_lookup
 class TripletStrategy(AssignmentStrategy):
     """Iterative triplet-informed assignment using sequential links."""
 
+    @profile
     def assign(self, data: ShiftData) -> AssignmentResult:
         self.validate_data(data.obs_shifts, data.pred_shifts, data.sequence)
         # Algorith from snaps.py
@@ -372,7 +373,6 @@ class TripletStrategy(AssignmentStrategy):
 
         return prob_matrix
 
-    @profile
     def _calc_prob_matrix(
         self,
         obs,
@@ -382,72 +382,53 @@ class TripletStrategy(AssignmentStrategy):
         normalise_by=None,
         delta_correlation=None,
     ):
-        """Calculate a matrix of probabilities based on match between observed
+        """Calculate a matrix of probabilities based on matches between observed
         and predicted chemical shifts.
 
-        By probability, we mean the value of the probability density function,
-        assuming the prediction errors follow a Gaussian distribution.
-        If self.pars["delta_correlation"]==True, correlations in errors between
-        different atom types will be accounted for.
-
-        Returns
-        A DataFrame containing the probabilities
-
-        Parameters
-        preds: The predictions to use when calculating the probability. If None,
-            the aligned_predictions are used.
-        atom_sd: A dictionary containing the expected standard error in the
-            predictions for each atom type
-        glycine_CB_penalty: How much to penalise the probability that an
-            observation corresponds to a glycine if it has a CB chemical shift
-            normalise_by: If "SS" or "Res", the sum of probabilities is normalised
-            to 1 along that axis. If None, no normalisation is done.
+        The probability is the probability density, assuming prediction errors
+        follow a Gaussian distribution. If delta_correlation is True, correlations
+        in errors between different atom types are accounted for.
         """
-
         obs = obs.copy()
         preds = preds.copy()
         atoms = sorted(self.config.atom_set.intersection(obs.columns))
+
         prob_matrix = pd.DataFrame(1.0, index=obs.index, columns=preds.index)
         prob_matrix.index.name = 'SS_name'
         prob_matrix.columns.name = 'Res_name'
-        if delta_correlation == None:
+
+        if delta_correlation is None:
             delta_correlation = self.config.delta_correlation
+
         atom_sd = self.config.atom_sd
-        if glycine_CB_penalty == None:
+
+        if glycine_CB_penalty is None:
             glycine_CB_penalty = self.config.glycine_CB_penalty
 
         if delta_correlation:
-            # Import parameters describing the delta correlations
-            # Note: this also sorts the atom types in d_mean and c_cov into the
-            # same order as the 'atoms' list defined above.
+            # Read and order the correlation parameters to match `atoms`.
             d_mean = pd.read_csv(
                 self.config.delta_correlation_mean_file,
                 header=None,
                 index_col=0,
             ).loc[atoms, 1]
+
             d_cov = pd.read_csv(
-                self.config.delta_correlation_cov_file, index_col=0
+                self.config.delta_correlation_cov_file,
+                index_col=0,
             ).loc[atoms, atoms]
+
             self.config.logger.info(
-                'Imported delta_correlation info from %s and %s'
-                % (
-                    self.config.delta_correlation_mean_file,
-                    self.config.delta_correlation_cov_file,
-                )
+                'Imported delta_correlation info from %s and %s',
+                self.config.delta_correlation_mean_file,
+                self.config.delta_correlation_cov_file,
             )
 
-            # For the delta_correlation method, we need to store the prediction
-            # errors for each atom type for analysis at the end.
             delta_list = []
 
-        # Calculate the differences between every prediction and every observation,
-        # for each atom type
+        # Calculate the differences between every prediction and observation
+        # for each atom type.
         for atom in atoms:
-            # The most efficient way I've found to do the calculation is to
-            # take the obs and preds shift columns for an atom, repeat each
-            # into a matrix, then subtract these matrixes from each other.
-            # That way, all calculations take advantage of vectorisation.
-            # Much faster than using loops.
             obs_atom = pd.DataFrame(
                 obs[atom]
                 .repeat(len(obs.index))
@@ -455,6 +436,7 @@ class TripletStrategy(AssignmentStrategy):
                 index=obs.index,
                 columns=preds.index,
             )
+
             preds_atom = pd.DataFrame(
                 preds[atom]
                 .repeat(len(preds.index))
@@ -465,15 +447,11 @@ class TripletStrategy(AssignmentStrategy):
             )
 
             delta_atom = preds_atom - obs_atom
-
-            # Make sure delta_atom is entirely numeric, with any NAs replaced with 0
             delta_atom = delta_atom.fillna(0.0).astype(float)
 
             if delta_correlation:
-                # Store delta matrix for this atom type for later analysis
-                delta_list = delta_list + [delta_atom.values]
+                delta_list.append(delta_atom.values)
             else:
-                # Calculate probability density and apply to probability matrix
                 if atom_res_sd is None:
                     prob_atom = pd.DataFrame(
                         norm.pdf(delta_atom, scale=atom_sd[atom]),
@@ -481,29 +459,33 @@ class TripletStrategy(AssignmentStrategy):
                         columns=preds.index,
                     )
                 else:
-                    # If atom is from a neighbouring residue, choose the appropriate atom type.
                     atom2 = atom
-                    if atom2 == 'C_m1':
-                        atom2 = 'C'
-                    if atom2 == 'CA_m1':
-                        atom2 = 'CA'
-                    if atom2 == 'CB_m1':
-                        atom2 = 'CB'
-                    if atom2 in ['N_m1', 'N_p1']:
+                    if atom2 in ('C_m1', 'CA_m1', 'CB_m1'):
+                        atom2 = atom2[:-3]  # Remove "_m1"
+                    elif atom2 in ('N_m1', 'N_p1'):
                         atom2 = 'N'
 
-                    prob_atom = pd.DataFrame(
-                        1.0, index=obs.index, columns=preds.index
-                    )
+                    # Calculate each residue type's probabilities in a NumPy
+                    # array, then build the DataFrame once.
+                    delta_values = delta_atom.to_numpy()
+                    prob_values = np.ones(delta_values.shape, dtype=float)
+                    res_types = preds['Res_type'].to_numpy()
+
                     for res in atom_res_sd.index:
-                        mask = preds.Res_type == res
-                        tmp = norm.pdf(
-                            delta_atom.loc[:, mask],
+                        mask = res_types == res
+                        if not mask.any():
+                            continue
+
+                        prob_values[:, mask] = norm.pdf(
+                            delta_values[:, mask],
                             scale=atom_res_sd.loc[res, atom2],
                         )
-                        prob_atom.loc[:, mask] = pd.DataFrame(
-                            tmp, index=obs.index, columns=preds.index[mask]
-                        )
+
+                    prob_atom = pd.DataFrame(
+                        prob_values,
+                        index=obs.index,
+                        columns=preds.index,
+                    )
 
                 prob_matrix = prob_matrix * prob_atom
 
@@ -512,22 +494,22 @@ class TripletStrategy(AssignmentStrategy):
                 'Accounting for correlated prediction errors'
             )
 
-            # Combine the delta matrixes from each atom type into a single 3D matrix
+            # Combine the per-atom delta matrices into one 3D array.
             delta_mat = np.array(delta_list)
-            # Move the axis containing the atom category to the end
-            # (necessary for multivariate_normal function)
             delta_mat = np.moveaxis(delta_mat, 0, -1)
 
-            # Initialise multivariate model and calculate log_pdf
             mvn = multivariate_normal(d_mean, d_cov)
             prob_matrix = pd.DataFrame(
-                mvn.pdf(delta_mat), index=obs.index, columns=preds.index
+                mvn.pdf(delta_mat),
+                index=obs.index,
+                columns=preds.index,
             )
 
-        # Penalise matches to glycine residues if SS has a CB
+        # Penalise matches to glycine residues if the spin system has a CB.
         if 'CB' in obs.columns:
             glycines = preds[preds.Res_type == 'G'].Res_name
             obs_CB = obs[~obs.CB.isna()].SS_name
+
             for g in glycines:
                 prob_matrix.loc[obs_CB, g] = (
                     prob_matrix.loc[obs_CB, g] * glycine_CB_penalty
@@ -535,29 +517,33 @@ class TripletStrategy(AssignmentStrategy):
 
             glycines_m1 = preds[preds.Res_type == 'G'].Res_name
             obs_CB_m1 = obs[~obs.CB_m1.isna()].SS_name
+
             for g in glycines_m1:
                 prob_matrix.loc[obs_CB_m1, g] = (
                     prob_matrix.loc[obs_CB_m1, g] * glycine_CB_penalty
                 )
 
-        # Pair up the proline dummy spin systems with the appropriate residue
+        # Pair up proline dummy spin systems with the appropriate residue.
         prolines = preds[preds.Res_type == 'P'].Res_name
         prob_matrix.loc[:, prolines] = 1e-100
         prob_matrix.loc[prolines, :] = 1e-100
+
         for x in prolines:
             prob_matrix.loc[x, x] = 1.0
 
-        # Replace any zero probabilities which a very small number
-        # (Zero probabilities can happen due to rounding error, I think)
+        # Replace zero probabilities with a very small number.
         prob_matrix[prob_matrix == 0] = 1e-100
 
-        # Do the normalisation, if needed
         if normalise_by == 'Res':
             prob_matrix = prob_matrix.div(
-                prob_matrix.sum(axis=0), axis='columns'
+                prob_matrix.sum(axis=0),
+                axis='columns',
             )
         elif normalise_by == 'SS':
-            prob_matrix = prob_matrix.div(prob_matrix.sum(axis=1), axis='rows')
+            prob_matrix = prob_matrix.div(
+                prob_matrix.sum(axis=1),
+                axis='rows',
+            )
 
         self.config.logger.info(
             'Calculated probability matrix (%dx%d)',
@@ -565,10 +551,8 @@ class TripletStrategy(AssignmentStrategy):
             prob_matrix.shape[1],
         )
 
-        # self.prob_matrix = prob_matrix
         return prob_matrix
 
-    @profile
     def create_generic_predictions(self, preds, sequence):
         """Create a set of predicted shifts based only on residue type.
         These can be used where there are missing predictions from the structure.
