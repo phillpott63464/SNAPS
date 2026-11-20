@@ -614,6 +614,7 @@ def run_weighting_test(
     bmrb_ids: list[int],
     DATA_DIR: Path,
     OUTPUT_DIR: Path,
+    weighting_range: list[float],
     psipred_dir: Optional[Path] = None,
 ) -> dict:
     """Run all configured SNAPS strategies, skipping existing result files."""
@@ -637,8 +638,8 @@ def run_weighting_test(
             'strategy': 'triplet',
         }
 
-        for strategy in range(00, 100, 1):
-            strategy = strategy / 10   # 0.0 - 10.0 step 0.1
+        for strategy in weighting_range:
+            strategy = float(strategy)
             strat_files = {
                 'result_file': output_dir
                 / f'{bmrb_id}-test-result-{strategy}.txt',
