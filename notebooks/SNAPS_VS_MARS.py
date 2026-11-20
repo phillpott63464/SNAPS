@@ -18,6 +18,7 @@ def _():
     import marimo as mo
     from modules.analysis import compare_results, plot_comparisons
     from modules.bmrb import run_test_set
+    from modules.mars import get_mars_data
     from modules.results import assignment_table
 
     # from modules.pdb import colour_mars_set
@@ -25,6 +26,7 @@ def _():
         Path,
         assignment_table,
         compare_results,
+        get_mars_data,
         mo,
         plot_comparisons,
         run_test_set,
@@ -74,12 +76,11 @@ def _(
     OUTPUT_DIR,
     assignment_table,
     compare_results,
+    get_mars_data,
     plot_comparisons,
     run_test_set,
 ):
     # Published MARS counts used in the original benchmark.
-
-    from modules.mars import get_mars_data
 
     snaps_test_files = run_test_set(
         bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
