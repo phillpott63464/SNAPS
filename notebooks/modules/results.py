@@ -242,9 +242,9 @@ def assignment_counts(
     if 'merit' in assigned:
         reliable = assigned.loc[assigned['merit'].le(RELIABLE_MERIT)].copy()
     elif 'Confidence' in assigned:
-        reliable = assigned.loc[
-            assigned['Confidence'].isin(good_confidences)
-        ].copy()
+        reliable = assigned  # .loc[
+        #     assigned['Confidence'].isin(good_confidences)
+        # ].copy()
     else:
         raise ValueError('Result has neither merit nor Confidence')
 
@@ -329,7 +329,7 @@ def calculate_residue_mismatches(
     assigned = result.loc[
         result['assigned'] & result['chain_code'].eq(chain)
     ].copy()
-    assigned = assigned[assigned['Confidence'].isin(good_confidences)]
+    # assigned = assigned[assigned['Confidence']]  # .isin(good_confidences)]
 
     columns = [
         'residue_number',

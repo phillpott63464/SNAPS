@@ -79,6 +79,7 @@ def _(
         bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
     )
     snaps_results = assignment_table(snaps_test_files, BMRB_NAMES, 'snaps')
+    snaps_results = snaps_results[snaps_results['condition'] == 'triplet']
     snaps_results_high_med = assignment_table(
         snaps_test_files,
         BMRB_NAMES,

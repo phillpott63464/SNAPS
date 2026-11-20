@@ -1,7 +1,7 @@
 import marimo
 
-__generated_with = "0.25.2"
-app = marimo.App(width="medium")
+__generated_with = '0.25.2'
+app = marimo.App(width='medium')
 
 
 @app.cell
@@ -13,12 +13,13 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     It's better if you remove sequential link weighting entirely
 
     Not sure why
-    """)
-    return
+    """
+    )
 
 
 @app.cell
@@ -128,18 +129,18 @@ def _(
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     # Test weighting
 
     0 - 10 step 1
-    """)
-    return
+    """
+    )
 
 
 @app.cell
 def _(mo, plots_10):
     mo.vstack([mo.as_html(plot) for plot in plots_10.values()])
-    return
 
 
 @app.cell
@@ -150,7 +151,6 @@ def _(comparison_10, make_weighting_graphs, mo):
             for plot in make_weighting_graphs(comparison_10).values()
         ]
     )
-    return
 
 
 @app.cell
@@ -229,18 +229,18 @@ def _(
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     # Test weighting
 
     0 - 1 step 0.1
-    """)
-    return
+    """
+    )
 
 
 @app.cell
 def _(mo, plots_10):
     mo.vstack([mo.as_html(plot) for plot in plots_10.values()])
-    return
 
 
 @app.cell
@@ -251,13 +251,11 @@ def _(comparison_1, make_weighting_graphs, mo):
             for plot in make_weighting_graphs(comparison_1).values()
         ]
     )
-    return
 
 
 @app.cell
 def _(comparison_10):
     comparison_10.to_clipboard()
-    return
 
 
 @app.cell
@@ -279,8 +277,7 @@ def _(
 @app.cell
 def _(mars_plots, mo):
     mo.vstack([mo.as_html(plot) for plot in mars_plots.values()])
-    return
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run()

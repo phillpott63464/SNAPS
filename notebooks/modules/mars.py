@@ -200,7 +200,8 @@ def parse_assignment_aa(path, reference):
             ):
                 errors += 1
 
-    return assignments, reliable, errors
+    # return assignments, reliable, errors # Remember to return to this when we've figured out how we want to do reliability
+    return assignments, assignments, errors
 
 
 def lookup_name(bmrb_id, BMRB_NAMES):
