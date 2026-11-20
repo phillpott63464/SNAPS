@@ -2,6 +2,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from line_profiler import profile
 from scipy.optimize import linear_sum_assignment
 from scipy.stats import multivariate_normal, norm
 
@@ -371,6 +372,7 @@ class TripletStrategy(AssignmentStrategy):
 
         return prob_matrix
 
+    @profile
     def _calc_prob_matrix(
         self,
         obs,
@@ -566,6 +568,7 @@ class TripletStrategy(AssignmentStrategy):
         # self.prob_matrix = prob_matrix
         return prob_matrix
 
+    @profile
     def create_generic_predictions(self, preds, sequence):
         """Create a set of predicted shifts based only on residue type.
         These can be used where there are missing predictions from the structure.
@@ -731,7 +734,6 @@ class TripletStrategy(AssignmentStrategy):
         obs = obs.copy()
         threshold = self.config.seq_link_threshold
 
-        # First check if there are any sequential atoms
         carbons = pd.Series(['C', 'CA', 'CB'])
         carbons_m1 = carbons + '_m1'
         seq_atoms = carbons[
@@ -739,73 +741,56 @@ class TripletStrategy(AssignmentStrategy):
         ]
 
         if seq_atoms.size == 0:
-            # You can't make a mismatch matrix
             self.config.logger.warning(
                 'No sequential links in data - mismatch matrix not calculated.'
             )
             return (None, None, None)
-        else:
-            # Start with empty mismatch and consistent_links matrixes
-            mismatch_matrix = pd.DataFrame(
-                0, index=obs['SS_name'], columns=obs['SS_name']
-            )
-            mismatch_matrix.columns.name = 'i'
-            mismatch_matrix.index.name = 'i_m1'
 
-            consistent_links_matrix = mismatch_matrix.copy()
+        n = len(obs)
+        index = pd.Index(obs['SS_name'], name='i_m1')
+        columns = pd.Index(obs['SS_name'], name='i')
 
-            for atom in seq_atoms:
-                # Repeat the i and i-1 observed shifts into matrixes, and
-                # transpose one of them.
-                # This is the fastest way I've found to calculate this.
-                i_atom = (
-                    obs[atom]
-                    .repeat(len(obs.index))
-                    .values.reshape([len(obs.index), -1])
-                )
-                i_m1_atom = (
-                    obs[atom + '_m1']
-                    .repeat(len(obs.index))
-                    .values.reshape([len(obs.index), -1])
-                    .transpose()
-                )
+        mismatch_values = np.zeros((n, n), dtype=float)
+        consistent_values = np.zeros((n, n), dtype=int)
 
-                mismatch_atom = pd.DataFrame(i_atom - i_m1_atom)
-
-                mismatch_atom.columns = obs['SS_name']
-                mismatch_atom.columns.name = 'i'
-                mismatch_atom.index = obs['SS_name']
-                mismatch_atom.index.name = 'i_m1'
-
-                consistent_links_atom = abs(mismatch_atom) < threshold
-
-                # Make a note of NA positions, and set them to default value
-                mismatch_atom = mismatch_atom.fillna(0.0)
-                consistent_links_atom = consistent_links_atom.fillna(0.0)
-
-                # Update mismatch and consistent links matrixes
-                mismatch_matrix = mismatch_matrix.combine(
-                    abs(mismatch_atom), np.maximum
-                )
-                consistent_links_matrix = (
-                    consistent_links_matrix + consistent_links_atom
-                )
-
-            allowed_links_matrix = (mismatch_matrix < 0.2).astype(int)
-            for i in allowed_links_matrix.index:
-                allowed_links_matrix.loc[i, i] = 0  # Set diagonal to zero
-
-            self.config.logger.info(
-                'Calculated mismatch and consistent_links matrixes (%dx%d)',
-                mismatch_matrix.shape[0],
-                mismatch_matrix.shape[1],
+        for atom in seq_atoms:
+            i_atom = obs[atom].to_numpy(dtype=float, na_value=np.nan)
+            i_m1_atom = obs[f'{atom}_m1'].to_numpy(
+                dtype=float, na_value=np.nan
             )
 
-            return (
-                mismatch_matrix,
-                consistent_links_matrix,
-                allowed_links_matrix,
-            )
+            differences = np.abs(i_atom[:, None] - i_m1_atom[None, :])
+
+            # Missing differences contribute zero to the mismatch maximum.
+            mismatch_values = np.fmax(mismatch_values, differences)
+
+            # Comparisons involving NaN are False, so they add no consistent link.
+            consistent_values += differences < threshold
+
+        mismatch_matrix = pd.DataFrame(
+            mismatch_values, index=index, columns=columns
+        )
+        consistent_links_matrix = pd.DataFrame(
+            consistent_values, index=index, columns=columns
+        )
+
+        allowed_values = (mismatch_values < 0.2).astype(int)
+        np.fill_diagonal(allowed_values, 0)
+        allowed_links_matrix = pd.DataFrame(
+            allowed_values, index=index, columns=columns
+        )
+
+        self.config.logger.info(
+            'Calculated mismatch and consistent_links matrixes (%dx%d)',
+            mismatch_matrix.shape[0],
+            mismatch_matrix.shape[1],
+        )
+
+        return (
+            mismatch_matrix,
+            consistent_links_matrix,
+            allowed_links_matrix,
+        )
 
     def calc_triplet_prob_matrix(
         self, prob_matrix, allowed_links_matrix, normalise_by=None
