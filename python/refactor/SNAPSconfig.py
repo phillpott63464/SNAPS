@@ -147,6 +147,24 @@ class SNAPSConfig(BaseModel):
         le=1.0,
         description='Carbon shift threshold for sequential links',
     )
+    seq_link_threshold_ca: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description='Alpha Carbon shift threshold for sequential links (defaults to seq_link_threshold)'
+    )
+    seq_link_threshold_cb: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description='Beta Carbon shift threshold for sequential links (defaults to seq_link_threshold)'
+    )
+    seq_link_threshold_co: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description='Carbonyl Carbon shift threshold for sequential links (defaults to seq_link_threshold)'
+    )
     iterate_until_consistent: bool = Field(
         default=True,
         description='Iterate assignments until sequentially consistent',

@@ -195,12 +195,12 @@ def _refactor_trace(config):
         mismatch_matrix,
         consistent_links,
         allowed_links,
-    ) = strategy.calc_mismatch_matrix(obs, 0.2)
+    ) = strategy.calc_mismatch_matrix(obs, {'CA': 0.2, 'CB': 0.2, 'C': 0.2})
     base_assign, base_matching = strategy.assign_from_preds(
         obs, preds, log_prob
     )
     base_assign, allowed = strategy.add_consistency_info(
-        base_assign, obs, preds, config.seq_link_threshold
+        base_assign, obs, preds, {'CA': 0.2, 'CB': 0.2, 'C': 0.2}
     )
     trace = {
         'raw_obs': data.obs_shifts,
@@ -226,7 +226,7 @@ def _refactor_trace(config):
         log_prob = strategy.calc_log_prob_matrix(prob)
         current, matching = strategy.assign_from_preds(obs, preds, log_prob)
         current, allowed = strategy.add_consistency_info(
-            current, obs, preds, config.seq_link_threshold
+            current, obs, preds, {'CA': 0.2, 'CB': 0.2, 'C': 0.2}
         )
         trace['iterations'].append(
             {

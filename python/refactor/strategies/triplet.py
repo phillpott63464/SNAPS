@@ -30,11 +30,16 @@ class TripletStrategy(AssignmentStrategy):
         assign_df, _ = self.assign_from_preds(
             obs=obs, preds=preds, log_prob_matrix=log_prob_matrix
         )
+        thresholds = {
+            'CA': self.config.seq_link_threshold_ca if self.config.seq_link_threshold_ca is not None else self.config.seq_link_threshold,
+            'CB': self.config.seq_link_threshold_cb if self.config.seq_link_threshold_cb is not None else self.config.seq_link_threshold,
+            'C': self.config.seq_link_threshold_co if self.config.seq_link_threshold_co is not None else self.config.seq_link_threshold,
+        }
         assign_df, _ = self.add_consistency_info(
             assign_df=assign_df,
             obs=obs,
             preds=preds,
-            threshold=self.config.seq_link_threshold,
+            thresholds=thresholds,
         )
 
         triplet_prob_matrix = prob_matrix.copy()
@@ -49,7 +54,7 @@ class TripletStrategy(AssignmentStrategy):
             assign_df=triplet_assign_df,
             obs=obs,
             preds=preds,
-            threshold=self.config.seq_link_threshold,
+            thresholds=thresholds,
         )
 
         triplet_prob_list = [triplet_prob_matrix]
@@ -85,7 +90,7 @@ class TripletStrategy(AssignmentStrategy):
                 assign_df=triplet_assign_df,
                 obs=obs,
                 preds=preds,
-                threshold=self.config.seq_link_threshold,
+                thresholds=thresholds,
             )
 
             triplet_prob_list += [triplet_prob_matrix]
@@ -146,12 +151,9 @@ class TripletStrategy(AssignmentStrategy):
         )
         return (assign_df, matching)
 
-    def add_consistency_info(self, assign_df, obs, preds, threshold):
+    def add_consistency_info(self, assign_df, obs, preds, thresholds):
         """Find maximum mismatch and number of 'significant' mismatches for
         each residue
-
-        threshold: Minimum carbon shift difference for sequential residues to
-            count as mismatched
         """
 
         assign_df = assign_df.copy()
@@ -159,7 +161,7 @@ class TripletStrategy(AssignmentStrategy):
         # First check if there are any sequential atoms
         if self.sequential_atoms_present(assign_df.columns):
             tmp, allowed_links_matrix = self.check_matching_consistency(
-                assign_df, obs, preds, threshold
+                assign_df, obs, preds, thresholds
             )
             assign_df = assign_df.merge(tmp, how='left')
             self.config.logger.info('Finished checking assignment consistency')
@@ -191,7 +193,7 @@ class TripletStrategy(AssignmentStrategy):
         return seq_atoms.any()
 
     def check_matching_consistency(
-        self, matching, obs, preds, threshold: float
+        self, matching, obs, preds, thresholds: dict,
     ):
         """Calculate mismatch scores and assignment confidence for a given matching
 
@@ -201,14 +203,14 @@ class TripletStrategy(AssignmentStrategy):
 
         Parameters
         matching: a DataFrame with Res_name and SS_name columns
-        threshold: the maximum allowed mismatch for a good sequential link
+        thresholds: the maximum allowed mismatch for a good sequential link / Ca Cb Co
         """
         # Create mismatch matrix if it doesn't already exist
         (
             mismatch_matrix,
             consistent_links_matrix,
             allowed_links_matrix,
-        ) = self.calc_mismatch_matrix(obs, threshold)
+        ) = self.calc_mismatch_matrix(obs, thresholds)
 
         # Add Res_name_m1 and Res_name_p1 columns to matching DataFrame
         matching = matching.copy()
@@ -290,12 +292,23 @@ class TripletStrategy(AssignmentStrategy):
         tmp['Conf_m1'] = 'N'
         tmp.loc[tmp['Num_good_links_m1'] > 0, 'Conf_m1'] = 'W'
         tmp.loc[tmp['Num_good_links_m1'] > 1, 'Conf_m1'] = 'S'
-        tmp.loc[tmp['Max_mismatch_m1'] > threshold, 'Conf_m1'] = 'X'
 
         tmp['Conf_p1'] = 'N'
         tmp.loc[tmp['Num_good_links_p1'] > 0, 'Conf_p1'] = 'W'
         tmp.loc[tmp['Num_good_links_p1'] > 1, 'Conf_p1'] = 'S'
-        tmp.loc[tmp['Max_mismatch_p1'] > threshold, 'Conf_p1'] = 'X'
+
+        bad_link_m1 = pd.Series(False, index=tmp.index)
+        for idx, row in tmp_m1.iterrows():
+            allowed = allowed_links_matrix.at[row['SS_name_m1'], row['SS_name']]
+            bad_link_m1.loc[idx] = pd.notna(allowed) and allowed == 0
+
+        bad_link_p1 = pd.Series(False, index=tmp.index)
+        for idx, row in tmp_p1.iterrows():
+            allowed = allowed_links_matrix.at[row['SS_name'], row['SS_name_p1']]
+            bad_link_p1.loc[idx] = pd.notna(allowed) and allowed == 0
+
+        tmp.loc[bad_link_m1.to_numpy(), 'Conf_m1'] = 'X'
+        tmp.loc[bad_link_p1.to_numpy(), 'Conf_p1'] = 'X'
 
         tmp['Conf2'] = tmp['Conf_m1'] + tmp['Conf_p1']
         # Reorder letters eg WS -> SW
@@ -709,16 +722,13 @@ class TripletStrategy(AssignmentStrategy):
 
         return log_prob_matrix
 
-    def calc_mismatch_matrix(self, obs, threshold):
-        """Calculate matrix of the mismatch between i and i-1 observed carbon
-        shifts for all spin system pairs. Also, make matrix of number of
-        consistent sequential links for all spin system pairs.
+    def calc_mismatch_matrix(self, obs, thresholds):
+        """Calculate mismatch matrices for sequential carbon shifts.
 
-        Parameters
-        threshold: The cutoff value beyond which a seq link is considered bad
+        `thresholds` maps each atom name (`C`, `CA`, `CB`) to the maximum
+        allowed difference for that atom's sequential link.
         """
         obs = obs.copy()
-        threshold = self.config.seq_link_threshold
 
         carbons = pd.Series(['C', 'CA', 'CB'])
         carbons_m1 = carbons + '_m1'
@@ -738,20 +748,21 @@ class TripletStrategy(AssignmentStrategy):
 
         mismatch_values = np.zeros((n, n), dtype=float)
         consistent_values = np.zeros((n, n), dtype=int)
+        allowed_values = np.ones((n, n), dtype=bool)
 
         for atom in seq_atoms:
+            threshold = thresholds[atom.replace('_m1', '')]
             i_atom = obs[atom].to_numpy(dtype=float, na_value=np.nan)
-            i_m1_atom = obs[f'{atom}_m1'].to_numpy(
-                dtype=float, na_value=np.nan
-            )
+            i_m1_atom = obs[f'{atom}_m1'].to_numpy(dtype=float, na_value=np.nan)
 
             differences = np.abs(i_atom[:, None] - i_m1_atom[None, :])
 
-            # Missing differences contribute zero to the mismatch maximum.
             mismatch_values = np.fmax(mismatch_values, differences)
-
-            # Comparisons involving NaN are False, so they add no consistent link.
             consistent_values += differences < threshold
+            allowed_values &= np.isnan(differences) | (differences < threshold)
+
+        allowed_values = allowed_values.astype(int)
+        np.fill_diagonal(allowed_values, 0)
 
         mismatch_matrix = pd.DataFrame(
             mismatch_values, index=index, columns=columns
@@ -760,8 +771,6 @@ class TripletStrategy(AssignmentStrategy):
             consistent_values, index=index, columns=columns
         )
 
-        allowed_values = (mismatch_values < threshold).astype(int)
-        np.fill_diagonal(allowed_values, 0)
         allowed_links_matrix = pd.DataFrame(
             allowed_values, index=index, columns=columns
         )
