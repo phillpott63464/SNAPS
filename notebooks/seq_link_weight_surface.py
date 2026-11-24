@@ -20,6 +20,7 @@ def _():
     from modules.bmrb import run_seq_link_test, run_test_set
     from modules.mars import get_mars_data
     from modules.results import assignment_table
+    from optuna.visualization import plot_optimization_history
 
     return (
         Path,
@@ -28,6 +29,7 @@ def _():
         get_mars_data,
         optuna,
         plot_comparisons,
+        plot_optimization_history,
         run_seq_link_test,
         run_test_set,
     )
@@ -154,8 +156,8 @@ def _(
         bmrb_ids=BMRB_IDS,
         DATA_DIR=DATA_DIR,
         OUTPUT_DIR=OUTPUT_DIR,
-        seq_range=[study.best_params['threshold']],
-        weight=study.best_params['weight'],
+        seq_range=[round(study.best_params['threshold'], 3)],
+        weight=round(study.best_params['weight'], 3),
     )
 
     results = assignment_table(files, BMRB_NAMES, 'candidate')
@@ -195,6 +197,12 @@ def _(
 @app.cell
 def _(mars_plots, mo):
     mo.vstack([mo.as_html(plot) for plot in mars_plots.values()])
+
+
+@app.cell
+def _(plot_optimization_history, study):
+    fig = plot_optimization_history(study)
+    fig.show()
 
 
 if __name__ == '__main__':
