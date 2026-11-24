@@ -31,9 +31,15 @@ class TripletStrategy(AssignmentStrategy):
             obs=obs, preds=preds, log_prob_matrix=log_prob_matrix
         )
         thresholds = {
-            'CA': self.config.seq_link_threshold_ca if self.config.seq_link_threshold_ca is not None else self.config.seq_link_threshold,
-            'CB': self.config.seq_link_threshold_cb if self.config.seq_link_threshold_cb is not None else self.config.seq_link_threshold,
-            'C': self.config.seq_link_threshold_co if self.config.seq_link_threshold_co is not None else self.config.seq_link_threshold,
+            'CA': self.config.seq_link_threshold_ca
+            if self.config.seq_link_threshold_ca is not None
+            else self.config.seq_link_threshold,
+            'CB': self.config.seq_link_threshold_cb
+            if self.config.seq_link_threshold_cb is not None
+            else self.config.seq_link_threshold,
+            'C': self.config.seq_link_threshold_co
+            if self.config.seq_link_threshold_co is not None
+            else self.config.seq_link_threshold,
         }
         assign_df, _ = self.add_consistency_info(
             assign_df=assign_df,
@@ -193,7 +199,11 @@ class TripletStrategy(AssignmentStrategy):
         return seq_atoms.any()
 
     def check_matching_consistency(
-        self, matching, obs, preds, thresholds: dict,
+        self,
+        matching,
+        obs,
+        preds,
+        thresholds: dict,
     ):
         """Calculate mismatch scores and assignment confidence for a given matching
 
@@ -299,12 +309,16 @@ class TripletStrategy(AssignmentStrategy):
 
         bad_link_m1 = pd.Series(False, index=tmp.index)
         for idx, row in tmp_m1.iterrows():
-            allowed = allowed_links_matrix.at[row['SS_name_m1'], row['SS_name']]
+            allowed = allowed_links_matrix.at[
+                row['SS_name_m1'], row['SS_name']
+            ]
             bad_link_m1.loc[idx] = pd.notna(allowed) and allowed == 0
 
         bad_link_p1 = pd.Series(False, index=tmp.index)
         for idx, row in tmp_p1.iterrows():
-            allowed = allowed_links_matrix.at[row['SS_name'], row['SS_name_p1']]
+            allowed = allowed_links_matrix.at[
+                row['SS_name'], row['SS_name_p1']
+            ]
             bad_link_p1.loc[idx] = pd.notna(allowed) and allowed == 0
 
         tmp.loc[bad_link_m1.to_numpy(), 'Conf_m1'] = 'X'
@@ -753,12 +767,15 @@ class TripletStrategy(AssignmentStrategy):
         for atom in seq_atoms:
             threshold = thresholds[atom.replace('_m1', '')]
             i_atom = obs[atom].to_numpy(dtype=float, na_value=np.nan)
-            i_m1_atom = obs[f'{atom}_m1'].to_numpy(dtype=float, na_value=np.nan)
+            i_m1_atom = obs[f'{atom}_m1'].to_numpy(
+                dtype=float, na_value=np.nan
+            )
 
             differences = np.abs(i_atom[:, None] - i_m1_atom[None, :])
 
             mismatch_values = np.fmax(mismatch_values, differences)
             consistent_values += differences < threshold
+            # This discards the link unless all 3 residues match, which effectively means that just the one threshold
             allowed_values &= np.isnan(differences) | (differences < threshold)
 
         allowed_values = allowed_values.astype(int)
