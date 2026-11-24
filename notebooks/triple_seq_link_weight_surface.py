@@ -23,6 +23,7 @@ def _():
         run_seq_link_test,
         run_test_set,
         run_triple_seq_link,
+        with_psipred_dir,
     )
     from modules.mars import get_mars_data
     from modules.results import assignment_table
@@ -43,6 +44,7 @@ def _():
         run_test_set,
         run_triple_seq_link,
         tqdm,
+        with_psipred_dir,
     )
 
 
@@ -114,50 +116,70 @@ def _(
     default_results,
     optuna,
     os,
+    plot_optimization_history,
     run_triple_seq_link,
     tqdm,
+    with_psipred_dir,
 ):
-    def objective(trial):
-        x = trial.suggest_float('CA', 0, 0.1)
-        y = trial.suggest_float('CB', 0, 0.1)
-        z = trial.suggest_float('C', 0, 0.1)
-        weight = trial.suggest_float('weight', 1.0, 5.0)
+    @with_psipred_dir
+    def _(psipred_dir):
+        def objective(trial):
+            x = trial.suggest_float('CA', 0, 0.1)
+            y = trial.suggest_float('CB', 0, 0.1)
+            z = trial.suggest_float('C', 0, 0.1)
+            weight = trial.suggest_float('weight', 1.0, 5.0)
+            seq_links = trial.suggest_int('seq_links', 1, 3)
 
-        seqs = {'CA': x, 'CB': y, 'C': z}
-        print(seqs)
-        files = run_triple_seq_link(
-            BMRB_IDS, DATA_DIR, OUTPUT_DIR / 'triple_seq', seqs, 2
+            seqs = {'CA': x, 'CB': y, 'C': z}
+            print(seqs)
+            files = run_triple_seq_link(
+                bmrb_ids=BMRB_IDS,
+                DATA_DIR=DATA_DIR,
+                OUTPUT_DIR=OUTPUT_DIR / 'triple_seq',
+                seqs=seqs,
+                weight=weight,
+                seq_links=seq_links,
+                psipred_dir=psipred_dir,
+            )
+            results = assignment_table(files, BMRB_NAMES, 'candidate')
+            comparison = compare_results(results, default_results)
+            return comparison['err_rate_candidate'].mean()
+
+        def silent_objective(trial):
+            with open(os.devnull, 'w') as f:
+                with contextlib.redirect_stdout(f), contextlib.redirect_stderr(
+                    f
+                ):
+                    return objective(trial)
+
+        study = optuna.create_study(
+            direction='minimize',
+            study_name='Triple sequential links',
+            storage=f'sqlite:///{OUTPUT_DIR}/tri_seq.db',
+            load_if_exists=True,
         )
-        results = assignment_table(files, BMRB_NAMES, 'candidate')
-        comparison = compare_results(results, default_results)
-        return comparison['err_rate_candidate'].mean()
 
-    def silent_objective(trial):
-        with open(os.devnull, 'w') as f:
-            with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
-                return objective(trial)
+        n_trials = 200 - len(study.trials)
 
-    study = optuna.create_study(
-        direction='minimize',
-        study_name='Triple sequential links',
-        storage=f'sqlite:///{OUTPUT_DIR}/optuna.db',
-        load_if_exists=True,
-    )
+        optuna.logging.set_verbosity(optuna.logging.CRITICAL)
+        with tqdm(total=n_trials, desc='Optuna') as pbar:
 
-    n_trials = 50 - len(study.trials)
+            def callback(study, trial):
+                pbar.update(1)
+                pbar.set_postfix(best=f'{study.best_value:.4f}')
+                fig = plot_optimization_history(study)
+                fig.show()
 
-    with tqdm(total=n_trials, desc='Optuna') as pbar:
+            study.optimize(
+                silent_objective,
+                n_trials=n_trials,
+                callbacks=[callback],
+                show_progress_bar=False,
+            )
 
-        def callback(study, trial):
-            pbar.update(1)
-            pbar.set_postfix(best=f'{study.best_value:.4f}')
+        return study
 
-        study.optimize(
-            silent_objective,
-            n_trials=n_trials,
-            callbacks=[callback],
-            show_progress_bar=False,
-        )
+    study = _()
     return (study,)
 
 
@@ -254,7 +276,7 @@ def _(
     single_weight_optimised_study = optuna.create_study(
         direction='minimize',
         study_name='Sequential link and weighting surface',
-        storage=f'sqlite:///{OUTPUT_DIR}/optuna.db',
+        storage=f'sqlite:///{OUTPUT_DIR}/seq_weight.db',
         load_if_exists=True,
     )
 

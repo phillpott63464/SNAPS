@@ -718,6 +718,7 @@ def run_triple_seq_link(
     OUTPUT_DIR: Path,
     seqs: dict,
     weight: float = 1,
+    seq_links: int = 3,
     psipred_dir: Optional[Path] = None,
 ) -> dict:
     """Run all configured SNAPS strategies, skipping existing result files."""
@@ -739,6 +740,7 @@ def run_triple_seq_link(
             'SS_num': True,
             'output_type': 'snaps',
             'strategy': 'triplet',
+            'min_seq_links_required': seq_links,
         }
 
         for strategy in [''.join(x for x in str(seqs.values()))]:
