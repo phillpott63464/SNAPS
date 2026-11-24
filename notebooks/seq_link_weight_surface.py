@@ -19,7 +19,7 @@ def _():
 
     import optuna
     from modules.analysis import compare_results, plot_comparisons
-    from modules.bmrb import run_seq_link_test, run_test_set
+    from modules.bmrb import run_seq_link_test, run_test_set, with_psipred_dir
     from modules.mars import get_mars_data
     from modules.results import assignment_table
     from optuna.visualization import plot_optimization_history
@@ -38,6 +38,7 @@ def _():
         run_seq_link_test,
         run_test_set,
         tqdm,
+        with_psipred_dir,
     )
 
 
@@ -108,13 +109,14 @@ def _(
     default_results,
     run_seq_link_test,
 ):
-    def evaluate(threshold, weight):
+    def evaluate(threshold, weight, psipred_dir):
         files = run_seq_link_test(
             bmrb_ids=BMRB_IDS,
             DATA_DIR=DATA_DIR,
             OUTPUT_DIR=OUTPUT_DIR,
             seq_range=[threshold],
             weight=weight,
+            psipred_dir=psipred_dir,
         )
         results = assignment_table(files, BMRB_NAMES, 'candidate')
         comparison = compare_results(results, default_results)
@@ -124,40 +126,60 @@ def _(
 
 
 @app.cell
-def _(OUTPUT_DIR, contextlib, evaluate, optuna, os, tqdm):
-    def objective(trial):
-        threshold = trial.suggest_float('threshold', 0.01, 0.3)
-        weight = trial.suggest_float('weight', 1.0, 5.0)
-        return evaluate(threshold, weight)
+def _(
+    OUTPUT_DIR,
+    contextlib,
+    evaluate,
+    optuna,
+    os,
+    plot_optimization_history,
+    tqdm,
+    with_psipred_dir,
+):
+    @with_psipred_dir
+    def _(psipred_dir):
+        def objective(trial):
+            threshold = trial.suggest_float('threshold', 0.01, 0.3)
+            weight = trial.suggest_float('weight', 1.0, 5.0)
+            return evaluate(threshold, weight, psipred_dir)
 
-    def silent_objective(trial):
-        with open(os.devnull, 'w') as f:
-            with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
-                return objective(trial)
+        def silent_objective(trial):
+            with open(os.devnull, 'w') as f:
+                with contextlib.redirect_stdout(f), contextlib.redirect_stderr(
+                    f
+                ):
+                    return objective(trial)
 
-    study = optuna.create_study(
-        direction='minimize',
-        study_name='Sequential link and weighting surface',
-        storage=f'sqlite:///{OUTPUT_DIR}/optuna.db',
-        load_if_exists=True,
-    )
-
-    n_trials = 50 - len(study.trials)
-
-    with tqdm(total=n_trials, desc='Optuna') as pbar:
-
-        def callback(study, trial):
-            pbar.update(1)
-            pbar.set_postfix(best=f'{study.best_value:.4f}')
-
-        study.optimize(
-            silent_objective,
-            n_trials=n_trials,
-            callbacks=[callback],
-            show_progress_bar=False,
+        study = optuna.create_study(
+            direction='minimize',
+            study_name='Sequential link and weighting surface',
+            storage=f'sqlite:///{OUTPUT_DIR}/seq_weight.db',
+            load_if_exists=True,
         )
 
-    print(study.best_params, study.best_value)
+        n_trials = 30 - len(study.trials)
+
+        optuna.logging.set_verbosity(optuna.logging.CRITICAL)
+        with tqdm(total=n_trials, desc='Optuna') as pbar:
+
+            def callback(study, trial):
+                pbar.update(1)
+                pbar.set_postfix(best=f'{study.best_value:.4f}')
+                fig = plot_optimization_history(study)
+                fig.show()
+
+            study.optimize(
+                silent_objective,
+                n_trials=n_trials,
+                callbacks=[callback],
+                show_progress_bar=False,
+            )
+
+        print(study.best_params, study.best_value)
+
+        return study
+
+    study = _()
     return (study,)
 
 
