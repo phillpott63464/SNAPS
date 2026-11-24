@@ -165,6 +165,12 @@ class SNAPSConfig(BaseModel):
         le=1.0,
         description='Carbonyl Carbon shift threshold for sequential links (defaults to seq_link_threshold)',
     )
+    min_seq_links_required: int = Field(
+        default=3,
+        ge=1,
+        le=3,
+        description='How many sequential links are required between residues (CO, CA, and CB)',
+    )
     iterate_until_consistent: bool = Field(
         default=True,
         description='Iterate assignments until sequentially consistent',

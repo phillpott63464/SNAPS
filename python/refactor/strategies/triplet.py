@@ -76,11 +76,14 @@ class TripletStrategy(AssignmentStrategy):
             )
             # Test of probability normalisation
             for _ in range(20):
+                col_sums = triplet_prob_matrix.sum(axis=0).replace(0, 1)
                 triplet_prob_matrix = triplet_prob_matrix.div(
-                    triplet_prob_matrix.sum(axis=0), axis='columns'
+                    col_sums, axis='columns'
                 )
+
+                row_sums = triplet_prob_matrix.sum(axis=1).replace(0, 1)
                 triplet_prob_matrix = triplet_prob_matrix.div(
-                    triplet_prob_matrix.sum(axis=1), axis='rows'
+                    row_sums, axis='rows'
                 )
 
             triplet_log_prob_matrix = self.calc_log_prob_matrix(
@@ -762,21 +765,27 @@ class TripletStrategy(AssignmentStrategy):
 
         mismatch_values = np.zeros((n, n), dtype=float)
         consistent_values = np.zeros((n, n), dtype=int)
-        allowed_values = np.ones((n, n), dtype=bool)
+        n_measured = np.zeros((n, n), dtype=int)
+        n_pass = np.zeros((n, n), dtype=int)
 
         for atom in seq_atoms:
-            threshold = thresholds[atom.replace('_m1', '')]
+            threshold = thresholds[atom]
             i_atom = obs[atom].to_numpy(dtype=float, na_value=np.nan)
             i_m1_atom = obs[f'{atom}_m1'].to_numpy(
                 dtype=float, na_value=np.nan
             )
 
             differences = np.abs(i_atom[:, None] - i_m1_atom[None, :])
+            measured = ~np.isnan(differences)
 
             mismatch_values = np.fmax(mismatch_values, differences)
             consistent_values += differences < threshold
-            # This discards the link unless all 3 residues match, which effectively means that just the one threshold
-            allowed_values &= np.isnan(differences) | (differences < threshold)
+            n_measured += measured
+            n_pass += measured & (differences < threshold)
+
+        required = np.minimum(self.config.min_seq_links_required, n_measured)
+        allowed_values = (n_pass >= required).astype(int)
+        np.fill_diagonal(allowed_values, 0)
 
         allowed_values = allowed_values.astype(int)
         np.fill_diagonal(allowed_values, 0)
@@ -787,7 +796,6 @@ class TripletStrategy(AssignmentStrategy):
         consistent_links_matrix = pd.DataFrame(
             consistent_values, index=index, columns=columns
         )
-
         allowed_links_matrix = pd.DataFrame(
             allowed_values, index=index, columns=columns
         )
