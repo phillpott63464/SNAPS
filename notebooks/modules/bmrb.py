@@ -424,10 +424,6 @@ def run_test_set(
             strat_files = {
                 'result_file': output_dir
                 / f'{bmrb_id}-test-result-{strategy}.txt',
-                'hsqc_plot_file': output_dir
-                / f'{bmrb_id}-test-result-{strategy}-hsqc.html',
-                'strip_plot_file': output_dir
-                / f'{bmrb_id}-test-result-{strategy}-strip.html',
                 **files,
             }
             output[bmrb_id][strategy] = strat_files
@@ -439,8 +435,6 @@ def run_test_set(
                 cli_overrides={
                     'strategy': strategy,
                     'output_file': strat_files['result_file'],
-                    'hsqc_plot_file': strat_files['hsqc_plot_file'],
-                    'strip_plot_file': strat_files['strip_plot_file'],
                     **base,
                 }
             )
@@ -643,10 +637,6 @@ def run_weighting_test(
             strat_files = {
                 'result_file': output_dir
                 / f'{bmrb_id}-test-result-{strategy}.txt',
-                'hsqc_plot_file': output_dir
-                / f'{bmrb_id}-test-result-{strategy}-hsqc.html',
-                'strip_plot_file': output_dir
-                / f'{bmrb_id}-test-result-{strategy}-strip.html',
                 **files,
             }
             output[bmrb_id][strategy] = strat_files
@@ -657,8 +647,6 @@ def run_weighting_test(
             config = build_config(
                 cli_overrides={
                     'output_file': strat_files['result_file'],
-                    'hsqc_plot_file': strat_files['hsqc_plot_file'],
-                    'strip_plot_file': strat_files['strip_plot_file'],
                     'sequential_weight': strategy,
                     **base,
                 }
@@ -703,10 +691,6 @@ def run_seq_link_test(
             strat_files = {
                 'result_file': output_dir
                 / f'{bmrb_id}-test-result-{weight}-{strategy}.txt',
-                'hsqc_plot_file': output_dir
-                / f'{bmrb_id}-test-result-{weight}-{strategy}-hsqc.html',
-                'strip_plot_file': output_dir
-                / f'{bmrb_id}-test-result-{weight}-{strategy}-strip.html',
                 **files,
             }
             output[bmrb_id][strategy] = strat_files
@@ -717,8 +701,6 @@ def run_seq_link_test(
             config = build_config(
                 cli_overrides={
                     'output_file': strat_files['result_file'],
-                    'hsqc_plot_file': strat_files['hsqc_plot_file'],
-                    'strip_plot_file': strat_files['strip_plot_file'],
                     'seq_link_threshold': strategy,
                     'sequential_weight': weight,
                     **base,
