@@ -2980,6 +2980,19 @@ wheels = [
 
 [[package]]
 name = "narwhals"
+version = "1.42.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.9' and sys_platform == 'win32'",
+    "python_full_version < '3.9' and sys_platform != 'win32'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/df/d6/168a787b7800d6c89846b791e4f5ee6b94998a80c8c2838a019d3d71984d/narwhals-1.42.1.tar.gz", hash = "sha256:50a5635b11aeda98cf9c37e839fd34b0a24159f59a4dfae930290ad698320494", size = 492865, upload-time = "2025-06-12T15:15:13.222Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/3f/8d450588206b437dd239a6d44230c63095e71135bd95d5a74347d07adbd5/narwhals-1.42.1-py3-none-any.whl", hash = "sha256:7a270d44b94ccdb277a799ae890c42e8504c537c1849f195eb14717c6184977a", size = 359888, upload-time = "2025-06-12T15:15:11.643Z" },
+]
+
+[[package]]
+name = "narwhals"
 version = "2.21.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
@@ -3901,6 +3914,21 @@ resolution-markers = [
 sdist = { url = "https://files.pythonhosted.org/packages/a6/2c/ec57eede0db493e61443c76ac7b4d24e94a24050afb3d598bf3678487f75/platformdirs-4.14.7.tar.gz", hash = "sha256:5472257c1cf97a14658af52997011c7e59e4aebf3a24950b973c11b579e1b074", size = 75132, upload-time = "2026-11-17T20:03:32.656Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/46/3737af9f971f3934794103256d7f1ed6200a62be0c7b7ff09ac4cf6b3422/platformdirs-4.14.7-py3-none-any.whl", hash = "sha256:391513b74707c42335fff3ea17eaac657a7ee9ffcadd809634d34ea594d0122c", size = 89658, upload-time = "2026-11-17T20:03:31.16Z" },
+]
+
+[[package]]
+name = "plotly"
+version = "7.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "narwhals", version = "1.42.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "narwhals", version = "2.21.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "narwhals", version = "2.27.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/49/c3/72b369f5ed7701b04ab0ea3dcf83e9bbce71c0b3bc6f07f87568550d09ea/plotly-7.1.0.tar.gz", hash = "sha256:f860166a4a3d78c69cb1f4a15f28a5c8283eade98a282a698f3bb853a449ace5", size = 6689315, upload-time = "2026-09-15T19:21:21.75Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/7d/905a3a3d51087515719058c94cfbda2ff0fc14417c20d557ae3e82d8b250/plotly-7.1.0-py3-none-any.whl", hash = "sha256:dbb7fa18afce40d0a8e80d1bf162eceb3faa0ce5a77fe741ad09a74cf78f53f3", size = 9692368, upload-time = "2026-09-15T19:21:18.331Z" },
 ]
 
 [[package]]
@@ -5512,6 +5540,7 @@ dependencies = [
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "pandas-stubs" },
     { name = "pillow", version = "13.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14'" },
+    { name = "plotly" },
     { name = "plotnine" },
     { name = "pydantic", version = "2.10.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "pydantic", version = "2.13.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
@@ -5568,6 +5597,7 @@ requires-dist = [
     { name = "pandas", marker = "python_full_version >= '3.12'", specifier = ">=2.1,<3" },
     { name = "pandas-stubs", specifier = "~=2.0.3" },
     { name = "pillow", marker = "python_full_version >= '3.14'", specifier = ">=11.3" },
+    { name = "plotly", specifier = ">=7.1.0" },
     { name = "plotnine" },
     { name = "pydantic", marker = "python_full_version < '3.14'", specifier = ">=2.10.6" },
     { name = "pydantic", marker = "python_full_version >= '3.14'", specifier = ">=2.12" },

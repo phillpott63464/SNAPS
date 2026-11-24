@@ -40,6 +40,7 @@ dependencies = [
     "blue>=0.9.1",
     "line-profiler>=5.0.2",
     "optuna>=4.5.0",
+    "plotly>=7.1.0",
 ]
 
 [dependency-groups]
