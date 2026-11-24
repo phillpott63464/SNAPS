@@ -248,23 +248,23 @@ def assignment_counts(
     else:
         raise ValueError('Result has neither merit nor Confidence')
 
-    reference = read_reference_assignment(reference_file)
+    # reference = read_reference_assignment(reference_file)
 
-    reliable['reference_sequence_code'] = reliable['observed_shifts'].apply(
-        lambda shifts: match_reference_residue(shifts, reference)
-    )
+    # reliable['reference_sequence_code'] = reliable['observed_shifts'].apply(
+    #     lambda shifts: match_reference_residue(shifts, reference)
+    # )
 
-    source = pd.to_numeric(
-        reliable['reference_sequence_code'], errors='coerce'
-    )
-    predicted = pd.to_numeric(reliable['residue_number'], errors='coerce')
-    evaluable = source.notna() & predicted.notna()
-    errors = int(source[evaluable].ne(predicted[evaluable]).sum())
+    # source = pd.to_numeric(
+    #     reliable['reference_sequence_code'], errors='coerce'
+    # )
+    # predicted = pd.to_numeric(reliable['residue_number'], errors='coerce')
+    # evaluable = source.notna() & predicted.notna()
+    # errors = int(source[evaluable].ne(predicted[evaluable]).sum())
 
     assigned = result.loc[
         result['assigned']
         & result['chain_code'].eq(chain)
-        & result['residue_name'].ne('PRO')
+        # & result['residue_name'].ne('PRO')
     ].copy()
 
     truth = assigned['spin_system'] == assigned['residue_number']
