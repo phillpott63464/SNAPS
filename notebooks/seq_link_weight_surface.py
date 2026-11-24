@@ -13,6 +13,8 @@ def _():
 
 @app.cell
 def _():
+    import contextlib
+    import os
     from pathlib import Path
 
     import optuna
@@ -21,17 +23,21 @@ def _():
     from modules.mars import get_mars_data
     from modules.results import assignment_table
     from optuna.visualization import plot_optimization_history
+    from tqdm.auto import tqdm
 
     return (
         Path,
         assignment_table,
         compare_results,
+        contextlib,
         get_mars_data,
         optuna,
+        os,
         plot_comparisons,
         plot_optimization_history,
         run_seq_link_test,
         run_test_set,
+        tqdm,
     )
 
 
@@ -118,11 +124,16 @@ def _(
 
 
 @app.cell
-def _(OUTPUT_DIR, evaluate, optuna):
+def _(OUTPUT_DIR, contextlib, evaluate, optuna, os, tqdm):
     def objective(trial):
         threshold = trial.suggest_float('threshold', 0.01, 0.3)
         weight = trial.suggest_float('weight', 1.0, 5.0)
         return evaluate(threshold, weight)
+
+    def silent_objective(trial):
+        with open(os.devnull, 'w') as f:
+            with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+                return objective(trial)
 
     study = optuna.create_study(
         direction='minimize',
@@ -131,9 +142,20 @@ def _(OUTPUT_DIR, evaluate, optuna):
         load_if_exists=True,
     )
 
-    current_trials = len(study.trials)
+    n_trials = 50 - len(study.trials)
 
-    study.optimize(objective, n_trials=50 - current_trials)
+    with tqdm(total=n_trials, desc='Optuna') as pbar:
+
+        def callback(study, trial):
+            pbar.update(1)
+            pbar.set_postfix(best=f'{study.best_value:.4f}')
+
+        study.optimize(
+            silent_objective,
+            n_trials=n_trials,
+            callbacks=[callback],
+            show_progress_bar=False,
+        )
 
     print(study.best_params, study.best_value)
     return (study,)
