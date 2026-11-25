@@ -1,7 +1,7 @@
 import marimo
 
-__generated_with = '0.25.2'
-app = marimo.App(width='medium')
+__generated_with = "0.25.2"
+app = marimo.App(width="medium")
 
 
 @app.cell
@@ -112,6 +112,7 @@ def _(
 @app.cell
 def _(default_test_files):
     print(default_test_files.keys())
+    return
 
 
 @app.cell
@@ -196,6 +197,7 @@ def _(
 @app.cell
 def _(study):
     print(study.best_params, study.best_value)
+    return
 
 
 @app.cell
@@ -222,6 +224,7 @@ def _(
         DATA_DIR=DATA_DIR,
         OUTPUT_DIR=OUTPUT_DIR,
         seqs=best_seqs,
+        seq_links=study.best_params['seq_links'],
         weight=study.best_params['weight'],
     )
 
@@ -234,12 +237,14 @@ def _(
 @app.cell
 def _(mo, plots):
     mo.vstack([mo.as_html(plot) for plot in plots.values()])
+    return
 
 
 @app.cell
 def _(plot_optimization_history, study):
     fig = plot_optimization_history(study)
     fig.show()
+    return
 
 
 @app.cell
@@ -268,6 +273,7 @@ def _(
 @app.cell
 def _(mars_plots, mo):
     mo.vstack([mo.as_html(plot) for plot in mars_plots.values()])
+    return
 
 
 @app.cell
@@ -320,7 +326,8 @@ def _(mo, single_weight_optimised_plots):
         ]
         + [mo.as_html(plot) for plot in single_weight_optimised_plots.values()]
     )
+    return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run()
