@@ -278,6 +278,176 @@ def plot_comparisons(compared: pd.DataFrame) -> dict:
     return plots
 
 
+def plot_comparisons_big(compared: pd.DataFrame) -> dict:
+    import matplotlib.pyplot as plt
+
+    name_1 = compared.attrs['name_1']
+    name_2 = compared.attrs['name_2']
+    colors = {name_1: '#1f77b4', name_2: '#d95f02'}
+    plots = {}
+
+    correct_frac_1 = f'correct_frac_{name_1}'
+    correct_frac_2 = f'correct_frac_{name_2}'
+    err_rate_1 = f'err_rate_{name_1}'
+    err_rate_2 = f'err_rate_{name_2}'
+
+    for condition in sorted(compared['condition'].unique()):
+        plot = (
+            compared[compared['condition'] == condition]
+            .sort_values('diff')
+            .reset_index(drop=True)
+        )
+        differences = plot['diff'].dropna().to_numpy()
+        if len(differences) == 0:
+            continue
+
+        fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+        fig.suptitle(
+            f'{name_1} condition: {condition} vs {name_2}', fontsize=14
+        )
+
+        # A. Paired correct fractions, with proteins overlaid in a compact panel.
+        ax = axes[0]
+        y = np.linspace(0, 1, len(plot)) if len(plot) > 1 else np.array([0.5])
+        for yi, (_, row) in zip(y, plot.iterrows()):
+            ax.plot(
+                [row[correct_frac_2], row[correct_frac_1]],
+                [yi, yi],
+                color='grey',
+                alpha=0.18,
+                lw=0.7,
+                zorder=1,
+            )
+
+        ax.scatter(
+            plot[correct_frac_1],
+            y,
+            color=colors[name_1],
+            s=14,
+            alpha=0.65,
+            label=name_1,
+            zorder=2,
+        )
+        ax.scatter(
+            plot[correct_frac_2],
+            y,
+            color=colors[name_2],
+            s=14,
+            alpha=0.65,
+            label=name_2,
+            zorder=2,
+        )
+
+        for yi, p_value in zip(y, plot['p_fisher']):
+            if pd.isna(p_value):
+                continue
+            star = (
+                '***'
+                if p_value < 0.001
+                else '**'
+                if p_value < 0.01
+                else '*'
+                if p_value < 0.05
+                else ''
+            )
+            if star:
+                ax.text(
+                    1.02,
+                    yi,
+                    star,
+                    va='center',
+                    ha='left',
+                    fontsize=7,
+                    clip_on=False,
+                )
+
+        ax.set(
+            xlim=(0, 1.08),
+            ylim=(-0.03, 1.03),
+            xlabel='Correct assignments / total residues',
+            ylabel='Proteins (ranked by difference)',
+            title='A. Correct fraction per protein\n(* = Fisher p<0.05, approximate)',
+        )
+        ax.set_yticks([])
+        ax.legend(loc='lower right', fontsize=8)
+        ax.grid(axis='x', alpha=0.3)
+
+        # B. Distribution of per-protein differences and bootstrap CI for the mean.
+        ax = axes[1]
+        rng = np.random.default_rng(0)
+        bootstrap = rng.choice(
+            differences, size=(10_000, len(differences)), replace=True
+        ).mean(axis=1)
+        lo, hi = np.percentile(bootstrap, [2.5, 97.5])
+        limit = max(np.abs(differences).max() * 1.1, 0.05)
+
+        ax.hist(differences, bins='auto', color='grey', alpha=0.65)
+        ax.axvspan(
+            lo,
+            hi,
+            color='gold',
+            alpha=0.25,
+            label=f'Bootstrap 95% CI\n({lo:.2f} to {hi:.2f})',
+        )
+        ax.axvline(0, color='k', lw=0.8)
+        ax.axvline(
+            differences.mean(),
+            color='k',
+            ls='--',
+            label=f'Mean diff = {differences.mean():.2f}',
+        )
+        ax.set(
+            xlim=(-limit, limit),
+            xlabel=f'{name_1} - {name_2} (correct fraction)',
+            ylabel='Number of proteins',
+            title=f'B. Distribution of differences\n(>0: {name_1} better)',
+        )
+        ax.legend(loc='best', fontsize=8)
+        ax.grid(axis='x', alpha=0.3)
+
+        # C. Correctness versus error rate, with paired points connected.
+        ax = axes[2]
+        ax.scatter(
+            plot[correct_frac_1],
+            plot[err_rate_1],
+            color=colors[name_1],
+            s=18,
+            alpha=0.65,
+            label=name_1,
+        )
+        ax.scatter(
+            plot[correct_frac_2],
+            plot[err_rate_2],
+            color=colors[name_2],
+            s=18,
+            alpha=0.65,
+            label=name_2,
+        )
+        for _, row in plot.iterrows():
+            ax.plot(
+                [row[correct_frac_1], row[correct_frac_2]],
+                [row[err_rate_1], row[err_rate_2]],
+                color='grey',
+                alpha=0.2,
+                lw=0.7,
+            )
+
+        ax.set(
+            xlabel='Correct assignments',
+            ylabel='Errors',
+            title='C. Correctness vs error rate\n(lower right is best)',
+            xlim=(0, 1),
+            ylim=(0, 1),
+        )
+        ax.legend(fontsize=8)
+        ax.grid(alpha=0.3)
+
+        fig.tight_layout()
+        plots[condition] = fig
+
+    return plots
+
+
 def analyse_mismatches(mismatches):
     amino_acids = [
         'ALA',
