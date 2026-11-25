@@ -68,6 +68,84 @@ def download(url: str, destination: Path) -> None:
             output.write(chunk)
 
 
+def inspect_nmrstar(path):
+    entry = Entry.from_file(path)
+    peak_frames = []
+
+    for frame in entry.frame_list:
+        if getattr(frame, 'category', '').lower() != 'spectral_peak_list':
+            continue
+
+        # In these BMRB files, peak coordinates may be embedded as text.
+        try:
+            text_data = frame.get_tag('_Spectral_peak_list.Text_data')
+        except KeyError:
+            text_data = None
+
+        has_text_data = bool(
+            text_data and str(text_data).strip() not in {'', '.'}
+        )
+        has_peak_loop = any(
+            any(tag.lower().startswith('_spectral_peak.') for tag in loop.tags)
+            for loop in frame.loops
+        )
+
+        peak_frames.append(
+            {
+                'name': frame.name,
+                'has_peak_data': has_text_data or has_peak_loop,
+            }
+        )
+
+    return peak_frames
+
+
+def keep_nef_chain_a(file_path: Path) -> None:
+    entry = Entry.from_file(str(file_path))
+
+    found_sequence_loop = False
+
+    for saveframe in entry.frame_list:
+        for loop in saveframe.loops:
+            tags = [
+                tag.lstrip('_').lower().split('.')[-1] for tag in loop.tags
+            ]
+
+            # The molecular-system sequence loop defines the NEF chains.
+            if 'chain_code' in tags and any(
+                tag.endswith('sequence_code') for tag in tags
+            ):
+                found_sequence_loop = True
+
+            chain_indices = [
+                index
+                for index, tag in enumerate(tags)
+                if tag == 'chain_code' or tag.startswith('chain_code_')
+            ]
+
+            if not chain_indices:
+                continue
+
+            retained_rows = [
+                row
+                for row in loop.data
+                if all(
+                    str(row[index]).strip('\'"') == 'A'
+                    for index in chain_indices
+                )
+            ]
+            loop.clear_data()
+            if retained_rows:
+                loop.add_data(retained_rows)
+
+    if not found_sequence_loop:
+        raise ValueError(f'No NEF sequence loop found in {file_path}')
+
+    temporary_file = file_path.with_suffix(f'{file_path.suffix}.tmp')
+    entry.write_to_file(str(temporary_file))
+    temporary_file.replace(file_path)
+
+
 def _trim_star_to_chain_a(star_file: Path) -> None:
     """Keep only STAR data belonging to chain A."""
     entry = Entry.from_file(star_file)
@@ -250,6 +328,10 @@ def download_first_pdb_for_bmrb(
 def process_bmrb(
     bmrb_id: int, data_dir: Path, psipred_dir: Optional[Path] = None
 ) -> dict:
+    def _failed(files):
+        with open(files['break_file'], 'w') as f:
+            f.write('Gibberish')
+
     """Create the NEF, predicted-shift, PDB, and FASTA inputs for one BMRB entry."""
     data_dir.mkdir(parents=True, exist_ok=True)
     files = {
@@ -259,115 +341,118 @@ def process_bmrb(
         'fasta_file': data_dir / f'{bmrb_id}.fasta',
         'pdb_file': data_dir / f'{bmrb_id}.pdb',
         'psipred_file': data_dir / f'{bmrb_id}_psipred.tab',
+        'break_file': data_dir / f'{bmrb_id}_break',
     }
-    try:
-        if files['star_file'].exists() == False:
-            download(
-                f'https://bmrb.io/rest/bmrb/{bmrb_id}/nmr-star3',
-                files['star_file'],
-            )   # Could replace this with a nef pipleine
-            # nef nmrstar import project {bmrb_id} works to just download the nef file
-            # but...... doesn't trim.
-            #
-            # A B
-            # (base) michiko@michiko-HP-Z4-G4-Workstation:~/repos/NEF-Pipelines$ nef nmrstar import project 4354 --chains A | nef chains list
-
-            _trim_star_to_chain_a(files['star_file'])
-        _run_download_pipeline(
-            [
-                ['nef', 'header'],
+    if files['break_file'].exists():
+        return None
+    if files['nef_file'].exists() == False:
+        try:
+            _run_download_pipeline(
                 [
-                    'nef',
-                    'nmrstar',
-                    'import',
-                    'sequence',
-                    str(files['star_file']),
-                ],
-                [
-                    'nef',
-                    'nmrstar',
-                    'import',
-                    'shifts',
-                    str(files['star_file']),
-                ],
-            ],
-            files['nef_file'],
-            data_dir,
-        )
-        download_first_pdb_for_bmrb(bmrb_id, data_dir, files['pdb_file'])
-        _run_download_pipeline(
-            [
-                ['nef', 'header'],
-                [
-                    'nef',
-                    'nmrstar',
-                    'import',
-                    'sequence',
-                    str(files['star_file']),
-                ],
-                [
-                    'nef',
-                    'shiftx2',
-                    'import',
-                    'shifts',
-                    str(data_dir / f'{bmrb_id}.pdb'),
-                ],
-            ],
-            files['shiftx2_file'],
-            data_dir,
-        )
-
-        with TemporaryDirectory() as tmp_dir:
-            if (data_dir / f'{bmrb_id}.inp').exists() == False:
-                _run_download_pipeline(
+                    ['nef', 'header'],
                     [
-                        ['nef', 'stream', f'{bmrb_id}.nef'],
-                        ['nef', 'entry', 'rename', f'{bmrb_id}'],
-                        [
-                            'nef',
-                            'fasta',
-                            'export',
-                            'sequence',
-                            '--force',
-                        ],  # Must use nef fasta not mars because mars export sequence breaks with 2+ chains
-                        ['nef', 'mars', 'export', 'shifts', '--force'],
-                        [
-                            'nef',
-                            'mars',
-                            'export',
-                            'input',
-                            '--force',
-                        ],  # Exports to bmrb_id.inp
+                        'nef',
+                        'nmrstar',
+                        'import',
+                        'project',
+                        str(bmrb_id),
                     ],
-                    Path(tmp_dir) / 'abba',  # Discard pipe output
-                    data_dir,
+                ],
+                files['nef_file'],
+                data_dir,
+            )
+            keep_nef_chain_a(files['nef_file'])
+        except:
+            if files['nef_file'].exists():
+                os.remove(files['nef_file'])
+            return _failed(files)
+        if files['nef_file'].exists() == False:
+            return _failed(files)
+
+    if files['pdb_file'].exists() == False:
+        download_first_pdb_for_bmrb(bmrb_id, data_dir, files['pdb_file'])
+        if files['pdb_file'].exists() == False:
+            return _failed(files)
+            # No pdb file on server, skip
+
+    if files['shiftx2_file'].exists() == False:
+        try:
+            _run_download_pipeline(
+                [
+                    ['nef', 'header'],
+                    [
+                        'nef',
+                        'stream',
+                        str(files['nef_file']),
+                    ],
+                    [
+                        'nef',
+                        'shiftx2',
+                        'import',
+                        'shifts',
+                        str(data_dir / f'{bmrb_id}.pdb'),
+                    ],
+                ],
+                files['shiftx2_file'],
+                data_dir,
+            )
+        except:
+            if files['shiftx2_file'].exists():
+                os.remove(files['shiftx2_file'])
+
+            return _failed(files)
+
+    with TemporaryDirectory() as tmp_dir:
+        if (data_dir / f'{bmrb_id}.inp').exists() == False:
+            _run_download_pipeline(
+                [
+                    ['nef', 'stream', f'{bmrb_id}.nef'],
+                    ['nef', 'entry', 'rename', f'{bmrb_id}'],
+                    [
+                        'nef',
+                        'fasta',
+                        'export',
+                        'sequence',
+                        '--force',
+                    ],  # Must use nef fasta not mars because mars export sequence breaks with 2+ chains
+                    ['nef', 'mars', 'export', 'shifts', '--force'],
+                    [
+                        'nef',
+                        'mars',
+                        'export',
+                        'input',
+                        '--force',
+                    ],  # Exports to bmrb_id.inp
+                ],
+                Path(tmp_dir) / 'abba',  # Discard pipe output
+                data_dir,
+            )
+
+            # Replace mars.inp defaults
+            input_file = data_dir / f'{bmrb_id}.inp'
+            input_text = input_file.read_text()
+
+            updates = {
+                'cutoffCA': '0.2',
+                'cutoffCB': '0.4',
+                'cutoffCO': '0.15',
+            }
+
+            for key, value in updates.items():
+                pattern = rf'^(\s*{key}:\s*)\S+'
+                input_text, count = re.subn(
+                    pattern,
+                    lambda match: match.group(1) + value,
+                    input_text,
+                    count=1,
+                    flags=re.MULTILINE,
                 )
-
-                # Replace mars.inp defaults
-                input_file = data_dir / f'{bmrb_id}.inp'
-                input_text = input_file.read_text()
-
-                updates = {
-                    'cutoffCA': '0.2',
-                    'cutoffCB': '0.4',
-                    'cutoffCO': '0.15',
-                }
-
-                for key, value in updates.items():
-                    pattern = rf'^(\s*{key}:\s*)\S+'
-                    input_text, count = re.subn(
-                        pattern,
-                        lambda match: match.group(1) + value,
-                        input_text,
-                        count=1,
-                        flags=re.MULTILINE,
+                if count != 1:
+                    raise ValueError(
+                        f'Expected one {key} setting; found {count}'
                     )
-                    if count != 1:
-                        raise ValueError(
-                            f'Expected one {key} setting; found {count}'
-                        )
 
-                input_file.write_text(input_text)
+            input_file.write_text(input_text)
 
         if files['psipred_file'].exists() == False:
             shutil.copy(files['fasta_file'], f'{psipred_dir}/{bmrb_id}.fasta')
@@ -385,12 +470,6 @@ def process_bmrb(
             )
 
         return files
-    except (
-        urllib.error.URLError,
-        OSError,
-        subprocess.CalledProcessError,
-    ) as exc:
-        print(f'Failed to process BMRB {bmrb_id}: {exc}', file=sys.stderr)
 
 
 @with_psipred_dir
@@ -405,6 +484,7 @@ def run_test_set(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output = {}
     for bmrb_id in bmrb_ids:
+        print(bmrb_id)
         output[bmrb_id] = {}
         data_dir = DATA_DIR / f'{bmrb_id}'
         output_dir = OUTPUT_DIR / f'{bmrb_id}'
@@ -412,6 +492,8 @@ def run_test_set(
         data_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
         files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
+        if files is None:
+            continue
         base = {
             'obs_file': files['nef_file'],
             'pred_file': f"{files['shiftx2_file']}:shiftx2",
@@ -574,9 +656,10 @@ def run_mars_set(
     for bmrb_id in bmrb_ids:
         print(f'{bmrb_id}')
         data_dir = DATA_DIR / str(bmrb_id)
-        output['II'][bmrb_id] = process_bmrb(
-            bmrb_id, data_dir, psipred_dir=psipred_dir
-        )
+        files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
+        if files is None:
+            continue
+        output['II'][bmrb_id] = files
         output['II'][bmrb_id] = {
             'assignment_AA': data_dir / 'assignment_AA.out',
             **output['II'][bmrb_id],
@@ -623,6 +706,8 @@ def run_weighting_test(
         data_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
         files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
+        if files is None:
+            continue
         base = {
             'obs_file': files['nef_file'],
             'pred_file': f"{files['shiftx2_file']}:shiftx2",
@@ -677,6 +762,8 @@ def run_seq_link_test(
         data_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
         files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
+        if files is None:
+            continue
         base = {
             'obs_file': files['nef_file'],
             'pred_file': f"{files['shiftx2_file']}:shiftx2",
@@ -726,6 +813,7 @@ def run_triple_seq_link(
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output = {}
     for bmrb_id in bmrb_ids:
+        print(bmrb_id)
         output[bmrb_id] = {}
         data_dir = DATA_DIR / f'{bmrb_id}'
         output_dir = OUTPUT_DIR / f'{bmrb_id}/seq_link_test'
@@ -733,6 +821,8 @@ def run_triple_seq_link(
         data_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
         files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
+        if files is None:
+            continue
         base = {
             'obs_file': files['nef_file'],
             'pred_file': f"{files['shiftx2_file']}:shiftx2",
@@ -791,6 +881,8 @@ def run_triple_seq_link_list(
         data_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
         files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
+        if files is None:
+            continue
         base = {
             'obs_file': files['nef_file'],
             'pred_file': f"{files['shiftx2_file']}:shiftx2",
