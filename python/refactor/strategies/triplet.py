@@ -819,11 +819,14 @@ class TripletStrategy(AssignmentStrategy):
         summed over all possible triplets, accounting for allowed sequential links.
 
         """
-        # Calculate matrixes for probability contribution of i-1 and i+1 residues
         left_matrix = allowed_links_matrix.transpose().dot(prob_matrix)
         right_matrix = allowed_links_matrix.dot(prob_matrix)
 
-        # Shift values left or right
+        # A spin system with no allowed neighbour gives an all-zero row.
+        # Treat that as "no information" rather than "impossible".
+        left_matrix = left_matrix.where(left_matrix.sum(axis=1) > 0, 1.0)
+        right_matrix = right_matrix.where(right_matrix.sum(axis=1) > 0, 1.0)
+
         left_matrix = left_matrix.shift(1, axis=1).fillna(1)
         right_matrix = right_matrix.shift(-1, axis=1).fillna(1)
 
@@ -840,8 +843,9 @@ class TripletStrategy(AssignmentStrategy):
                 triplet_prob_matrix.sum(axis=0), axis='columns'
             )
         elif normalise_by == 'SS':
+            row_sums = triplet_prob_matrix.sum(axis=1).replace(0, 1)
             triplet_prob_matrix = triplet_prob_matrix.div(
-                triplet_prob_matrix.sum(axis=1), axis='rows'
+                row_sums, axis='rows'
             )
 
         return triplet_prob_matrix
@@ -1045,6 +1049,17 @@ class TripletStrategy(AssignmentStrategy):
 
             self.config.logger.debug(
                 'Penalised %d excluded row,column pairs' % len(exc.index)
+            )
+
+        bad = ~np.isfinite(score_matrix_reduced.to_numpy())
+        if bad.any():
+            rows = score_matrix_reduced.index[bad.any(axis=1)].tolist()
+            cols = score_matrix_reduced.columns[bad.any(axis=0)].tolist()
+            self.config.logger.error(
+                'Non-finite entries: %d. rows=%s cols=%s',
+                bad.sum(),
+                rows[:10],
+                cols[:10],
             )
 
         if maximise:
