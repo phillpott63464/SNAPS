@@ -7,8 +7,8 @@ be reused by other analyses.
 
 import marimo
 
-__generated_with = '0.25.2'
-app = marimo.App(width='medium')
+__generated_with = "0.25.2"
+app = marimo.App(width="medium")
 
 
 @app.cell
@@ -36,6 +36,8 @@ def _():
 
 @app.cell
 def _(Path, get_rbmrb):
+    DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
+    OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
     BMRB_IDS = [
         5471,
         4354,
@@ -50,7 +52,7 @@ def _(Path, get_rbmrb):
         4136,
         5387,
         19714,
-    ] + get_rbmrb()
+    ] + get_rbmrb(data_dir=DATA_DIR, number=200)
     BMRB_IDS = BMRB_IDS
     BMRB_NAMES = {
         5471: 'Malate synthase G',
@@ -68,8 +70,6 @@ def _(Path, get_rbmrb):
     }
     for key in BMRB_IDS:
         BMRB_NAMES.setdefault(key, str(key))
-    DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
-    OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
     return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
 
 
@@ -94,6 +94,7 @@ def _(
 @app.cell
 def _(snaps_results):
     print(len(snaps_results['bmrb_id'].unique()))
+    return
 
 
 @app.cell
@@ -105,6 +106,7 @@ def _(BMRB_IDS, BMRB_NAMES, DATA_DIR, get_mars_data):
 @app.cell
 def _(mars_results):
     print(len(mars_results['bmrb_id'].unique()))
+    return
 
 
 @app.cell
@@ -117,12 +119,12 @@ def _(compare_results, mars_results, plot_comparisons_big, snaps_results):
 @app.cell
 def _(comparison):
     print(len(comparison['protein_snaps'].unique()))
+    return
 
 
 @app.cell(hide_code=True)
 def _(comparison, mo, plots):
-    mo.md(
-        rf"""
+    mo.md(rf"""
     ## SNAPS vs MARS
 
     MARS is a fairly good and well established automated assignment program. Let's try to get pretty close to it.
@@ -139,9 +141,9 @@ def _(comparison, mo, plots):
     {mo.as_html(plots['triplet'])}
 
     {comparison.to_markdown(index=False)}
-    """
-    )
+    """)
+    return
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run()
