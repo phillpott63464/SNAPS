@@ -18,7 +18,7 @@ def _():
     from pathlib import Path
 
     import optuna
-    from modules.analysis import compare_results, plot_comparisons
+    from modules.analysis import compare_results, plot_comparisons_big
     from modules.bmrb import (
         run_seq_link_test,
         run_test_set,
@@ -26,6 +26,7 @@ def _():
         with_psipred_dir,
     )
     from modules.mars import get_mars_data
+    from modules.rbmrb import get_rbmrb
     from modules.results import assignment_table
     from optuna.visualization import plot_optimization_history
     from tqdm.auto import tqdm
@@ -36,9 +37,10 @@ def _():
         compare_results,
         contextlib,
         get_mars_data,
+        get_rbmrb,
         optuna,
         os,
-        plot_comparisons,
+        plot_comparisons_big,
         plot_optimization_history,
         run_seq_link_test,
         run_test_set,
@@ -49,7 +51,7 @@ def _():
 
 
 @app.cell
-def _(Path):
+def _(Path, get_rbmrb):
     BMRB_IDS = [
         5471,
         4354,
@@ -63,7 +65,8 @@ def _(Path):
         4082,
         4136,
         5387,
-    ]
+    ] + get_rbmrb()
+    BMRB_IDS = BMRB_IDS[:200]
     BMRB_NAMES = {
         5471: 'Malate synthase G',
         4354: 'Maltose binding protein',
@@ -78,6 +81,8 @@ def _(Path):
         4136: 'E. coli EmrE',
         5387: 'Human ubiquitin',
     }
+    for key in BMRB_IDS:
+        BMRB_NAMES.setdefault(key, str(key))
     DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
     OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
     return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
@@ -101,7 +106,12 @@ def _(
     default_results = default_results[
         default_results['condition'] == 'triplet'
     ]
-    return (default_results,)
+    return default_results, default_test_files
+
+
+@app.cell
+def _(default_test_files):
+    print(default_test_files.keys())
 
 
 @app.cell
@@ -197,7 +207,7 @@ def _(
     assignment_table,
     compare_results,
     default_results,
-    plot_comparisons,
+    plot_comparisons_big,
     run_triple_seq_link,
     study,
 ):
@@ -217,7 +227,7 @@ def _(
 
     results = assignment_table(files, BMRB_NAMES, 'candidate')
     comparison = compare_results(results, default_results)
-    plots = plot_comparisons(comparison)
+    plots = plot_comparisons_big(comparison)
     return plots, results
 
 
@@ -240,7 +250,7 @@ def _(
     compare_results,
     default_results,
     get_mars_data,
-    plot_comparisons,
+    plot_comparisons_big,
     results,
 ):
     mars_results = get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR)
@@ -249,8 +259,8 @@ def _(
     mars_new_comparison = compare_results(results, mars_results)
 
     mars_plots = {
-        **plot_comparisons(mars_default_comparison),
-        **plot_comparisons(mars_new_comparison),
+        **plot_comparisons_big(mars_default_comparison),
+        **plot_comparisons_big(mars_new_comparison),
     }
     return (mars_plots,)
 
@@ -269,7 +279,7 @@ def _(
     assignment_table,
     compare_results,
     optuna,
-    plot_comparisons,
+    plot_comparisons_big,
     results,
     run_seq_link_test,
 ):
@@ -294,7 +304,7 @@ def _(
     single_weight_optimised_comparison = compare_results(
         results, single_weight_optimised_results
     )
-    single_weight_optimised_plots = plot_comparisons(
+    single_weight_optimised_plots = plot_comparisons_big(
         single_weight_optimised_comparison
     )
     return (single_weight_optimised_plots,)
