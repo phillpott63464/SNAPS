@@ -4,6 +4,7 @@ from typing import List
 import sys
 import pynmrstar
 import pandas as pd
+import re
 
 _CHEMICAL_SHIFT_LIST_FRAME = 'nef_chemical_shift_list'  # tag for the NEF chemical shift list frame
 _CHEMICAL_SHIFT_LOOP = 'nef_chemical_shift'  # tag for the NEF chemical shift list loop
@@ -98,7 +99,11 @@ def read_nef_shifts(file_handle, shift_list_name=_DEFAULT_SHIFT_LIST, chain='A')
         residue_name = row[residue_name_index]
 
         if sequence_code[_OFFSET_SLICE] == _PREVIOUS_RESIDUE_OFFSET:
-            sequence_code = sequence_code[:-2]
+            _OFFSET_RE = re.compile(r'^(\d+)-1$')  # e.g. "12-1" -> residue 12, previous-residue shift
+            match = _OFFSET_RE.match(sequence_code)
+            if match:
+                sequence_code = match.group(1)
+                atom_name = atom_name + _PREVIOUS_RESIDUE_FLAG
             atom_name = atom_name + _PREVIOUS_RESIDUE_FLAG
 
         output_row = [sequence_code, atom_name, chemical_shift, residue_name]
