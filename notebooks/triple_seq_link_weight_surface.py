@@ -52,6 +52,8 @@ def _():
 
 @app.cell
 def _(Path, get_rbmrb):
+    DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
+    OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
     BMRB_IDS = [
         5471,
         4354,
@@ -65,8 +67,8 @@ def _(Path, get_rbmrb):
         4082,
         4136,
         5387,
-    ] + get_rbmrb()
-    BMRB_IDS = BMRB_IDS[:200]
+    ] + get_rbmrb(DATA_DIR, 200)
+    BMRB_IDS_TEST = get_rbmrb(DATA_DIR, 200, 'test')
     BMRB_NAMES = {
         5471: 'Malate synthase G',
         4354: 'Maltose binding protein',
@@ -83,9 +85,7 @@ def _(Path, get_rbmrb):
     }
     for key in BMRB_IDS:
         BMRB_NAMES.setdefault(key, str(key))
-    DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
-    OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
-    return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
+    return BMRB_IDS, BMRB_IDS_TEST, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
 
 
 @app.cell
@@ -200,7 +200,7 @@ def _(study):
 
 @app.cell
 def _(
-    BMRB_IDS,
+    BMRB_IDS_TEST,
     BMRB_NAMES,
     DATA_DIR,
     OUTPUT_DIR,
@@ -218,14 +218,14 @@ def _(
     }
 
     files = run_triple_seq_link(
-        bmrb_ids=BMRB_IDS,
+        bmrb_ids=BMRB_IDS_TEST,
         DATA_DIR=DATA_DIR,
         OUTPUT_DIR=OUTPUT_DIR,
         seqs=best_seqs,
         weight=study.best_params['weight'],
     )
 
-    results = assignment_table(files, BMRB_NAMES, 'candidate')
+    results = assignment_table(files, BMRB_NAMES, 'candidate (test set)')
     comparison = compare_results(results, default_results)
     plots = plot_comparisons_big(comparison)
     return plots, results
