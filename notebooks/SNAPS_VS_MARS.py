@@ -16,25 +16,26 @@ def _():
     from pathlib import Path
 
     import marimo as mo
-    from modules.analysis import compare_results, plot_comparisons
+    from modules.analysis import compare_results, plot_comparisons_big
     from modules.bmrb import run_test_set
     from modules.mars import get_mars_data
+    from modules.rbmrb import get_rbmrb
     from modules.results import assignment_table
 
-    # from modules.pdb import colour_mars_set
     return (
         Path,
         assignment_table,
         compare_results,
         get_mars_data,
+        get_rbmrb,
         mo,
-        plot_comparisons,
+        plot_comparisons_big,
         run_test_set,
     )
 
 
 @app.cell
-def _(Path):
+def _(Path, get_rbmrb):
     BMRB_IDS = [
         5471,
         4354,
@@ -48,7 +49,9 @@ def _(Path):
         4082,
         4136,
         5387,
-    ]
+        19714,
+    ] + get_rbmrb()
+    BMRB_IDS = BMRB_IDS
     BMRB_NAMES = {
         5471: 'Malate synthase G',
         4354: 'Maltose binding protein',
@@ -63,6 +66,8 @@ def _(Path):
         4136: 'E. coli EmrE',
         5387: 'Human ubiquitin',
     }
+    for key in BMRB_IDS:
+        BMRB_NAMES.setdefault(key, str(key))
     DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
     OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
     return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
@@ -75,9 +80,6 @@ def _(
     DATA_DIR,
     OUTPUT_DIR,
     assignment_table,
-    compare_results,
-    get_mars_data,
-    plot_comparisons,
     run_test_set,
 ):
     # Published MARS counts used in the original benchmark.
@@ -86,10 +88,35 @@ def _(
         bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
     )
     snaps_results = assignment_table(snaps_test_files, BMRB_NAMES, 'snaps')
+    return (snaps_results,)
+
+
+@app.cell
+def _(snaps_results):
+    print(len(snaps_results['bmrb_id'].unique()))
+
+
+@app.cell
+def _(BMRB_IDS, BMRB_NAMES, DATA_DIR, get_mars_data):
     mars_results = get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR)
+    return (mars_results,)
+
+
+@app.cell
+def _(mars_results):
+    print(len(mars_results['bmrb_id'].unique()))
+
+
+@app.cell
+def _(compare_results, mars_results, plot_comparisons_big, snaps_results):
     comparison = compare_results(snaps_results, mars_results)
-    plots = plot_comparisons(comparison)
+    plots = plot_comparisons_big(comparison)
     return comparison, plots
+
+
+@app.cell
+def _(comparison):
+    print(len(comparison['protein_snaps'].unique()))
 
 
 @app.cell(hide_code=True)
@@ -114,11 +141,6 @@ def _(comparison, mo, plots):
     {comparison.to_markdown(index=False)}
     """
     )
-
-
-@app.cell
-def _():
-    return
 
 
 if __name__ == '__main__':
