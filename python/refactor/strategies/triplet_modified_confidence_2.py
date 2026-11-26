@@ -31,7 +31,7 @@ class TripletStrategyModifiedConfidence2(AssignmentStrategy):
         log_probs = result.log_prob_matrix
         matching = result.assignments  # DataFrame with SS_name and Res_name
 
-        # For each residue, find the highest-scoring row other than its assigned row.
+        # For each residue, find the Highest-scoring row other than its assigned row.
         assigned_ss = matching.set_index('Res_name')['SS_name']
 
         second_best = {}
@@ -48,26 +48,26 @@ class TripletStrategyModifiedConfidence2(AssignmentStrategy):
 
         for residue, ss in assigned_ss.items():
             if residue not in log_probs.columns or ss not in log_probs.index:
-                confidence[residue] = 'unreliable'
+                confidence[residue] = 'Unreliable'
                 continue
 
             assigned_score = log_probs.at[ss, residue]
             alternatives = log_probs[residue].drop(index=ss, errors='ignore')
 
             if alternatives.empty:
-                confidence[residue] = 'high'  # no alternative to compare
+                confidence[residue] = 'High'  # no alternative to compare
                 continue
 
             difference = assigned_score - alternatives.max()
 
             if difference > self.config.cutoff_2:
-                confidence[residue] = 'high'
+                confidence[residue] = 'High'
             elif difference > self.config.cutoff_1:
-                confidence[residue] = 'medium'
+                confidence[residue] = 'Medium'
             else:
-                confidence[residue] = 'unreliable'
+                confidence[residue] = 'Unreliable'
 
-        result.assignments['Confidence'] = result.assignments['Res_name'].map(
+        result.assign_df['Confidence'] = result.assign_df['Res_name'].map(
             confidence
         )
 
