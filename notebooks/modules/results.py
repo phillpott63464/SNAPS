@@ -236,30 +236,30 @@ def assignment_counts(
     assigned = result.loc[
         result['assigned']
         & result['chain_code'].eq(chain)
-        & result['residue_name'].ne('PRO')
+        # & result['residue_name'].ne('PRO')
     ].copy()
 
     if 'merit' in assigned:
         reliable = assigned.loc[assigned['merit'].le(RELIABLE_MERIT)].copy()
     elif 'Confidence' in assigned:
-        reliable = assigned  # .loc[
-        #     assigned['Confidence'].isin(good_confidences)
-        # ].copy()
+        reliable = assigned.loc[
+            assigned['Confidence'].isin(good_confidences)
+        ].copy()
     else:
         raise ValueError('Result has neither merit nor Confidence')
 
-    # reference = read_reference_assignment(reference_file)
+    reference = read_reference_assignment(reference_file)
 
-    # reliable['reference_sequence_code'] = reliable['observed_shifts'].apply(
-    #     lambda shifts: match_reference_residue(shifts, reference)
-    # )
+    reliable['reference_sequence_code'] = reliable['observed_shifts'].apply(
+        lambda shifts: match_reference_residue(shifts, reference)
+    )
 
-    # source = pd.to_numeric(
-    #     reliable['reference_sequence_code'], errors='coerce'
-    # )
-    # predicted = pd.to_numeric(reliable['residue_number'], errors='coerce')
-    # evaluable = source.notna() & predicted.notna()
-    # errors = int(source[evaluable].ne(predicted[evaluable]).sum())
+    source = pd.to_numeric(
+        reliable['reference_sequence_code'], errors='coerce'
+    )
+    predicted = pd.to_numeric(reliable['residue_number'], errors='coerce')
+    evaluable = source.notna() & predicted.notna()
+    errors = int(source[evaluable].ne(predicted[evaluable]).sum())
 
     assigned = result.loc[
         result['assigned']
@@ -271,9 +271,11 @@ def assignment_counts(
     errors_all = int((~truth).sum())
 
     return {
-        'assignments': len(assigned),
-        'reliable_assignments': len(assigned),
-        'errors': errors_all,
+        'assignments': len(reliable),
+        # 'reliable_assignments': len(assigned),
+        'reliable_assignments': len(reliable),
+        'errors': errors,
+        # 'reliable_errors': errors,
     }
 
 
