@@ -10,6 +10,9 @@ from refactor.data_formats import AssignmentResult, ShiftData
 from refactor.strategies.base import AssignmentStrategy
 from refactor.strategies.registry import StrategyRegistry
 from refactor.strategies.utils.misc import df_lookup
+from refactor.strategies.utils.preprocessing import (
+    preprocess_obs_preds_triplet,
+)
 
 
 @StrategyRegistry.register('triplet')
@@ -1087,7 +1090,7 @@ class TripletStrategy(AssignmentStrategy):
             return matching_reduced.reset_index(drop=True)
 
     def preprocess_obs_preds(self, obs, preds):
-        obs, preds = super().preprocess_obs_preds(obs, preds)
+        obs, preds = preprocess_obs_preds_triplet(self.config, obs, preds)
         # Remove N_m1 and N_p1, not sure why they're there in the old one and not this one but they're not good
         preds = preds.drop(['N_m1', 'N_p1'], axis=1)
         return obs, preds
