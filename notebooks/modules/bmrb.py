@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import sys
 import tarfile
@@ -38,8 +39,11 @@ def with_psipred_dir(func):
             temp_dir = Path(temp_dir)
             archive = temp_dir / 'psipred.tar.gz'
 
+            context = ssl._create_unverified_context()
+
             with urlopen(
-                'https://bioinf.cs.ucl.ac.uk/downloads/psipred/psipred.4.02.tar.gz'
+                'https://bioinf.cs.ucl.ac.uk/downloads/psipred/psipred.4.02.tar.gz',
+                context=context,
             ) as response:
                 archive.write_bytes(response.read())
 
