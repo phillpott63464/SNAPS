@@ -1,7 +1,7 @@
 import marimo
 
-__generated_with = "0.25.2"
-app = marimo.App(width="medium")
+__generated_with = '0.25.2'
+app = marimo.App(width='medium')
 
 
 @app.cell
@@ -68,7 +68,6 @@ def _(Path, get_rbmrb):
         4136,
         5387,
     ] + get_rbmrb(DATA_DIR, 200)
-    BMRB_IDS_TEST = get_rbmrb(DATA_DIR, 200, 'test')
     BMRB_NAMES = {
         5471: 'Malate synthase G',
         4354: 'Maltose binding protein',
@@ -85,7 +84,12 @@ def _(Path, get_rbmrb):
     }
     for key in BMRB_IDS:
         BMRB_NAMES.setdefault(key, str(key))
-    return BMRB_IDS, BMRB_IDS_TEST, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
+    return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
+
+
+@app.cell
+def _(default_test_files):
+    print(default_test_files.keys())
 
 
 @app.cell
@@ -107,12 +111,6 @@ def _(
         default_results['condition'] == 'triplet'
     ]
     return default_results, default_test_files
-
-
-@app.cell
-def _(default_test_files):
-    print(default_test_files.keys())
-    return
 
 
 @app.cell
@@ -197,19 +195,37 @@ def _(
 @app.cell
 def _(study):
     print(study.best_params, study.best_value)
-    return
+
+
+@app.cell
+def _(DATA_DIR, get_rbmrb):
+    BMRB_IDS_TEST = get_rbmrb(DATA_DIR, 200, 'test')
+    BMRB_NAMES_TEST = {}
+
+    for key_2 in BMRB_IDS_TEST:
+        BMRB_NAMES_TEST.setdefault(key_2, str(key_2))
+
+    print(len(BMRB_IDS_TEST))
+    print(len(BMRB_NAMES_TEST))
+
+    for name in BMRB_NAMES_TEST:
+        assert name in BMRB_IDS_TEST
+
+    for val in BMRB_IDS_TEST:
+        assert name in BMRB_NAMES_TEST
+    return BMRB_IDS_TEST, BMRB_NAMES_TEST
 
 
 @app.cell
 def _(
     BMRB_IDS_TEST,
-    BMRB_NAMES,
+    BMRB_NAMES_TEST,
     DATA_DIR,
     OUTPUT_DIR,
     assignment_table,
     compare_results,
-    default_results,
     plot_comparisons_big,
+    run_test_set,
     run_triple_seq_link,
     study,
 ):
@@ -218,6 +234,16 @@ def _(
         'CB': study.best_params['CB'],
         'C': study.best_params['C'],
     }
+
+    test_default_test_files = run_test_set(
+        bmrb_ids=BMRB_IDS_TEST, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
+    )
+    test_default_results = assignment_table(
+        test_default_test_files, BMRB_NAMES_TEST, 'default (1.0/0.2 all)'
+    )
+    test_default_results = test_default_results[
+        test_default_results['condition'] == 'triplet'
+    ]
 
     files = run_triple_seq_link(
         bmrb_ids=BMRB_IDS_TEST,
@@ -228,23 +254,27 @@ def _(
         weight=study.best_params['weight'],
     )
 
-    results = assignment_table(files, BMRB_NAMES, 'candidate (test set)')
-    comparison = compare_results(results, default_results)
+    results = assignment_table(files, BMRB_NAMES_TEST, 'candidate (test set)')
+    comparison = compare_results(results, test_default_results)
     plots = plot_comparisons_big(comparison)
-    return plots, results
+    return comparison, plots, results
 
 
 @app.cell
 def _(mo, plots):
     mo.vstack([mo.as_html(plot) for plot in plots.values()])
-    return
+
+
+@app.cell
+def _(comparison):
+    print(comparison['err_rate_candidate (test set)'].mean())
+    print(comparison['err_rate_default (1.0/0.2 all)'].mean())
 
 
 @app.cell
 def _(plot_optimization_history, study):
     fig = plot_optimization_history(study)
     fig.show()
-    return
 
 
 @app.cell
@@ -273,7 +303,6 @@ def _(
 @app.cell
 def _(mars_plots, mo):
     mo.vstack([mo.as_html(plot) for plot in mars_plots.values()])
-    return
 
 
 @app.cell
@@ -326,8 +355,7 @@ def _(mo, single_weight_optimised_plots):
         ]
         + [mo.as_html(plot) for plot in single_weight_optimised_plots.values()]
     )
-    return
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run()
