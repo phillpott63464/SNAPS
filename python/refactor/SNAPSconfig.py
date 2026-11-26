@@ -251,7 +251,7 @@ class SNAPSConfig(BaseModel):
     )
 
     # Strategy
-    strategy: Literal['direct', 'iterative', 'triplet'] = Field(
+    strategy: Literal['direct', 'iterative', 'triplet', 'tripletm'] = Field(
         default='direct',
         description='Assignment strategy: iterative, direct, triplet',
     )

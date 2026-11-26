@@ -3,3 +3,6 @@
 from refactor.strategies.direct import DirectStrategy
 from refactor.strategies.iterative import IterativeStrategy
 from refactor.strategies.triplet import TripletStrategy
+from refactor.strategies.triplet_modified_confidence import (
+    TripletStrategyModifiedConfidence,
+)
