@@ -37,7 +37,7 @@ class TripletStrategyModifiedConfidence(AssignmentStrategy):
     Then create confidences:
     - Both are unique, High
     - One is unique, one is not, Medium
-    - Both are not unique, unreliable
+    - Both are not unique, Unreliable
     """
 
     @profile
@@ -114,7 +114,7 @@ class TripletStrategyModifiedConfidence(AssignmentStrategy):
         # There is a Confidence row already, so remove it and replace it with the new one
         # if both are unique, High
         # if one is unique, one is not, Medium
-        # if both are not unique, unreliable
+        # if both are not unique, Unreliable
         res_unique = {
             r['Res_name']: confidence['residues'][i]
             for i, r in initial_result.assignments.iterrows()
@@ -130,7 +130,7 @@ class TripletStrategyModifiedConfidence(AssignmentStrategy):
             if res_unique[r] and ss_unique[r]
             else 'Medium'
             if res_unique[r] or ss_unique[r]
-            else 'unreliable'
+            else 'Unreliable'
             for r in df['Res_name']
         ]
         initial_result.assign_df = df
