@@ -249,9 +249,19 @@ class SNAPSConfig(BaseModel):
         default=1,
         description='How much to weight the sequential links (default is 1, to reduce influence reduce the weighting, to increase influence increase the weighting)',
     )
+    cutoff_1: float = Field(
+        default=0.1,
+        description='Cutoff for medium confidence in tripletm2 strategy',
+    )
+    cutoff_2: float = Field(
+        default=0.5,
+        description='Cutoff for high confidence in tripletm2 strategy',
+    )
 
     # Strategy
-    strategy: Literal['direct', 'iterative', 'triplet', 'tripletm'] = Field(
+    strategy: Literal[
+        'direct', 'iterative', 'triplet', 'tripletm', 'tripletm2'
+    ] = Field(
         default='direct',
         description='Assignment strategy: iterative, direct, triplet',
     )
