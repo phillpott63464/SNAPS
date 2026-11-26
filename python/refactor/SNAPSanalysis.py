@@ -11,6 +11,9 @@ from refactor.data_formats import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 from refactor.strategies.triplet import TripletStrategy
 
+# TODO: separate out
+# TODO: change these to output as AnalysisResults instead of overwriting the AssignmentResult Confidences
+# TODO: make it work with any strategy 
 
 class AnalyzerType:
     modifies_assignment = False
