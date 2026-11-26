@@ -299,10 +299,7 @@ class SNAPSImporter:
         obs_shifts = self.clean_obs(obs_shifts)
 
         if (
-            (
-                self.config.strategy == 'triplet'
-                or self.config.strategy == 'tripletm'
-            )
+            ('triplet' in self.config.strategy)
             and not self.config.SS_num
             and not any(str(col).endswith('_m1') for col in obs_shifts.columns)
         ):
