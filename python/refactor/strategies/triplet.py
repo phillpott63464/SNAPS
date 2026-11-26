@@ -30,8 +30,12 @@ class TripletStrategy(AssignmentStrategy):
             obs=obs, preds=preds, sequence=data.sequence
         )
         log_prob_matrix = self.calc_log_prob_matrix(prob_matrix)
+        base_log_prob_matrix = log_prob_matrix.copy()
         assign_df, _ = self.assign_from_preds(
-            obs=obs, preds=preds, log_prob_matrix=log_prob_matrix
+            obs=obs,
+            preds=preds,
+            log_prob_matrix=log_prob_matrix,
+            base_log_prob_matrix=base_log_prob_matrix,
         )
         thresholds = {
             'CA': self.config.seq_link_threshold_ca
@@ -54,7 +58,10 @@ class TripletStrategy(AssignmentStrategy):
         triplet_prob_matrix = prob_matrix.copy()
         triplet_log_prob_matrix = log_prob_matrix.copy()
         triplet_assign_df, triplet_matching = self.assign_from_preds(
-            obs, preds, triplet_log_prob_matrix
+            obs,
+            preds,
+            triplet_log_prob_matrix,
+            base_log_prob_matrix=base_log_prob_matrix,
         )
         (
             triplet_assign_df,
@@ -93,7 +100,10 @@ class TripletStrategy(AssignmentStrategy):
                 triplet_prob_matrix
             )
             triplet_assign_df, triplet_matching = self.assign_from_preds(
-                obs=obs, preds=preds, log_prob_matrix=triplet_log_prob_matrix
+                obs=obs,
+                preds=preds,
+                log_prob_matrix=triplet_log_prob_matrix,
+                base_log_prob_matrix=base_log_prob_matrix,
             )
             (
                 triplet_assign_df,
@@ -131,6 +141,7 @@ class TripletStrategy(AssignmentStrategy):
         obs,
         preds,
         log_prob_matrix,
+        base_log_prob_matrix,
         set_assign_df=False,
         inc=None,
         exc=None,
@@ -144,17 +155,18 @@ class TripletStrategy(AssignmentStrategy):
         exc: a DataFrame of (row, col) pairs which may not be part of the assignment.
         """
         log_prob_matrix = log_prob_matrix.copy()
+        base_log_prob_matrix = base_log_prob_matrix.copy()
         log_prob_matrix.index.name = 'SS_name'
         log_prob_matrix.columns.name = 'Res_name'
         matching = self.find_best_assignment(
             log_prob_matrix, maximise=True, inc=inc, exc=exc
         )
-        if not hasattr(self, '_assignment_log_prob_matrix'):
-            self._assignment_log_prob_matrix = log_prob_matrix.copy()
+        # if not hasattr(self, '_assignment_log_prob_matrix'):
+        #     self._assignment_log_prob_matrix = log_prob_matrix.copy()
         assign_df = self.make_assign_df(
             obs=obs,
             preds=preds,
-            log_prob_matrix=self._assignment_log_prob_matrix,
+            log_prob_matrix=base_log_prob_matrix,
             matching=matching,
         )
 
