@@ -35,8 +35,8 @@ class TripletStrategyModifiedConfidence(AssignmentStrategy):
         - If a dummy residue, then the assignment is unique.
 
     Then create confidences:
-    - Both are unique, high
-    - One is unique, one is not, medium
+    - Both are unique, High
+    - One is unique, one is not, Medium
     - Both are not unique, unreliable
     """
 
@@ -48,64 +48,72 @@ class TripletStrategyModifiedConfidence(AssignmentStrategy):
         confidence['residues'] = {}
         confidence['spin_systems'] = {}
 
-        with tqdm(
-            total=len(initial_result.assignments) * 2,
-            desc='Calculating confidence',
-        ) as pbar:
-            for row in initial_result.assignments.iterrows():
+        rows = list(initial_result.assignments.iterrows())
 
-                obs = data.obs_shifts.copy()
-                obs = obs[obs['SS_name'] != row[1]['SS_name']]
+        with tqdm(total=2 * len(rows), desc='Calculating confidence') as pbar:
+            for idx, row in rows:
+                res_name = row['Res_name']
+                old_ss = row['SS_name']
+
+                if res_name.startswith(self.config.dummy_predicted_prefix):
+                    confidence['residues'][idx] = False
+                    confidence['spin_systems'][idx] = False
+                    pbar.update(2)
+                    continue
+
+                if old_ss not in data.obs_shifts['SS_name'].values:
+                    # Synthetic preprocessing row, such as a proline dummy.
+                    confidence['residues'][idx] = True
+                    confidence['spin_systems'][idx] = True
+                    pbar.update(2)
+                    continue
+
+                # Residue confidence: remove its observed spin system and reassign.
+                obs = data.obs_shifts[data.obs_shifts['SS_name'] != old_ss]
                 assert len(obs) == len(data.obs_shifts) - 1
+
                 temp_data = copy.deepcopy(data)
                 temp_data.obs_shifts = obs
-                with open(os.devnull, 'w') as f:  # noqa: SIM117
+                with open(os.devnull, 'w') as f:
                     with contextlib.redirect_stdout(
                         f
                     ), contextlib.redirect_stderr(f):
                         output = triplet.assign(temp_data)
+
                 new_ss = output.assignments.set_index('Res_name').loc[
-                    row[1]['Res_name'], 'SS_name'
+                    res_name, 'SS_name'
                 ]
-                old_ss = row[1]['SS_name']
-                print(f'Residue {row[0]}: old SS {old_ss}, new SS {new_ss}')
-                if new_ss.split('_')[0] == 'DSS':
-                    confidence['residues'][row[0]] = True
-                else:
-                    confidence['residues'][row[0]] = False
+                confidence['residues'][idx] = new_ss.split('_')[0] == 'DSS'
                 pbar.update(1)
 
-            for row in initial_result.assignments.iterrows():
-                preds = data.pred_shifts.copy()
-                # Replace the assigned residue with a dummy, keeping the same position
-                # This is important because otherwise everything will explode because it tries to assign i+1 and i-1 as neighbours, which is an incorrect assumption
-                preds = self.blank_residue(
-                    data.pred_shifts, row[1]['Res_name']
-                )
-                assert len(preds) == len(data.pred_shifts)
+                # Spin-system confidence: blank the predicted residue and reassign.
+                # preds = self.blank_residue(data.pred_shifts, res_name)
+                # assert len(preds) == len(data.pred_shifts)
+                preds = data.pred_shifts[
+                    data.pred_shifts['Res_name'] != res_name
+                ]
+                assert len(preds) == len(data.pred_shifts) - 1
+
                 temp_data = copy.deepcopy(data)
                 temp_data.pred_shifts = preds
-                with open(os.devnull, 'w') as f:  # noqa: SIM117
+                with open(os.devnull, 'w') as f:
                     with contextlib.redirect_stdout(
                         f
                     ), contextlib.redirect_stderr(f):
                         output = triplet.assign(temp_data)
-                old_ss = row[1]['SS_name']
+
                 new_residue = output.assignments.set_index('SS_name').loc[
                     old_ss, 'Res_name'
                 ]
-                print(
-                    f'Spin system {row[0]}: old residue {row[1]["Res_name"]}, new residue {new_residue}'
-                )
-                confidence['spin_systems'][row[0]] = (
+                confidence['spin_systems'][idx] = (
                     new_residue.split('_')[0] == 'DR'
                 )
                 pbar.update(1)
 
         # Replace initial_result.assign_df with a new DataFrame that includes the confidence information as row Confidence
         # There is a Confidence row already, so remove it and replace it with the new one
-        # if both are unique, high
-        # if one is unique, one is not, medium
+        # if both are unique, High
+        # if one is unique, one is not, Medium
         # if both are not unique, unreliable
         res_unique = {
             r['Res_name']: confidence['residues'][i]
@@ -118,9 +126,9 @@ class TripletStrategyModifiedConfidence(AssignmentStrategy):
 
         df = initial_result.assign_df.drop('Confidence', axis=1)
         df['Confidence'] = [
-            'high'
+            'High'
             if res_unique[r] and ss_unique[r]
-            else 'medium'
+            else 'Medium'
             if res_unique[r] or ss_unique[r]
             else 'unreliable'
             for r in df['Res_name']
@@ -131,7 +139,9 @@ class TripletStrategyModifiedConfidence(AssignmentStrategy):
     def blank_residue(self, preds, res_name):
         """Turn one predicted residue into a dummy, keeping its position."""
         preds = preds.copy()
-        dummy = self.config.dummy_predicted_prefix + '1'   # -> 'DR_1'
+        dummy = (
+            self.config.dummy_predicted_prefix + 'removed'
+        )   # -> 'DR_removed', avoids collision with other dummy residues that are added by preprocessing in triplet.assign
         keep = {'Res_N', 'Res_name', 'Res_name_m1', 'Res_name_p1'}
 
         mask = preds['Res_name'] == res_name
