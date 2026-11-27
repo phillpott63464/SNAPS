@@ -142,7 +142,7 @@ class AnalysisPipeline:
                 'SS_name': assignment.assign_df['SS_name'],
             }
         )
-        blank['Confidence'] = 'Unreliable'
+        blank['Confidence'] = 'Undefined'
         # Update every high
         for col in confidence_cols:
             blank.loc[analysis_results[col] == 'High', 'Confidence'] = 'High'
@@ -196,7 +196,7 @@ class LeaveOneOutAnalyzer(AnalyzerType):
         Then create Confidences:
         - Both are unique, High
         - One is unique, one is not, Medium
-        - Both are not unique, Unreliable
+        - Both are not unique, Undefined
         """
         Confidence = {}
         Confidence['residues'] = {}
@@ -269,7 +269,7 @@ class LeaveOneOutAnalyzer(AnalyzerType):
         # There is a Confidence row already, so remove it and replace it with the new one
         # if both are unique, High
         # if one is unique, one is not, Medium
-        # if both are not unique, Unreliable
+        # if both are not unique, Undefined
         res_unique = {
             r['Res_name']: Confidence['residues'][i]
             for i, r in assignment.assignments.iterrows()
@@ -290,7 +290,7 @@ class LeaveOneOutAnalyzer(AnalyzerType):
             if res_unique[r] and ss_unique[r]
             else 'Medium'
             if res_unique[r] or ss_unique[r]
-            else 'Unreliable'
+            else 'Undefined'
             for r in df['Res_name']
         ]
 
@@ -310,7 +310,7 @@ class NonDiagonalAnalyze(AnalyzerType):
     Currently three cutoffs are used to determine Confidence:
     - High Confidence: difference > 0.5
     - Medium Confidence: 0.1 < difference <= 0.5
-    - Unreliable: difference <= 0.1
+    - Undefined: difference <= 0.1
     """
 
     def analyze(
@@ -338,7 +338,7 @@ class NonDiagonalAnalyze(AnalyzerType):
 
         for residue, ss in assigned_ss.items():
             if residue not in log_probs.columns or ss not in log_probs.index:
-                Confidence[residue] = 'Unreliable'
+                Confidence[residue] = 'Undefined'
                 continue
 
             assigned_score = log_probs.at[ss, residue]
@@ -355,7 +355,7 @@ class NonDiagonalAnalyze(AnalyzerType):
             elif difference > self.config.cutoff_1:
                 Confidence[residue] = 'Medium'
             else:
-                Confidence[residue] = 'Unreliable'
+                Confidence[residue] = 'Undefined'
 
         df = pd.DataFrame(
             {
