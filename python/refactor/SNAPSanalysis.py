@@ -121,12 +121,13 @@ class AnalysisPipeline:
         return assignment
 
 
+@AnalyzerRegistry.register('leave_one_out')
 class LeaveOneOutAnalyzer(AnalyzerType):
-    modifies_assignment = True
+    modifies_assignment = False
 
     def analyze(
         self, assignment: AssignmentResult, data: ShiftData
-    ) -> AssignmentResult:
+    ) -> pd.DataFrame:
         """
                 Runs on a fairly simple system:
         - For every residue:
@@ -145,37 +146,37 @@ class LeaveOneOutAnalyzer(AnalyzerType):
                 - If a real residue, then there are multiple residues that could be assigned to this spin system, and the assignment is not unique.
             - If a dummy residue, then the assignment is unique.
 
-        Then create confidences:
+        Then create Confidences:
         - Both are unique, High
         - One is unique, one is not, Medium
-        - Both are not unique, unreliable
+        - Both are not unique, Unreliable
         """
-        confidence = {}
-        confidence['residues'] = {}
-        confidence['spin_systems'] = {}
+        Confidence = {}
+        Confidence['residues'] = {}
+        Confidence['spin_systems'] = {}
         triplet = TripletStrategy(config=self.config)
 
         rows = list(assignment.assignments.iterrows())
 
-        with tqdm(total=2 * len(rows), desc='Calculating confidence') as pbar:
+        with tqdm(total=2 * len(rows), desc='Calculating Confidence') as pbar:
             for idx, row in rows:
                 res_name = row['Res_name']
                 old_ss = row['SS_name']
 
                 if res_name.startswith(self.config.dummy_predicted_prefix):
-                    confidence['residues'][idx] = False
-                    confidence['spin_systems'][idx] = False
+                    Confidence['residues'][idx] = False
+                    Confidence['spin_systems'][idx] = False
                     pbar.update(2)
                     continue
 
                 if old_ss not in data.obs_shifts['SS_name'].values:
                     # Synthetic preprocessing row, such as a proline dummy.
-                    confidence['residues'][idx] = True
-                    confidence['spin_systems'][idx] = True
+                    Confidence['residues'][idx] = True
+                    Confidence['spin_systems'][idx] = True
                     pbar.update(2)
                     continue
 
-                # Residue confidence: remove its observed spin system and reassign.
+                # Residue Confidence: remove its observed spin system and reassign.
                 obs = data.obs_shifts[data.obs_shifts['SS_name'] != old_ss]
                 assert len(obs) == len(data.obs_shifts) - 1
 
@@ -190,10 +191,10 @@ class LeaveOneOutAnalyzer(AnalyzerType):
                 new_ss = output.assignments.set_index('Res_name').loc[
                     res_name, 'SS_name'
                 ]
-                confidence['residues'][idx] = new_ss.split('_')[0] == 'DSS'
+                Confidence['residues'][idx] = new_ss.split('_')[0] == 'DSS'
                 pbar.update(1)
 
-                # Spin-system confidence: blank the predicted residue and reassign.
+                # Spin-system Confidence: blank the predicted residue and reassign.
                 # preds = self.blank_residue(data.pred_shifts, res_name)
                 # assert len(preds) == len(data.pred_shifts)
                 preds = data.pred_shifts[
@@ -212,36 +213,41 @@ class LeaveOneOutAnalyzer(AnalyzerType):
                 new_residue = output.assignments.set_index('SS_name').loc[
                     old_ss, 'Res_name'
                 ]
-                confidence['spin_systems'][idx] = (
+                Confidence['spin_systems'][idx] = (
                     new_residue.split('_')[0] == 'DR'
                 )
                 pbar.update(1)
 
-        # Replace initial_result.assign_df with a new DataFrame that includes the confidence information as row Confidence
+        # Replace initial_result.assign_df with a new DataFrame that includes the Confidence information as row Confidence
         # There is a Confidence row already, so remove it and replace it with the new one
         # if both are unique, High
         # if one is unique, one is not, Medium
-        # if both are not unique, unreliable
+        # if both are not unique, Unreliable
         res_unique = {
-            r['Res_name']: confidence['residues'][i]
+            r['Res_name']: Confidence['residues'][i]
             for i, r in assignment.assignments.iterrows()
         }
         ss_unique = {
-            r['Res_name']: confidence['spin_systems'][i]
+            r['Res_name']: Confidence['spin_systems'][i]
             for i, r in assignment.assignments.iterrows()
         }
 
-        df = assignment.assign_df.drop('Confidence', axis=1)
+        df = pd.DataFrame(
+            {
+                'Res_name': assignment.assignments['Res_name'].values,
+                'SS_name': assignment.assignments['SS_name'].values,
+            }
+        )
         df['Confidence'] = [
             'High'
             if res_unique[r] and ss_unique[r]
             else 'Medium'
             if res_unique[r] or ss_unique[r]
-            else 'unreliable'
+            else 'Unreliable'
             for r in df['Res_name']
         ]
-        assignment.assign_df = df
-        return assignment
+
+        return df
 
 
 class NonDiagonalAnalyze(AnalyzerType):
