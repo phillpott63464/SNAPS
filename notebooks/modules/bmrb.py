@@ -26,6 +26,7 @@ import requests
 from pynmrstar import Entry
 from refactor.SNAPSconfig import build_config
 from refactor.SNAPSpipeline import run_pipeline
+from tqdm import tqdm
 
 
 def with_psipred_dir(func):
@@ -657,27 +658,33 @@ def run_mars_set(
     ] = (
         {}
     )   # Basically just defining a single condition at the moment so that everything is very simple
-    for bmrb_id in bmrb_ids:
-        print(f'{bmrb_id}')
-        data_dir = DATA_DIR / str(bmrb_id)
-        files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
-        if files is None:
-            continue
-        output['II'][bmrb_id] = files
-        output['II'][bmrb_id] = {
-            'assignment_AA': data_dir / 'assignment_AA.out',
-            **output['II'][bmrb_id],
-        }
-        files = output['II'][bmrb_id].copy()
+    with tqdm(bmrb_ids, desc='Processing BMRB IDs') as pbar:
+        for bmrb_id in bmrb_ids:
+            pbar.set_description(f'Processing BMRB ID {bmrb_id}')
+            data_dir = DATA_DIR / str(bmrb_id)
+            files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
+            if files is None:
+                continue
+            output['II'][bmrb_id] = files
+            output['II'][bmrb_id] = {
+                'assignment_AA': data_dir / 'assignment_AA.out',
+                **output['II'][bmrb_id],
+            }
+            files = output['II'][bmrb_id].copy()
 
-        # Find out how to tell what is available on path because if mars-podman isn't this could maybe not go well
-        # Or include the dockerfiles in here?
-        # But then not sure if we have podman installed either
-        # Could also run a usual mars but not sure how to test native since I don't have native
-        if (files['assignment_AA']).exists() == False:
-            subprocess.run(
-                ['mars-podman', 'run', f'{bmrb_id}.inp'], cwd=data_dir
-            )
+            # Find out how to tell what is available on path because if mars-podman isn't this could maybe not go well
+            # Or include the dockerfiles in here?
+            # But then not sure if we have podman installed either
+            # Could also run a usual mars but not sure how to test native since I don't have native
+            if (files['assignment_AA']).exists() == False:
+                subprocess.run(
+                    ['mars-podman', 'run', f'{bmrb_id}.inp'],
+                    cwd=data_dir,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+
+            pbar.update(1)
 
     return output
 
