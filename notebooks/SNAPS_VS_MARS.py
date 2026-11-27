@@ -7,8 +7,8 @@ be reused by other analyses.
 
 import marimo
 
-__generated_with = "0.25.2"
-app = marimo.App(width="medium")
+__generated_with = '0.25.2'
+app = marimo.App(width='medium')
 
 
 @app.cell
@@ -17,10 +17,12 @@ def _():
 
     import marimo as mo
     from modules.analysis import compare_results, plot_comparisons_big
-    from modules.bmrb import run_test_set
     from modules.mars import get_mars_data
     from modules.rbmrb import get_rbmrb
     from modules.results import assignment_table
+    from modules.test_sets import (
+        run_triplet_default_analyzed,
+    )
 
     return (
         Path,
@@ -30,7 +32,7 @@ def _():
         get_rbmrb,
         mo,
         plot_comparisons_big,
-        run_test_set,
+        run_triplet_default_analyzed,
     )
 
 
@@ -80,21 +82,28 @@ def _(
     DATA_DIR,
     OUTPUT_DIR,
     assignment_table,
-    run_test_set,
+    run_triplet_default_analyzed,
 ):
     # Published MARS counts used in the original benchmark.
 
-    snaps_test_files = run_test_set(
-        bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
+    snaps_test_files = run_triplet_default_analyzed(
+        bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR / 'default'
     )
-    snaps_results = assignment_table(snaps_test_files, BMRB_NAMES, 'snaps')
-    return (snaps_results,)
+    snaps_results_high = assignment_table(
+        snaps_test_files, BMRB_NAMES, 'snaps', good_confidences=['High']
+    )
+    snaps_results_high_med = assignment_table(
+        snaps_test_files,
+        BMRB_NAMES,
+        'snaps',
+        good_confidences=['High', 'Medium'],
+    )
+    return snaps_results_high, snaps_results_high_med
 
 
 @app.cell
-def _(snaps_results):
-    print(len(snaps_results['bmrb_id'].unique()))
-    return
+def _(snaps_results_high):
+    print(len(snaps_results_high['bmrb_id'].unique()))
 
 
 @app.cell
@@ -106,44 +115,42 @@ def _(BMRB_IDS, BMRB_NAMES, DATA_DIR, get_mars_data):
 @app.cell
 def _(mars_results):
     print(len(mars_results['bmrb_id'].unique()))
-    return
 
 
 @app.cell
-def _(compare_results, mars_results, plot_comparisons_big, snaps_results):
-    comparison = compare_results(snaps_results, mars_results)
-    plots = plot_comparisons_big(comparison)
-    return comparison, plots
+def _(
+    compare_results,
+    mars_results,
+    plot_comparisons_big,
+    snaps_results_high,
+    snaps_results_high_med,
+):
+    comparison_high = compare_results(snaps_results_high, mars_results)
+    comparison_high_med = compare_results(snaps_results_high_med, mars_results)
+    plots_high = plot_comparisons_big(comparison_high)
+    plots_high_med = plot_comparisons_big(comparison_high_med)
+    return comparison_high, plots_high, plots_high_med
 
 
 @app.cell
-def _(comparison):
-    print(len(comparison['protein_snaps'].unique()))
-    return
+def _(comparison_high):
+    print(len(comparison_high['protein_snaps'].unique()))
 
 
-@app.cell(hide_code=True)
-def _(comparison, mo, plots):
-    mo.md(rf"""
-    ## SNAPS vs MARS
-
-    MARS is a fairly good and well established automated assignment program. Let's try to get pretty close to it.
-
-    Requirements: mars-podman on path (more on that later)
-
-    ### Direct Strategy
-    {mo.as_html(plots['direct'])}
-
-    ### Iterative Strategy
-    {mo.as_html(plots['iterative'])}
-
-    ### Triplet Strategy
-    {mo.as_html(plots['triplet'])}
-
-    {comparison.to_markdown(index=False)}
-    """)
-    return
+@app.cell
+def _(mo, plots_high):
+    mo.vstack([mo.as_html(plot) for plot in plots_high.values()])
 
 
-if __name__ == "__main__":
+@app.cell
+def _(mo, plots_high_med):
+    mo.vstack([mo.as_html(plot) for plot in plots_high_med.values()])
+
+
+@app.cell
+def _(comparison_high):
+    comparison_high.to_clipboard()
+
+
+if __name__ == '__main__':
     app.run()
