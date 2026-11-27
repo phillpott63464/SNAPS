@@ -249,13 +249,29 @@ class SNAPSConfig(BaseModel):
         default=1,
         description='How much to weight the sequential links (default is 1, to reduce influence reduce the weighting, to increase influence increase the weighting)',
     )
+
+    # Analyzers
+    leave_one_out: bool = Field(
+        default=False,
+        description='Whether to perform leave-one-out analysis',
+    )
+
+    non_diagonal: bool = Field(
+        default=False,
+        description='Whether to perform non-diagonal analysis',
+    )
     cutoff_1: float = Field(
-        default=0.1,
-        description='Cutoff for medium confidence in tripletm2 strategy',
+        default=0.167,
+        description='Cutoff for medium confidence in tripletm2 strategy/non-diagonal analysis',
     )
     cutoff_2: float = Field(
-        default=0.5,
-        description='Cutoff for high confidence in tripletm2 strategy',
+        default=4.37,
+        description='Cutoff for high confidence in tripletm2 strategy/non-diagonal analysis',
+    )
+
+    whole_cost: bool = Field(
+        default=False,
+        description='Whether to perform whole cost analysis',
     )
 
     # Strategy
