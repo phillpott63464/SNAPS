@@ -20,12 +20,13 @@ def _():
     import optuna
     from modules.analysis import compare_results, plot_comparisons_big
     from modules.bmrb import (
+        run_test_set,
         with_psipred_dir,
     )
     from modules.mars import get_mars_data
     from modules.rbmrb import get_rbmrb
-    from modules.results import assignment_table, read_test_result
-    from modules.test_sets import run_tripletm, run_tripletm2
+    from modules.results import assignment_table
+    from modules.test_sets import run_tripletm2
     from optuna.visualization import plot_optimization_history
     from tqdm.auto import tqdm
 
@@ -40,8 +41,7 @@ def _():
         os,
         plot_comparisons_big,
         plot_optimization_history,
-        read_test_result,
-        run_tripletm,
+        run_test_set,
         run_tripletm2,
         tqdm,
         with_psipred_dir,
@@ -49,23 +49,24 @@ def _():
 
 
 @app.cell
-def _(Path):
+def _(Path, get_rbmrb):
     DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
     OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
     BMRB_IDS = [
-        # 5471,
-        # 4354,
-        # 4384,
-        # 4022,
-        # 4106,
-        # 4457,
-        # 4402,
+        5471,
+        4354,
+        4384,
+        4022,
+        4106,
+        4457,
+        4402,
         4341,
         547,
         4082,
         4136,
         5387,
-    ]   # + get_rbmrb(DATA_DIR, 200)
+    ]
+    BMRB_IDS += get_rbmrb(DATA_DIR, 200)
     BMRB_NAMES = {
         5471: 'Malate synthase G',
         4354: 'Maltose binding protein',
@@ -86,8 +87,24 @@ def _(Path):
 
 
 @app.cell
-def _(default_test_files):
-    print(default_test_files.keys())
+def _(
+    BMRB_IDS,
+    BMRB_NAMES,
+    DATA_DIR,
+    OUTPUT_DIR,
+    assignment_table,
+    run_test_set,
+):
+    default_test_files = run_test_set(
+        bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
+    )
+    default_results = assignment_table(
+        default_test_files, BMRB_NAMES, 'default (1.0/0.2 all)'
+    )
+    default_results = default_results[
+        default_results['condition'] == 'triplet'
+    ]
+    return (default_results,)
 
 
 @app.cell
@@ -97,39 +114,24 @@ def _(
     DATA_DIR,
     OUTPUT_DIR,
     assignment_table,
-    run_tripletm,
-):
-    default_test_files = run_tripletm(
-        bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
-    )
-    default_results = assignment_table(
-        default_test_files, BMRB_NAMES, 'default (1.0/0.2 all)'
-    )
-    default_results = default_results[
-        default_results['condition'] == 'triplet'
-    ]
-    return default_results, default_test_files
-
-
-@app.cell
-def _(
-    BMRB_IDS,
-    DATA_DIR,
-    OUTPUT_DIR,
+    compare_results,
     contextlib,
-    default_test_files,
+    default_results,
     optuna,
     os,
     plot_optimization_history,
-    read_test_result,
     run_tripletm2,
     tqdm,
     with_psipred_dir,
 ):
     @with_psipred_dir
     def _(psipred_dir):
+        MAX_ERROR_HIGH = 0.01
+        MAX_ERROR_MEDIUM = 0.05
+        MEDIUM_TIEBREAK = 0.001  # assumes both coverage metrics are in [0, 1]
+
         def objective(trial):
-            cutoff_2 = trial.suggest_float('cutoff_2', 0, 100)
+            cutoff_2 = trial.suggest_float('cutoff_2', 0, 10)
             cutoff_1 = trial.suggest_float('cutoff_1', 0, cutoff_2)
 
             files = run_tripletm2(
@@ -140,95 +142,81 @@ def _(
                 cutoff_2=cutoff_2,
                 psipred_dir=psipred_dir,
             )
-            error = 0
-            for bmrb_id in BMRB_IDS:
-                df = read_test_result(
-                    files[bmrb_id][f'{cutoff_1}_{cutoff_2}']['result_file']
-                )
-                df = df[['Res_name', 'SS_name', 'Confidence']]
 
-                odf = read_test_result(
-                    default_test_files[bmrb_id]['tripletm-basic'][
-                        'result_file'
-                    ]
-                )
-                odf = odf[['Res_name', 'SS_name', 'Confidence']]
+            results_high = assignment_table(
+                files, BMRB_NAMES, 'candidate', good_confidences=['High']
+            )
+            results_medium = assignment_table(
+                files,
+                BMRB_NAMES,
+                'candidate',
+                good_confidences=['High', 'Medium'],
+            )
 
-                for res_name in df['Res_name']:
-                    row = df[df['Res_name'] == res_name]
-                    orow = odf[odf['Res_name'] == res_name]
+            comparison_high = compare_results(results_high, default_results)
+            comparison_medium = compare_results(
+                results_medium, default_results
+            )
 
-                    if row.empty or orow.empty:
-                        continue
+            error_high = comparison_high['err_rate_candidate'].mean()
+            error_medium = comparison_medium['err_rate_candidate'].mean()
 
-                    # Mismatches:
-                    # same to same, +0
-                    # High to Medium, +1
-                    # High to Unreliable, +5
-                    # Medium to High, +1
-                    # Medium to Unreliable, +1
-                    # Unreliable to High, +5
-                    # Unreliable to Medium, +1
+            coverage_high = comparison_high['reliable_frac_candidate'].mean()
 
-                    print(row['Confidence'].values[0])
+            coverage_medium = comparison_medium[
+                'reliable_frac_candidate'
+            ].mean()
 
-                    if (
-                        row['Confidence'].values[0]
-                        == orow['Confidence'].values[0]
-                    ):
-                        error += 0
-                    elif (
-                        row['Confidence'].values[0] == 'High'
-                        and orow['Confidence'].values[0] == 'Medium'
-                    ):
-                        error += 1
-                    elif (
-                        row['Confidence'].values[0] == 'High'
-                        and orow['Confidence'].values[0] == 'Unreliable'
-                    ):
-                        error += 5
-                    elif (
-                        row['Confidence'].values[0] == 'Medium'
-                        and orow['Confidence'].values[0] == 'High'
-                        or row['Confidence'].values[0] == 'Medium'
-                        and orow['Confidence'].values[0] == 'Unreliable'
-                    ):
-                        error += 1
-                    elif (
-                        row['Confidence'].values[0] == 'Unreliable'
-                        and orow['Confidence'].values[0] == 'High'
-                    ):
-                        error += 5
-                    elif (
-                        row['Confidence'].values[0] == 'Unreliable'
-                        and orow['Confidence'].values[0] == 'Medium'
-                    ):
-                        error += 1
+            trial.set_user_attr('error_high', error_high)
+            trial.set_user_attr('error_medium', error_medium)
+            trial.set_user_attr('coverage_high', coverage_high)
+            trial.set_user_attr('coverage_medium', coverage_medium)
+            trial.set_constraint(
+                'error_high',
+                error_high - MAX_ERROR_HIGH,
+            )
+            trial.set_constraint(
+                'error_medium',
+                error_medium - MAX_ERROR_MEDIUM,
+            )
 
-            return error
+            # Optuna minimizes: maximize high coverage, with medium as a small tie-breaker.
+            return -(coverage_high + MEDIUM_TIEBREAK * coverage_medium)
 
         def silent_objective(trial):
             with open(os.devnull, 'w') as f:
                 with contextlib.redirect_stdout(f), contextlib.redirect_stderr(
                     f
                 ):
-                    return objective(trial)
+                    try:
+                        return objective(trial)
+                    except:
+                        return 5
 
         study = optuna.create_study(
             direction='minimize',
-            study_name='Make tripletm2 be kinda the same as tripletm',
+            study_name='Make tripletm2 as high coverage as possible whilst remaining within 1% (high) and 5% (medium) error rate',
             storage=f'sqlite:///{OUTPUT_DIR}/tripletm.db',
             load_if_exists=True,
         )
 
-        n_trials = 30 - len(study.trials)
+        n_trials = 300 - len(study.trials)
 
         optuna.logging.set_verbosity(optuna.logging.CRITICAL)
         with tqdm(total=n_trials, desc='Optuna') as pbar:
 
             def callback(study, trial):
                 pbar.update(1)
-                pbar.set_postfix(best=f'{study.best_value:.4f}')
+                try:
+                    best = study.best_trial
+                except ValueError:  # No feasible trial yet
+                    pbar.set_postfix(
+                        best=f'Trial {trial.number} is complete but no feasible trial exists yet.'
+                    )
+                else:
+                    string = f'Best params: {best.params}, best value: {best.value}, error_high={best.user_attrs.get("error_high")}, error_medium={best.user_attrs.get("error_medium")}, coverage_high={best.user_attrs.get("coverage_high")}, coverage_medium={best.user_attrs.get("coverage_medium")}'
+                    print(string)
+
                 fig = plot_optimization_history(study)
                 fig.show()
 
@@ -252,7 +240,7 @@ def _(study):
 
 @app.cell
 def _(DATA_DIR, get_rbmrb):
-    BMRB_IDS_TEST = get_rbmrb(DATA_DIR, 20, 'test')
+    BMRB_IDS_TEST = get_rbmrb(DATA_DIR, 200, 'test')
     BMRB_NAMES_TEST = {}
 
     for key_2 in BMRB_IDS_TEST:
@@ -271,7 +259,6 @@ def _(DATA_DIR, get_rbmrb):
 
 @app.cell
 def _(
-    BMRB_IDS,
     BMRB_IDS_TEST,
     BMRB_NAMES_TEST,
     DATA_DIR,
@@ -279,42 +266,67 @@ def _(
     assignment_table,
     compare_results,
     plot_comparisons_big,
-    psipred_dir,
-    run_tripletm,
+    run_test_set,
     run_tripletm2,
     study,
 ):
-    test_default_test_files = run_tripletm(
+    test_default_test_files = run_test_set(
         bmrb_ids=BMRB_IDS_TEST, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
     )
     test_default_results = assignment_table(
-        test_default_test_files, BMRB_NAMES_TEST, 'tripletm'
+        test_default_test_files, BMRB_NAMES_TEST, 'default'
     )
+    test_default_results = test_default_results[
+        test_default_results['condition'] == 'triplet'
+    ]
 
     files = run_tripletm2(
-        bmrb_ids=BMRB_IDS,
+        bmrb_ids=BMRB_IDS_TEST,
         DATA_DIR=DATA_DIR,
         OUTPUT_DIR=OUTPUT_DIR / 'tripletm',
         cutoff_1=study.best_params['cutoff_1'],
         cutoff_2=study.best_params['cutoff_2'],
-        psipred_dir=psipred_dir,
     )
 
-    results = assignment_table(files, BMRB_NAMES_TEST, 'candidate (test set)')
-    comparison = compare_results(results, test_default_results)
-    plots = plot_comparisons_big(comparison)
-    return comparison, plots, results
+    results_high = assignment_table(
+        files, BMRB_NAMES_TEST, 'candidate', good_confidences=['High']
+    )
+    comparison_high = compare_results(results_high, test_default_results)
+    plots_high = plot_comparisons_big(comparison_high)
+
+    results_medium = assignment_table(
+        files,
+        BMRB_NAMES_TEST,
+        'candidate',
+        good_confidences=['High', 'Medium'],
+    )
+    comparison_medium = compare_results(results_medium, test_default_results)
+    plots_medium = plot_comparisons_big(comparison_medium)
+    return (
+        comparison_high,
+        comparison_medium,
+        plots_high,
+        plots_medium,
+        results_medium,
+    )
 
 
 @app.cell
-def _(mo, plots):
-    mo.vstack([mo.as_html(plot) for plot in plots.values()])
+def _(mo, plots_medium):
+    mo.vstack([mo.as_html(plot) for plot in plots_medium.values()])
 
 
 @app.cell
-def _(comparison):
-    print(comparison['err_rate_candidate (test set)'].mean())
-    print(comparison['err_rate_default (1.0/0.2 all)'].mean())
+def _(mo, plots_high):
+    mo.vstack([mo.as_html(plot) for plot in plots_high.values()])
+
+
+@app.cell
+def _(comparison_high, comparison_medium):
+    print(comparison_high['err_rate_candidate'].mean())
+    print(comparison_high['err_rate_default'].mean())
+    print(comparison_medium['err_rate_candidate'].mean())
+    print(comparison_medium['err_rate_default'].mean())
 
 
 @app.cell
@@ -325,22 +337,19 @@ def _(plot_optimization_history, study):
 
 @app.cell
 def _(
-    BMRB_IDS,
-    BMRB_NAMES,
+    BMRB_IDS_TEST,
+    BMRB_NAMES_TEST,
     DATA_DIR,
     compare_results,
-    default_results,
     get_mars_data,
     plot_comparisons_big,
-    results,
+    results_medium,
 ):
-    mars_results = get_mars_data(BMRB_IDS, BMRB_NAMES, DATA_DIR)
-    mars_default_comparison = compare_results(default_results, mars_results)
+    mars_results = get_mars_data(BMRB_IDS_TEST, BMRB_NAMES_TEST, DATA_DIR)
 
-    mars_new_comparison = compare_results(results, mars_results)
+    mars_new_comparison = compare_results(results_medium, mars_results)
 
     mars_plots = {
-        **plot_comparisons_big(mars_default_comparison),
         **plot_comparisons_big(mars_new_comparison),
     }
     return (mars_plots,)
@@ -349,58 +358,6 @@ def _(
 @app.cell
 def _(mars_plots, mo):
     mo.vstack([mo.as_html(plot) for plot in mars_plots.values()])
-
-
-@app.cell
-def _(
-    BMRB_IDS,
-    BMRB_NAMES,
-    DATA_DIR,
-    OUTPUT_DIR,
-    assignment_table,
-    compare_results,
-    optuna,
-    plot_comparisons_big,
-    results,
-    run_seq_link_test,
-):
-    single_weight_optimised_study = optuna.create_study(
-        direction='minimize',
-        study_name='Sequential link and weighting surface',
-        storage=f'sqlite:///{OUTPUT_DIR}/seq_weight.db',
-        load_if_exists=True,
-    )
-
-    single_weight_optimised_files = run_seq_link_test(
-        bmrb_ids=BMRB_IDS,
-        DATA_DIR=DATA_DIR,
-        OUTPUT_DIR=OUTPUT_DIR,
-        seq_range=[single_weight_optimised_study.best_params['threshold']],
-        weight=single_weight_optimised_study.best_params['weight'],
-    )
-
-    single_weight_optimised_results = assignment_table(
-        single_weight_optimised_files, BMRB_NAMES, 'single_weight_optimised'
-    )
-    single_weight_optimised_comparison = compare_results(
-        results, single_weight_optimised_results
-    )
-    single_weight_optimised_plots = plot_comparisons_big(
-        single_weight_optimised_comparison
-    )
-    return (single_weight_optimised_plots,)
-
-
-@app.cell
-def _(mo, single_weight_optimised_plots):
-    mo.vstack(
-        [
-            mo.md(
-                """# This only works if you've run seq_link_weight_surface first"""
-            )
-        ]
-        + [mo.as_html(plot) for plot in single_weight_optimised_plots.values()]
-    )
 
 
 if __name__ == '__main__':
