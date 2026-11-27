@@ -1,4 +1,5 @@
 from refactor.data_formats import AnalysisResult
+from refactor.SNAPSanalysis import AnalysisPipeline
 from refactor.SNAPSconfig import SNAPSConfig
 from refactor.SNAPSimporter import SNAPSImporter
 from refactor.SNAPSoutput import create_output
@@ -58,14 +59,14 @@ def run_pipeline(
 
     # Stage 3: Analysis
     # This was not in the original and thus is not part of the refactor. Revisit when the refactor is done.
-    # logger.info("Analyzing results...")
-    # analyzers = [
-    #     ConsistencyAnalyzer(threshold=config.seq_link_threshold),
-    #     # QualityAnalyzer(),
-    # ]
-    # analysis_pipeline = AnalysisPipeline(analyzers)
-    # analysis_result = analysis_pipeline.run(assignment_result, data)
-    # logger.info(f"  Quality: {analysis_result.quality_metrics}")
+    config.logger.info('Analyzing results...')
+    analyzers = []   # Make a typer builder for this
+    analyzers += ['leave_one_out'] if config.leave_one_out else []
+    analyzers += ['non_diagonal'] if config.non_diagonal else []
+    analyzers += ['whole_cost'] if config.whole_cost else []
+    if len(analyzers) > 0:
+        analysis_pipeline = AnalysisPipeline(config, analyzers)
+        assignment_result = analysis_pipeline.run(assignment_result, data)
 
     # Stage 4: Output
     # Stage 5: Plots (optional)
