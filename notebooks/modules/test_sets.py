@@ -40,7 +40,8 @@ def run_tripletm(
             'sequence_file': files['fasta_file'],
             'SS_num': True,
             'output_type': 'snaps',
-            'strategy': 'tripletm',
+            'strategy': 'triplet',
+            'leave_one_out': True,
         }
 
         strategy = 'tripletm-basic'
@@ -103,7 +104,8 @@ def run_tripletm2(
             'sequence_file': files['fasta_file'],
             'SS_num': True,
             'output_type': 'snaps',
-            'strategy': 'tripletm2',
+            'strategy': 'triplet',
+            'non_diagonal': True,
         }
 
         output[bmrb_id][strategy] = strat_files
