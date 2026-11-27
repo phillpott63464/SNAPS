@@ -375,7 +375,7 @@ class WholeCostAnalyzer(AnalyzerType):
     def analyze(
         self, assignment: AssignmentResult, data: ShiftData
     ) -> pd.DataFrame:
-        lp = assignment.log_prob_matrix
+        lp = assignment.log_prob_matrix  # .clip(lower=FLOOR)
         triplet = TripletStrategy(config=self.config)
 
         def score(matching):
@@ -402,13 +402,16 @@ class WholeCostAnalyzer(AnalyzerType):
             )
 
             difference = original_score - score(alternative)
+            print(
+                f'{res_name}: original={original_score}, alternative={score(alternative)}, difference={difference}'
+            )
+            Confidence[res_name] = difference
 
-            if difference > self.config.cutoff_2:
-                Confidence[res_name] = 'High'
-            elif difference > self.config.cutoff_1:
-                Confidence[res_name] = 'Medium'
-            else:
-                Confidence[res_name] = 'Unreliable'
+        ceiling = np.mean(list(Confidence.values()))  # , 90)
+        for res_name, difference in Confidence.items():
+            Confidence[res_name] = (
+                'Unreliable' if difference < 0.99 * ceiling else 'Undefined'
+            )
 
         df = pd.DataFrame(
             {
@@ -419,6 +422,9 @@ class WholeCostAnalyzer(AnalyzerType):
                 .values,
             }
         )
+
+        print(df.to_markdown())
+        breakpoint()
 
         return df
 
