@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import contextlib
+import os
 from pathlib import Path
 from typing import Optional
 
 from refactor.SNAPSconfig import build_config
 from refactor.SNAPSpipeline import run_pipeline
+from tqdm import tqdm
 
 from modules.bmrb import process_bmrb, with_psipred_dir
 
@@ -123,4 +126,67 @@ def run_tripletm2(
         )
         run_pipeline(config)
 
+    return output
+
+
+@with_psipred_dir
+def run_triplet_default_analyzed(
+    bmrb_ids: list[int],
+    DATA_DIR: Path,
+    OUTPUT_DIR: Path,
+    psipred_dir: Optional[Path] = None,
+) -> dict:
+    """Run all configured SNAPS strategies, skipping existing result files."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output = {}
+    for bmrb_id in tqdm(bmrb_ids):
+        output[bmrb_id] = {}
+        data_dir = DATA_DIR / f'{bmrb_id}'
+        output_dir = OUTPUT_DIR / f'{bmrb_id}'
+
+        data_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        files = process_bmrb(bmrb_id, data_dir, psipred_dir=psipred_dir)
+        if files is None:
+            continue
+        strategy = 'default'
+        strat_files = {
+            'result_file': output_dir
+            / f'{bmrb_id}-test-result-{strategy}.txt',
+            **files,
+        }
+
+        base = {
+            'obs_file': files['nef_file'],
+            'pred_file': f"{files['shiftx2_file']}:shiftx2",
+            'sequence_file': files['fasta_file'],
+            'SS_num': True,
+            'output_type': 'snaps',
+            'strategy': 'triplet',
+            'non_diagonal': True,
+            'seq_link_threshold_ca': 0.0180,
+            'seq_link_threshold_cb': 0.0116,
+            'seq_link_threshold_co': 0.0285,
+            'sequential_weight': 3.51,
+            'leave_one_out': True,
+        }
+
+        output[bmrb_id][strategy] = strat_files
+
+        if strat_files['result_file'].exists():
+            continue
+
+        config = build_config(
+            cli_overrides={
+                'output_file': strat_files['result_file'],
+                **base,
+            }
+        )
+
+        with open(os.devnull, 'w') as f:
+            with contextlib.redirect_stdout(f), contextlib.redirect_stderr(f):
+                run_pipeline(config)
+
+    print(f'Completed {len(bmrb_ids)} BMRB IDs')
     return output
