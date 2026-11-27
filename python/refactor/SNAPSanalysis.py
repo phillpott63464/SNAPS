@@ -322,7 +322,58 @@ class NonDiagonalAnalyze(AnalyzerType):
 
         return df
 
-        return assignment
+
+@AnalyzerRegistry.register('whole_cost')
+class WholeCostAnalyzer(AnalyzerType):
+    def analyze(
+        self, assignment: AssignmentResult, data: ShiftData
+    ) -> pd.DataFrame:
+        lp = assignment.log_prob_matrix
+        triplet = TripletStrategy(config=self.config)
+
+        def score(matching):
+            return df_lookup(
+                lp, matching['SS_name'], matching['Res_name']
+            ).sum()
+
+        original_score = score(assignment.assignments)
+        Confidence = {}
+
+        for _, row in assignment.assignments.iterrows():
+            res_name = row['Res_name']
+            ss_name = row['SS_name']
+
+            exc = pd.DataFrame(
+                {
+                    'SS_name': [ss_name],
+                    'Res_name': [res_name],
+                }
+            )
+            alternative = triplet.find_best_assignment(
+                score_matrix=lp,
+                exc=exc,
+            )
+
+            difference = original_score - score(alternative)
+
+            if difference > self.config.cutoff_2:
+                Confidence[res_name] = 'High'
+            elif difference > self.config.cutoff_1:
+                Confidence[res_name] = 'Medium'
+            else:
+                Confidence[res_name] = 'Unreliable'
+
+        df = pd.DataFrame(
+            {
+                'Res_name': assignment.assignments['Res_name'].values,
+                'SS_name': assignment.assignments['SS_name'].values,
+                'Confidence': assignment.assignments['Res_name']
+                .map(Confidence)
+                .values,
+            }
+        )
+
+        return df
 
 
 def blank_residue(self, preds, res_name):
