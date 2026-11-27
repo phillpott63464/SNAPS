@@ -250,24 +250,25 @@ class LeaveOneOutAnalyzer(AnalyzerType):
         return df
 
 
+@AnalyzerRegistry.register('non_diagonal')
 class NonDiagonalAnalyze(AnalyzerType):
     modifies_assignment = True
     """"
-    Runs on a much more refined system for determining confidence than triplet_modified_condifence
+    Runs on a much more refined system for determining Confidence than triplet_modified_condifence
 
     It takes the non diagonal elements of the log probability matrix, finds the maximum of that,
-    takes the difference between that and the diagonal element, and uses that as a measure of confidence.
+    takes the difference between that and the diagonal element, and uses that as a measure of Confidence.
     The larger the difference, the more confident we are in the assignment.
 
-    Currently three cutoffs are used to determine confidence:
-    - High confidence: difference > 0.5
-    - Medium confidence: 0.1 < difference <= 0.5
+    Currently three cutoffs are used to determine Confidence:
+    - High Confidence: difference > 0.5
+    - Medium Confidence: 0.1 < difference <= 0.5
     - Unreliable: difference <= 0.1
     """
 
     def analyze(
         self, assignment: AssignmentResult, data: ShiftData
-    ) -> AssignmentResult:
+    ) -> pd.DataFrame:
         log_probs = assignment.log_prob_matrix
         matching = (
             assignment.assignments
@@ -286,32 +287,40 @@ class NonDiagonalAnalyze(AnalyzerType):
                 }
 
         # For each residue, find the difference between the assigned score and the second-best score.
-        confidence = {}
+        Confidence = {}
 
         for residue, ss in assigned_ss.items():
             if residue not in log_probs.columns or ss not in log_probs.index:
-                confidence[residue] = 'Unreliable'
+                Confidence[residue] = 'Unreliable'
                 continue
 
             assigned_score = log_probs.at[ss, residue]
             alternatives = log_probs[residue].drop(index=ss, errors='ignore')
 
             if alternatives.empty:
-                confidence[residue] = 'High'  # no alternative to compare
+                Confidence[residue] = 'High'  # no alternative to compare
                 continue
 
             difference = assigned_score - alternatives.max()
 
             if difference > self.config.cutoff_2:
-                confidence[residue] = 'High'
+                Confidence[residue] = 'High'
             elif difference > self.config.cutoff_1:
-                confidence[residue] = 'Medium'
+                Confidence[residue] = 'Medium'
             else:
-                confidence[residue] = 'Unreliable'
+                Confidence[residue] = 'Unreliable'
 
-        assignment.assign_df['Confidence'] = assignment.assign_df[
-            'Res_name'
-        ].map(confidence)
+        df = pd.DataFrame(
+            {
+                'Res_name': assignment.assignments['Res_name'].values,
+                'SS_name': assignment.assignments['SS_name'].values,
+                'Confidence': assignment.assignments['Res_name']
+                .map(Confidence)
+                .values,
+            }
+        )
+
+        return df
 
         return assignment
 
