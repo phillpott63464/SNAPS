@@ -1,19 +1,23 @@
+from __future__ import annotations
+
 import contextlib
 import copy
 import os
 from typing import Optional, Union
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from python.refactor.data_formats import AnalysisResult
 from refactor.data_formats import AssignmentResult, ShiftData
 from refactor.SNAPSconfig import SNAPSConfig, build_config
 from refactor.strategies.triplet import TripletStrategy
+from refactor.strategies.utils.misc import df_lookup
 
 # TODO: separate out
 # TODO: change these to output as AnalysisResults instead of overwriting the AssignmentResult Confidences
-# TODO: make it work with any strategy 
+# TODO: make it work with any strategy
+
 
 class AnalyzerType:
     def __init__(self, config: Optional[Union[SNAPSConfig, dict]] = None):
@@ -102,22 +106,65 @@ class AnalysisPipeline:
 
     def run(
         self, assignment: AssignmentResult, data: ShiftData
-    ) -> AnalysisResult:
+    ) -> AssignmentResult:
         # If multiple analyzers modify the assignment, reject the inputs
-        if (
-            sum(analyzer.modifies_assignment for analyzer in self.analyzers)
-            > 1
-        ):
-            raise ValueError(
-                'Multiple analyzers modify the assignment. Only one is allowed.'
-            )
         if not self.analyzers:
             raise ValueError('No analyzers provided.')
+
+        analysis_results = (
+            assignment.assignments.copy()
+        )  # Start with the original assignments
         for analyzer in self.analyzers:
-            if analyzer.modifies_assignment:
-                assignment = analyzer.analyze(assignment, data)
-            else:
-                analyzer.analyze(assignment, data)
+            # Update df along the SS_name and Res_name columns with aditional Confidence values as analyzer_Confidence
+            result_df = analyzer.analyze(assignment, data)
+            result_df = result_df.rename(
+                columns={'Confidence': f'{analyzer.name}_Confidence'}
+            )
+            analysis_results = pd.merge(
+                analysis_results,
+                result_df[
+                    ['Res_name', 'SS_name', f'{analyzer.name}_Confidence']
+                ],
+                on=['Res_name', 'SS_name'],
+                how='outer',
+            )
+
+        confidence_cols = [
+            col
+            for col in analysis_results.columns
+            if col.endswith('_Confidence')
+        ]
+
+        # Update assign_df with a metric of all the analyzer results
+        blank = pd.DataFrame(
+            {
+                'Res_name': assignment.assign_df['Res_name'],
+                'SS_name': assignment.assign_df['SS_name'],
+            }
+        )
+        blank['Confidence'] = 'Unreliable'
+        # Update every high
+        for col in confidence_cols:
+            blank.loc[analysis_results[col] == 'High', 'Confidence'] = 'High'
+        # Update every medium that is not already high
+        for col in confidence_cols:
+            blank.loc[
+                (analysis_results[col] == 'Medium')
+                & (blank['Confidence'] != 'High'),
+                'Confidence',
+            ] = 'Medium'
+
+        # Also consider having an analyzer that actually does the opposite - predicts incorrect errors and sets those to Unreliable
+        # But that's a future thing for now
+
+        # Set assignment Confidence to the new Confidence column along the Res_name and SS_name columns
+        assignment.assign_df = assignment.assign_df.drop(
+            columns='Confidence'
+        ).merge(
+            blank[['Res_name', 'SS_name', 'Confidence']],
+            on=['Res_name', 'SS_name'],
+            how='left',
+        )
         return assignment
 
 
@@ -396,6 +443,3 @@ def blank_residue(self, preds, res_name):
     return preds.rename(
         index={res_name: dummy}
     )   # no-op if the index isn't Res_name
-
-
-from __future__ import annotations
