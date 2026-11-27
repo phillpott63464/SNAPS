@@ -16,9 +16,19 @@ from refactor.strategies.triplet import TripletStrategy
 # TODO: make it work with any strategy 
 
 class AnalyzerType:
+    def __init__(self, config: Optional[Union[SNAPSConfig, dict]] = None):
+        if config is None:
+            self.config = build_config()
+        elif isinstance(config, dict):
+            self.config = build_config(**config)
+        else:
+            self.config = config
+
     modifies_assignment = False
 
-    def analyze(self, config: SNAPSConfig) -> pd.DataFrame:
+    def analyze(
+        self, assignment: AssignmentResult, data: ShiftData
+    ) -> pd.DataFrame:
         ...
 
 
