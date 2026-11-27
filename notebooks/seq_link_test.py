@@ -146,6 +146,7 @@ def _(plt):
             # Sort conditions so the curve is drawn in order
             conditions = sorted(vals)
             averages = [vals[condition] for condition in conditions]
+            conditions = sorted([float(x) for x in vals.keys()])
 
             fig, ax = plt.subplots()
             ax.scatter(conditions, averages)
@@ -155,6 +156,9 @@ def _(plt):
             plt.xticks(rotation=45)
             ax.set_ylabel(f'Mean {graph} fraction')
             ax.set_title(f'{graph.capitalize()} vs. sequential link value')
+
+            step = max(1, len(conditions) // 15)
+            ax.set_xticks(conditions[::step])
             ax.grid(True, alpha=0.3)
 
             weighting_graphs[graph] = fig

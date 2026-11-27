@@ -17,12 +17,15 @@ def _():
 
     from modules.analysis import analyse_rci
     from modules.bmrb import run_test_set
+    from modules.rbmrb import get_rbmrb
 
-    return Path, analyse_rci, run_test_set
+    return Path, analyse_rci, get_rbmrb, run_test_set
 
 
 @app.cell
-def _(Path):
+def _(Path, get_rbmrb):
+    DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
+    OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
     BMRB_IDS = [
         5471,
         4354,
@@ -36,7 +39,7 @@ def _(Path):
         4082,
         4136,
         5387,
-    ]
+    ] + get_rbmrb(DATA_DIR, 50)
     BMRB_NAMES = {
         5471: 'Malate synthase G',
         4354: 'Maltose binding protein',
@@ -51,16 +54,21 @@ def _(Path):
         4136: 'E. coli EmrE',
         5387: 'Human ubiquitin',
     }
-    DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
-    OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
+    for key in BMRB_IDS:
+        BMRB_NAMES.setdefault(key, str(key))
     return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
 
 
 @app.cell
-def _(BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR, analyse_rci, run_test_set):
+def _(BMRB_IDS, DATA_DIR, OUTPUT_DIR, run_test_set):
     snaps_test_files = run_test_set(
         bmrb_ids=BMRB_IDS, DATA_DIR=DATA_DIR, OUTPUT_DIR=OUTPUT_DIR
     )
+    return (snaps_test_files,)
+
+
+@app.cell
+def _(BMRB_NAMES, analyse_rci, snaps_test_files):
     rci_analysis = analyse_rci(snaps_test_files, BMRB_NAMES)
     return (rci_analysis,)
 

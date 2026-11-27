@@ -97,8 +97,8 @@ def _(
         OUTPUT_DIR=OUTPUT_DIR,
         weighting_range=[x / 10 for x in range(0, 11, 1)]
         + [x for x in range(0, 11, 1)]
-        + [x / 10 for x in range(20, 40, 1)]
-        + [x / 100 for x in range(290, 310)],
+        # + [x / 10 for x in range(20, 40, 1)]
+        # + [x / 100 for x in range(290, 310)],
     )
 
     default_test_files = run_test_set(
@@ -171,6 +171,7 @@ def _(plt):
             # Sort conditions so the curve is drawn in order
             conditions = sorted(vals)
             averages = [vals[condition] for condition in conditions]
+            conditions = sorted([float(x) for x in vals.keys()])
 
             fig, ax = plt.subplots()
             ax.scatter(conditions, averages)

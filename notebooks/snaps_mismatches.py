@@ -17,14 +17,17 @@ def _():
 
     from modules.analysis import analyse_mismatches
     from modules.bmrb import run_test_set
+    from modules.rbmrb import get_rbmrb
     from modules.results import all_mismatches
 
     # from modules.pdb import colour_mars_set
-    return Path, all_mismatches, analyse_mismatches, run_test_set
+    return Path, all_mismatches, analyse_mismatches, get_rbmrb, run_test_set
 
 
 @app.cell
-def _(Path):
+def _(Path, get_rbmrb):
+    DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
+    OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
     BMRB_IDS = [
         5471,
         4354,
@@ -38,7 +41,7 @@ def _(Path):
         4082,
         4136,
         5387,
-    ]
+    ] + get_rbmrb(DATA_DIR, 200)
     BMRB_NAMES = {
         5471: 'Malate synthase G',
         4354: 'Maltose binding protein',
@@ -53,8 +56,8 @@ def _(Path):
         4136: 'E. coli EmrE',
         5387: 'Human ubiquitin',
     }
-    DATA_DIR = Path(__file__).resolve().parent / 'mars_test_set'
-    OUTPUT_DIR = Path(__file__).resolve().parent / 'mars_test_result'
+    for key in BMRB_IDS:
+        BMRB_NAMES.setdefault(key, str(key))
     return BMRB_IDS, BMRB_NAMES, DATA_DIR, OUTPUT_DIR
 
 

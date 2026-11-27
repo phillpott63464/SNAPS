@@ -32,11 +32,11 @@ def _():
 @app.cell
 def _(Path):
     BMRB_IDS = [
-        5471,
-        4354,
-        4384,
-        4022,
-        4106,
+        # 5471,
+        # 4354,
+        # 4384,
+        # 4022,
+        # 4106,
         4457,
         4402,
         4341,
@@ -114,6 +114,11 @@ def _(mo, plots_high_med):
     {mo.as_html(plots_high_med['triplet'])}
     """
     )
+
+
+@app.cell
+def _(mo, plots_high_med):
+    mo.vstack([mo.as_html(plot) for plot in plots_high_med.values()])
 
 
 if __name__ == '__main__':

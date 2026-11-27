@@ -178,6 +178,7 @@ def _(
                 pbar.set_postfix(best=f'{study.best_value:.4f}')
                 fig = plot_optimization_history(study)
                 fig.show()
+                print(study.best_params, study.best_value)
 
             study.optimize(
                 silent_objective,
